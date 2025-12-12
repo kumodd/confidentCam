@@ -113,6 +113,9 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
       _recordingSeconds = 0;
     });
 
+    // Ensure bloc state is WarmupInProgress (handles retake scenario)
+    context.read<WarmupBloc>().add(WarmupStarted(widget.warmupIndex));
+
     await _recordingService.startRecording();
 
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -138,13 +141,14 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: context.read<WarmupBloc>(),
-            child: WarmupPlaybackScreen(
-              warmupIndex: widget.warmupIndex,
-              videoPath: path,
-            ),
-          ),
+          builder:
+              (_) => BlocProvider.value(
+                value: context.read<WarmupBloc>(),
+                child: WarmupPlaybackScreen(
+                  warmupIndex: widget.warmupIndex,
+                  videoPath: path,
+                ),
+              ),
         ),
       );
     } else if (mounted) {
@@ -182,249 +186,248 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
     final teleprompterHeight = screenHeight * _currentHeight;
 
     return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Camera preview
-              if (!_isInitializing && _recordingService.controller != null)
-                CameraPreview(_recordingService.controller!)
-              else
-                const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 16),
-                      Text(
-                        'Preparing camera...',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Top bar
-              Positioned(
-                top: 8,
-                left: 8,
-                right: 8,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Camera preview
+            if (!_isInitializing && _recordingService.controller != null)
+              CameraPreview(_recordingService.controller!)
+            else
+              const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: _handleClose,
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Preparing camera...',
+                      style: TextStyle(color: Colors.white54),
                     ),
-                    if (_isRecording)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
-                                .animate(
-                                  onComplete: (c) => c.repeat(reverse: true),
-                                )
-                                .fade(duration: 500.ms),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatDuration(_recordingSeconds),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    // Settings button (before recording)
-                    if (!_isRecording && !_showingCountdown)
-                      IconButton(
-                        icon: const Icon(Icons.tune, color: Colors.white70),
-                        onPressed: _showSettingsSheet,
-                      )
-                    else
-                      const SizedBox(width: 48),
                   ],
                 ),
               ),
 
-              // TELEPROMPTER AT TOP
-              if (!_showingCountdown)
-                Positioned(
-                  top: 56,
-                  left: 12,
-                  right: 12,
-                  height: teleprompterHeight,
-                  child: TeleprompterWidget(
-                    userName: widget.userName,
-                    userGoal: widget.userGoal,
-                    userLocation: widget.userLocation,
-                    warmupIndex: widget.warmupIndex,
-                    warmupTitle: _warmup.title,
-                    isRecording: _isRecording,
-                    scrollSpeed: _currentSpeed,
-                    opacity: _currentOpacity,
-                    onSpeedChange: _adjustSpeed,
-                  ),
-                ),
-
-              // COACH TIPS AT BOTTOM
-              if (!_isRecording && !_showingCountdown)
-                Positioned(
-                  bottom: 140,
-                  left: 12,
-                  right: 12,
-                  child: CoachTipsCard(isRecording: false),
-                ),
-
-              // Countdown overlay
-              if (_showingCountdown)
-                Center(
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      shape: BoxShape.circle,
+            // Top bar
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 28,
                     ),
-                    child: Center(
-                      child: Text(
-                        '$_countdown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 64,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ).animate().scale(
-                    begin: const Offset(1.2, 1.2),
-                    end: const Offset(1, 1),
-                    duration: 800.ms,
+                    onPressed: _handleClose,
                   ),
-                ),
-
-              // Bottom controls
-              Positioned(
-                bottom: 32,
-                left: 0,
-                right: 0,
-                child: Column(
-                  children: [
-                    if (_isRecording)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 48),
-                        child: Column(
-                          children: [
-                            LinearProgressIndicator(
-                              value:
-                                  _recordingSeconds / _warmup.durationSeconds,
-                              backgroundColor: Colors.white24,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.red,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${_warmup.durationSeconds - _recordingSeconds}s remaining',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+                  if (_isRecording)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child:
-                          _isRecording
-                              ? GestureDetector(
-                                onTap: _stopRecording,
-                                child: Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.red,
-                                      width: 4,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: Colors.red,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                  ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
                                 ),
                               )
-                              : GestureDetector(
-                                onTap: _isInitializing ? null : _startCountdown,
-                                child: Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _isInitializing
-                                            ? Colors.grey
-                                            : const Color(0xFF22D3EE),
-                                    shape: BoxShape.circle,
-                                    boxShadow:
-                                        _isInitializing
-                                            ? null
-                                            : [
-                                              BoxShadow(
-                                                color: const Color(
-                                                  0xFF22D3EE,
-                                                ).withValues(alpha: 0.4),
-                                                blurRadius: 20,
-                                                spreadRadius: 2,
-                                              ),
-                                            ],
+                              .animate(
+                                onComplete: (c) => c.repeat(reverse: true),
+                              )
+                              .fade(duration: 500.ms),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatDuration(_recordingSeconds),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Settings button (before recording)
+                  if (!_isRecording && !_showingCountdown)
+                    IconButton(
+                      icon: const Icon(Icons.tune, color: Colors.white70),
+                      onPressed: _showSettingsSheet,
+                    )
+                  else
+                    const SizedBox(width: 48),
+                ],
+              ),
+            ),
+
+            // TELEPROMPTER AT TOP
+            if (!_showingCountdown)
+              Positioned(
+                top: 56,
+                left: 12,
+                right: 12,
+                height: teleprompterHeight,
+                child: TeleprompterWidget(
+                  userName: widget.userName,
+                  userGoal: widget.userGoal,
+                  userLocation: widget.userLocation,
+                  warmupIndex: widget.warmupIndex,
+                  warmupTitle: _warmup.title,
+                  isRecording: _isRecording,
+                  scrollSpeed: _currentSpeed,
+                  opacity: _currentOpacity,
+                  onSpeedChange: _adjustSpeed,
+                ),
+              ),
+
+            // COACH TIPS AT BOTTOM
+            if (!_isRecording && !_showingCountdown)
+              Positioned(
+                bottom: 140,
+                left: 12,
+                right: 12,
+                child: CoachTipsCard(isRecording: false),
+              ),
+
+            // Countdown overlay
+            if (_showingCountdown)
+              Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$_countdown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 64,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ).animate().scale(
+                  begin: const Offset(1.2, 1.2),
+                  end: const Offset(1, 1),
+                  duration: 800.ms,
+                ),
+              ),
+
+            // Bottom controls
+            Positioned(
+              bottom: 32,
+              left: 0,
+              right: 0,
+              child: Column(
+                children: [
+                  if (_isRecording)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Column(
+                        children: [
+                          LinearProgressIndicator(
+                            value: _recordingSeconds / _warmup.durationSeconds,
+                            backgroundColor: Colors.white24,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.red,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_warmup.durationSeconds - _recordingSeconds}s remaining',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child:
+                        _isRecording
+                            ? GestureDetector(
+                              onTap: _stopRecording,
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.red,
+                                    width: 4,
                                   ),
-                                  child: const Icon(
-                                    Icons.videocam_rounded,
-                                    color: Colors.white,
-                                    size: 36,
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
                                   ),
                                 ),
                               ),
-                    ),
-                  ],
-                ),
+                            )
+                            : GestureDetector(
+                              onTap: _isInitializing ? null : _startCountdown,
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color:
+                                      _isInitializing
+                                          ? Colors.grey
+                                          : const Color(0xFF22D3EE),
+                                  shape: BoxShape.circle,
+                                  boxShadow:
+                                      _isInitializing
+                                          ? null
+                                          : [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFF22D3EE,
+                                              ).withValues(alpha: 0.4),
+                                              blurRadius: 20,
+                                              spreadRadius: 2,
+                                            ),
+                                          ],
+                                ),
+                                child: const Icon(
+                                  Icons.videocam_rounded,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                              ),
+                            ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   void _showSettingsSheet() {
