@@ -31,6 +31,7 @@ class AppConstants {
   static const String teleprompterOpacityKey = 'teleprompter_opacity';
   static const String defaultCameraKey = 'default_camera';
   static const String videoQualityKey = 'video_quality';
+  static const String languagePreferenceKey = 'language_preference';
 
   // Video Storage Paths
   static const String warmupsFolderName = 'warmups';

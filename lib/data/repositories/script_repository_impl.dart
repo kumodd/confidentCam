@@ -342,38 +342,87 @@ class ScriptRepositoryImpl implements ScriptRepository {
     required List<Map<String, dynamic>> scripts,
   }) async {
     try {
-      logger.i('Saving ${scripts.length} generated scripts for user $userId');
+      logger.i(
+        'SaveScripts: Saving ${scripts.length} generated scripts for user $userId',
+      );
 
-      final formattedScripts =
-          scripts.map((script) {
-            final dayNumber = script['dayNumber'] as int;
-            return {
-              'id': _uuid.v4(),
-              'user_id': userId,
-              'day_number': dayNumber,
-              'script_type':
-                  script['scriptType'] ??
-                  (dayNumber <= 5 ? 'segmented' : 'full'),
-              'script_json': script,
-              'created_at': DateTime.now().toIso8601String(),
-            };
-          }).toList();
+      if (scripts.isEmpty) {
+        logger.w('SaveScripts: No scripts to save!');
+        return const Left(ScriptFailure(message: 'No scripts generated'));
+      }
+
+      // Log first script for debugging
+      logger.d('SaveScripts: First script sample: ${scripts.first}');
+
+      final formattedScripts = <Map<String, dynamic>>[];
+
+      for (int i = 0; i < scripts.length; i++) {
+        final script = scripts[i];
+
+        // Robust dayNumber extraction with type handling
+        int? dayNumber;
+        final rawDayNumber = script['dayNumber'];
+        if (rawDayNumber is int) {
+          dayNumber = rawDayNumber;
+        } else if (rawDayNumber is num) {
+          dayNumber = rawDayNumber.toInt();
+        } else if (rawDayNumber is String) {
+          dayNumber = int.tryParse(rawDayNumber);
+        }
+
+        if (dayNumber == null) {
+          logger.e(
+            'SaveScripts: Script $i has invalid dayNumber: $rawDayNumber (${rawDayNumber?.runtimeType})',
+          );
+          logger.e('SaveScripts: Full script: $script');
+          continue; // Skip invalid scripts
+        }
+
+        logger.d('SaveScripts: Processing script for day $dayNumber');
+
+        formattedScripts.add({
+          'id': _uuid.v4(),
+          'user_id': userId,
+          'day_number': dayNumber,
+          'script_type':
+              script['scriptType']?.toString() ??
+              (dayNumber <= 5 ? 'segmented' : 'full'),
+          'script_json': script,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      logger.i(
+        'SaveScripts: Formatted ${formattedScripts.length} scripts successfully',
+      );
+
+      if (formattedScripts.isEmpty) {
+        logger.e('SaveScripts: All scripts were invalid!');
+        return const Left(ScriptFailure(message: 'All scripts were invalid'));
+      }
 
       // Save to remote if online
       if (await networkInfo.isConnected) {
         try {
+          logger.d('SaveScripts: Saving to remote...');
           await remoteDataSource.saveScripts(formattedScripts);
+          logger.i('SaveScripts: Saved to remote successfully');
         } catch (e) {
-          logger.w('Failed to save scripts to remote', e);
+          logger.w('SaveScripts: Failed to save scripts to remote', e);
         }
+      } else {
+        logger.d('SaveScripts: Offline, skipping remote save');
       }
 
       // Cache locally
+      logger.d('SaveScripts: Caching locally...');
       await localDataSource.cacheScripts(formattedScripts);
+      logger.i('SaveScripts: Cached locally successfully');
 
       return const Right(null);
-    } catch (e) {
-      logger.e('Error saving generated scripts', e);
+    } catch (e, stackTrace) {
+      logger.e('SaveScripts: Error saving generated scripts: $e');
+      logger.e('SaveScripts: Stack trace: $stackTrace');
       return const Left(ScriptFailure(message: 'Failed to save scripts'));
     }
   }

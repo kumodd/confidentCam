@@ -18,8 +18,9 @@ class OpenAiService {
     required String location,
     required String goal,
     required Map<String, dynamic> onboardingAnswers,
+    String language = 'en',
   }) async {
-    logger.i('Generating scripts for $firstName from $location');
+    logger.i('Generating scripts for $firstName from $location in $language');
 
     final prompt = _buildScriptPrompt(
       firstName: firstName,
@@ -27,6 +28,7 @@ class OpenAiService {
       location: location,
       goal: goal,
       answers: onboardingAnswers,
+      language: language,
     );
 
     try {
@@ -36,8 +38,8 @@ class OpenAiService {
       return scripts;
     } catch (e) {
       logger.e('Failed to generate scripts', e);
-      // Return fallback scripts if API fails
-      return _generateFallbackScripts(firstName, goal);
+      // Rethrow with actual error message
+      rethrow;
     }
   }
 
@@ -82,7 +84,9 @@ Return a JSON array with each script having:
       return _parseScriptsResponse(response);
     } catch (e) {
       logger.e('Failed to generate extension scripts', e);
-      return _generateFallbackExtensionScripts(firstName, startDay, endDay);
+      throw Exception(
+        'OpenAI script generation failed. Please check your internet connection and try again.',
+      );
     }
   }
 
@@ -91,20 +95,25 @@ Return a JSON array with each script having:
     required String firstName,
     required String location,
     required String goal,
+    String language = 'en',
   }) async {
-    logger.i('Generating warmup scripts for $firstName');
+    logger.i('Generating warmup scripts for $firstName in $language');
 
     final locationText = location.isNotEmpty ? ' from $location' : '';
+    final languageInstruction = _getLanguageInstruction(language);
 
     final prompt = '''
 You are a camera confidence coach creating 3 personalized warmup scripts for $firstName$locationText.
 Their goal: $goal
+
+$languageInstruction
 
 Create 3 short warmup scripts (30-60 seconds each) that:
 - Are encouraging and personal
 - Build confidence progressively
 - Use their name and goal naturally
 - Feel natural to read aloud
+- Are written in the specified language
 
 Warmup 1: "First Steps" - Introduction to being on camera
 Warmup 2: "Finding Your Energy" - Building energy and presence  
@@ -114,7 +123,7 @@ Return a JSON array with 3 objects:
 {
   "warmupIndex": <0, 1, or 2>,
   "title": "<warmup title>",
-  "script": "<full script text 50-100 words>",
+  "script": "<full script text 75-120 words>",
   "focus": "<main focus of this warmup>"
 }
 
@@ -128,40 +137,8 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
       return scripts;
     } catch (e) {
       logger.e('Failed to generate warmup scripts', e);
-      return _generateFallbackWarmupScripts(firstName, goal, location);
+      rethrow;
     }
-  }
-
-  List<Map<String, dynamic>> _generateFallbackWarmupScripts(
-    String firstName,
-    String goal,
-    String location,
-  ) {
-    final locationText = location.isNotEmpty ? ' from $location' : '';
-
-    return [
-      {
-        'warmupIndex': 0,
-        'title': 'First Steps',
-        'script':
-            "Hi, I'm $firstName$locationText! This is my very first step toward my goal to $goal. I know this won't be perfect, and that's completely okay. What matters is that I'm showing up and taking action. Let's begin this journey together!",
-        'focus': 'Introduction',
-      },
-      {
-        'warmupIndex': 1,
-        'title': 'Finding Your Energy',
-        'script':
-            "Hey everyone! $firstName here again. Today I'm working on bringing more energy and positivity. I'm one step closer to $goal. Each day I show up, I'm proving to myself that I can do this! Let's keep this momentum going!",
-        'focus': 'Energy and presence',
-      },
-      {
-        'warmupIndex': 2,
-        'title': 'Ready to Start',
-        'script':
-            "What's up! It's $firstName and I'm on my final warmup before the 30-day challenge begins! I've already grown so much just by practicing these warmups. I'm ready to achieve my goal to $goal. Consistency beats perfection. Let's crush this challenge!",
-        'focus': 'Preparation and confidence',
-      },
-    ];
   }
 
   String _buildScriptPrompt({
@@ -170,6 +147,7 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
     required String location,
     required String goal,
     required Map<String, dynamic> answers,
+    String language = 'en',
   }) {
     final challenges =
         (answers['challenges'] as List?)?.join(', ') ?? 'general anxiety';
@@ -179,8 +157,13 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
         (answers['platform'] as List?)?.join(', ') ?? 'social media';
     final timeCommitment = answers['time_commitment'] ?? '10-20 minutes';
 
+    // Language instruction based on preference
+    final languageInstruction = _getLanguageInstruction(language);
+
     return '''
 You are a camera confidence coach creating a personalized 30-day video challenge.
+
+$languageInstruction
 
 USER PROFILE:
 - Name: $firstName
@@ -194,27 +177,27 @@ USER PROFILE:
 
 Create 30 unique, personalized video scripts with PROGRESSIVELY INCREASING DIFFICULTY:
 
-PHASE 1 - Foundation (Days 1-5): ~50-75 words each
+PHASE 1 - Foundation (Days 1-5): ~75-100 words each
 - Simple introductions with segmented practice
 - Focus on eye contact, breathing, and basic comfort
 - Include specific training segments with focus areas
 
-PHASE 2 - Building Confidence (Days 6-12): ~100-150 words each  
+PHASE 2 - Building Confidence (Days 6-12): ~150-200 words each  
 - Longer continuous scripts
 - Introduce storytelling elements
 - Add personality and humor
 
-PHASE 3 - Content Creation (Days 13-20): ~200-300 words each
+PHASE 3 - Content Creation (Days 13-20): ~250-350 words each
 - Niche-specific content for their goal: $goal
 - Teach them to structure valuable content
 - Hook, content, call-to-action format
 
-PHASE 4 - Advanced Skills (Days 21-25): ~350-400 words each
+PHASE 4 - Advanced Skills (Days 21-25): ~400-500 words each
 - Complex multi-topic scripts
 - Engagement strategies for $platforms
 - Building authority in their niche
 
-PHASE 5 - Mastery (Days 26-30): ~450-500 words each
+PHASE 5 - Mastery (Days 26-30): ~500-600 words each
 - Professional-quality long-form scripts
 - Complete episodes/videos
 - Monetization and growth tips related to $goal
@@ -225,6 +208,7 @@ Each script MUST:
 - Relate directly to their goal: $goal
 - Match their content style: $contentStyle
 - Include actionable speaking prompts
+- Be written in the specified language
 
 For Days 1-5, include "segments" array with 3-4 parts each having "text" and "focus".
 For Days 6-30, include full "script" text with the word count specified above.
@@ -245,133 +229,147 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 ''';
   }
 
+  String _getLanguageInstruction(String language) {
+    switch (language) {
+      case 'hi':
+        return 'LANGUAGE: Write all scripts in Hindi (हिन्दी). Use Devanagari script.';
+      case 'hinglish':
+        return 'LANGUAGE: Write all scripts in Hinglish - a natural mix of Hindi and English commonly used by Indian content creators. Mix the languages naturally as young Indians speak, using Roman script.';
+      case 'en':
+      default:
+        return 'LANGUAGE: Write all scripts in English.';
+    }
+  }
+
   Future<String> _callOpenAI(String prompt) async {
-    final response = await _client.post(
-      Uri.parse('${AppConfig.openAiBaseUrl}/chat/completions'),
-      headers: {
-        'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': AppConfig.openAiModel,
-        'messages': [
-          {
-            'role': 'system',
-            'content':
-                'You are a helpful camera confidence coach. Always respond with valid JSON only.',
-          },
-          {'role': 'user', 'content': prompt},
-        ],
-        'max_tokens': AppConfig.maxScriptTokens,
-        'temperature': 0.7,
-      }),
+    logger.d('OpenAI: Starting API call');
+    logger.d(
+      'OpenAI: Using model ${AppConfig.openAiModel}, max_tokens: ${AppConfig.maxScriptTokens}',
     );
 
-    if (response.statusCode != 200) {
-      logger.e('OpenAI API error: ${response.statusCode} - ${response.body}');
-      throw Exception('OpenAI API error: ${response.statusCode}');
-    }
+    try {
+      logger.d(
+        'OpenAI: Sending request to ${AppConfig.openAiBaseUrl}/chat/completions',
+      );
 
-    final data = jsonDecode(response.body);
-    return data['choices'][0]['message']['content'];
+      final response = await _client.post(
+        Uri.parse('${AppConfig.openAiBaseUrl}/chat/completions'),
+        headers: {
+          'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': AppConfig.openAiModel,
+          'messages': [
+            {
+              'role': 'system',
+              'content':
+                  'You are a helpful camera confidence coach. Always respond with valid JSON only.',
+            },
+            {'role': 'user', 'content': prompt},
+          ],
+          'max_tokens': AppConfig.maxScriptTokens,
+          'temperature': 0.7,
+        }),
+      );
+
+      logger.d('OpenAI: Received response with status ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        final errorBody = response.body;
+        logger.e('OpenAI API error: ${response.statusCode} - $errorBody');
+
+        // Parse error message from response
+        String errorMessage = 'OpenAI API error (${response.statusCode})';
+        try {
+          final errorData = jsonDecode(errorBody);
+          if (errorData['error'] != null &&
+              errorData['error']['message'] != null) {
+            errorMessage = errorData['error']['message'];
+          }
+        } catch (_) {}
+
+        throw Exception(errorMessage);
+      }
+
+      final data = jsonDecode(response.body);
+
+      // Check if response was truncated
+      final finishReason = data['choices']?[0]?['finish_reason'];
+      logger.d('OpenAI: finish_reason = $finishReason');
+
+      if (finishReason == 'length') {
+        logger.w('OpenAI: Response was truncated due to max_tokens limit!');
+        throw Exception(
+          'Response was truncated. Please try again with fewer scripts or increase token limit.',
+        );
+      }
+
+      final content = data['choices'][0]['message']['content'] as String;
+      logger.d('OpenAI: Received ${content.length} characters of content');
+      logger.d(
+        'OpenAI: Content preview: ${content.substring(0, content.length > 200 ? 200 : content.length)}...',
+      );
+
+      return content;
+    } catch (e) {
+      logger.e('OpenAI: Exception occurred: ${e.runtimeType} - $e');
+      if (e is Exception) rethrow;
+      throw Exception('Network error: ${e.toString()}');
+    }
   }
 
   List<Map<String, dynamic>> _parseScriptsResponse(String response) {
+    logger.d('Parsing: Starting to parse OpenAI response');
+    logger.d('Parsing: Response length: ${response.length} characters');
+
     // Clean up response - remove markdown code blocks if present
     var cleaned = response.trim();
+
     if (cleaned.startsWith('```json')) {
+      logger.d('Parsing: Removing ```json prefix');
       cleaned = cleaned.substring(7);
     }
     if (cleaned.startsWith('```')) {
+      logger.d('Parsing: Removing ``` prefix');
       cleaned = cleaned.substring(3);
     }
     if (cleaned.endsWith('```')) {
+      logger.d('Parsing: Removing ``` suffix');
       cleaned = cleaned.substring(0, cleaned.length - 3);
     }
     cleaned = cleaned.trim();
 
-    final List<dynamic> parsed = jsonDecode(cleaned);
-    return parsed.map((e) => e as Map<String, dynamic>).toList();
-  }
+    logger.d('Parsing: Cleaned response length: ${cleaned.length} characters');
 
-  List<Map<String, dynamic>> _generateFallbackScripts(
-    String name,
-    String goal,
-  ) {
-    logger.w('Using fallback scripts');
-
-    final List<Map<String, dynamic>> scripts = [];
-
-    for (int day = 1; day <= 30; day++) {
-      if (day <= 5) {
-        scripts.add({
-          'dayNumber': day,
-          'title': 'Day $day: Getting Started',
-          'scriptType': 'segmented',
-          'segments': [
-            {
-              'part': 1,
-              'text':
-                  'Hi, I\'m $name and I\'m on day $day of my camera confidence journey.',
-              'focus': 'Introduction',
-            },
-            {
-              'part': 2,
-              'text':
-                  'Today I\'m practicing being natural on camera. My goal is $goal.',
-              'focus': 'Purpose',
-            },
-            {
-              'part': 3,
-              'text': 'Thanks for being part of my journey. See you tomorrow!',
-              'focus': 'Closing',
-            },
-          ],
-          'focus': 'Building comfort',
-          'wordCount': 50,
-          'estimatedDuration': '30 seconds',
-        });
-      } else {
-        scripts.add({
-          'dayNumber': day,
-          'title': 'Day $day: Building Momentum',
-          'scriptType': 'full',
-          'script':
-              'Hey everyone, it\'s $name here on day $day! I\'m getting more comfortable on camera every day. My goal is still $goal, and I\'m making progress. Today I want to share something I\'ve learned - consistency beats perfection. Just showing up matters. Thanks for watching!',
-          'focus':
-              day <= 15
-                  ? 'Confidence building'
-                  : day <= 25
-                  ? 'Content creation'
-                  : 'Mastery',
-          'wordCount': 75,
-          'estimatedDuration': '45 seconds',
-        });
-      }
+    // Check if JSON looks complete
+    if (!cleaned.endsWith(']')) {
+      logger.e('Parsing: Response appears truncated - does not end with ]');
+      logger.e(
+        'Parsing: Last 100 chars: ${cleaned.substring(cleaned.length > 100 ? cleaned.length - 100 : 0)}',
+      );
+      throw Exception(
+        'OpenAI response was truncated. Please increase max_tokens in app_config.dart (currently ${AppConfig.maxScriptTokens}). Recommended: 16000+ for 30 scripts.',
+      );
     }
 
-    return scripts;
-  }
-
-  List<Map<String, dynamic>> _generateFallbackExtensionScripts(
-    String name,
-    int startDay,
-    int endDay,
-  ) {
-    final List<Map<String, dynamic>> scripts = [];
-
-    for (int day = startDay; day <= endDay; day++) {
-      scripts.add({
-        'dayNumber': day,
-        'title': 'Day $day: Advanced Skills',
-        'script':
-            'Welcome back! I\'m $name on day $day. Now that I\'ve completed the initial 30-day challenge, I\'m taking my skills to the next level. In this extension phase, I\'m focusing on more advanced techniques and growing my audience. Let\'s keep going!',
-        'focus': 'Advanced techniques',
-        'duration': '1 minute',
-      });
+    try {
+      logger.d('Parsing: Attempting JSON decode');
+      final List<dynamic> parsed = jsonDecode(cleaned);
+      logger.i('Parsing: Successfully parsed ${parsed.length} scripts');
+      return parsed.map((e) => e as Map<String, dynamic>).toList();
+    } catch (e) {
+      logger.e('Parsing: JSON decode failed: $e');
+      logger.e(
+        'Parsing: First 500 chars: ${cleaned.substring(0, cleaned.length > 500 ? 500 : cleaned.length)}',
+      );
+      logger.e(
+        'Parsing: Last 500 chars: ${cleaned.substring(cleaned.length > 500 ? cleaned.length - 500 : 0)}',
+      );
+      throw Exception(
+        'Failed to parse OpenAI response. The response may be truncated or malformed. Error: $e',
+      );
     }
-
-    return scripts;
   }
 
   void dispose() {

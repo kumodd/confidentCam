@@ -190,6 +190,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
 
+                      // Language Section
+                      _SettingsSection(
+                        title: 'Language',
+                        children: [
+                          _DropdownTile(
+                            icon: Icons.language_outlined,
+                            title: 'Script Language',
+                            value: settings.languagePreference,
+                            options: const {
+                              'en': 'English',
+                              'hi': 'Hindi (हिन्दी)',
+                              'hinglish': 'Hinglish',
+                            },
+                            onChanged: (v) {
+                              context.read<SettingsBloc>().add(
+                                LanguagePreferenceUpdated(v),
+                              );
+                              _showLanguageChangeWarning(context);
+                            },
+                          ),
+                        ],
+                      ),
+
                       // Notifications Section
                       _SettingsSection(
                         title: 'Notifications',
@@ -284,6 +307,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (picked != null && mounted) {
       context.read<SettingsBloc>().add(ReminderTimeUpdated(picked));
     }
+  }
+
+  void _showLanguageChangeWarning(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Language updated! New scripts will be generated in the selected language.',
+        ),
+        backgroundColor: Color(0xFF6366F1),
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _clearAllVideos() async {

@@ -399,7 +399,7 @@ class _VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _showControls = true;
 
@@ -417,12 +417,12 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       }
 
       _controller = VideoPlayerController.file(file);
-      await _controller.initialize();
-      _controller.addListener(_onPlayerUpdate);
+      await _controller!.initialize();
+      _controller!.addListener(_onPlayerUpdate);
       if (mounted) {
         setState(() => _isInitialized = true);
       }
-      _controller.play();
+      _controller!.play();
     } catch (e) {
       debugPrint('Error initializing video player: $e');
       if (mounted) {
@@ -443,8 +443,8 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _controller.removeListener(_onPlayerUpdate);
-    _controller.dispose();
+    _controller?.removeListener(_onPlayerUpdate);
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -462,11 +462,11 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
           fit: StackFit.expand,
           children: [
             // Video
-            if (_isInitialized)
+            if (_isInitialized && _controller != null)
               Center(
                 child: AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: VideoPlayer(_controller),
+                  aspectRatio: _controller!.value.aspectRatio,
+                  child: VideoPlayer(_controller!),
                 ),
               )
             else
@@ -541,9 +541,9 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Progress bar
-                      if (_isInitialized)
+                      if (_isInitialized && _controller != null)
                         VideoProgressIndicator(
-                          _controller,
+                          _controller!,
                           allowScrubbing: true,
                           colors: const VideoProgressColors(
                             playedColor: Color(0xFF6366F1),
@@ -563,25 +563,29 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                               size: 32,
                             ),
                             onPressed: () {
-                              final pos = _controller.value.position;
-                              _controller.seekTo(
-                                pos - const Duration(seconds: 10),
-                              );
+                              final pos = _controller?.value.position;
+                              if (pos != null) {
+                                _controller?.seekTo(
+                                  pos - const Duration(seconds: 10),
+                                );
+                              }
                             },
                           ),
                           const SizedBox(width: 24),
                           IconButton(
                             icon: Icon(
-                              _controller.value.isPlaying
+                              _controller?.value.isPlaying == true
                                   ? Icons.pause_circle_filled
                                   : Icons.play_circle_filled,
                               color: Colors.white,
                               size: 56,
                             ),
                             onPressed: () {
-                              _controller.value.isPlaying
-                                  ? _controller.pause()
-                                  : _controller.play();
+                              if (_controller?.value.isPlaying == true) {
+                                _controller?.pause();
+                              } else {
+                                _controller?.play();
+                              }
                             },
                           ),
                           const SizedBox(width: 24),
@@ -592,10 +596,12 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                               size: 32,
                             ),
                             onPressed: () {
-                              final pos = _controller.value.position;
-                              _controller.seekTo(
-                                pos + const Duration(seconds: 10),
-                              );
+                              final pos = _controller?.value.position;
+                              if (pos != null) {
+                                _controller?.seekTo(
+                                  pos + const Duration(seconds: 10),
+                                );
+                              }
                             },
                           ),
                         ],

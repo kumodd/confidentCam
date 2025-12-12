@@ -15,6 +15,7 @@ class Settings extends Equatable {
   final double teleprompterOpacity;
   final String defaultCamera;
   final String videoQuality;
+  final String languagePreference;
 
   const Settings({
     required this.reminderTime,
@@ -25,6 +26,7 @@ class Settings extends Equatable {
     required this.teleprompterOpacity,
     required this.defaultCamera,
     required this.videoQuality,
+    required this.languagePreference,
   });
 
   factory Settings.defaults() => const Settings(
@@ -36,6 +38,7 @@ class Settings extends Equatable {
     teleprompterOpacity: 0.85,
     defaultCamera: 'front',
     videoQuality: '1080p',
+    languagePreference: 'en',
   );
 
   /// Get font size in pixels
@@ -52,6 +55,7 @@ class Settings extends Equatable {
     teleprompterOpacity,
     defaultCamera,
     videoQuality,
+    languagePreference,
   ];
 }
 
@@ -108,6 +112,13 @@ class DefaultCameraUpdated extends SettingsEvent {
   List<Object?> get props => [camera];
 }
 
+class LanguagePreferenceUpdated extends SettingsEvent {
+  final String language;
+  const LanguagePreferenceUpdated(this.language);
+  @override
+  List<Object?> get props => [language];
+}
+
 // States
 abstract class SettingsState extends Equatable {
   const SettingsState();
@@ -150,6 +161,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<TeleprompterHeightUpdated>(_onHeightUpdated);
     on<TeleprompterOpacityUpdated>(_onOpacityUpdated);
     on<DefaultCameraUpdated>(_onCameraUpdated);
+    on<LanguagePreferenceUpdated>(_onLanguageUpdated);
   }
 
   Future<void> _onLoaded(
@@ -188,6 +200,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
               data[AppConstants.defaultCameraKey] as String? ?? 'front',
           videoQuality:
               data[AppConstants.videoQualityKey] as String? ?? '1080p',
+          languagePreference:
+              data[AppConstants.languagePreferenceKey] as String? ?? 'en',
         ),
       ),
     );
@@ -254,6 +268,17 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     await settingsDataSource.saveSetting(
       AppConstants.defaultCameraKey,
       event.camera,
+    );
+    add(const SettingsLoaded());
+  }
+
+  Future<void> _onLanguageUpdated(
+    LanguagePreferenceUpdated event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await settingsDataSource.saveSetting(
+      AppConstants.languagePreferenceKey,
+      event.language,
     );
     add(const SettingsLoaded());
   }

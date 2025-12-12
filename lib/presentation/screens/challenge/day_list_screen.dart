@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../domain/entities/daily_completion.dart';
 import '../../../domain/entities/user_progress.dart';
 import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_event.dart';
@@ -110,29 +111,10 @@ class DayListScreen extends StatelessWidget {
       return;
     }
 
-    // If day is completed, navigate to day details
+    // If day is completed, show options dialog
     if (isCompleted) {
       final completion = progress.getCompletionForDay(day);
-      if (completion != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder:
-                (_) => DayDetailsScreen(
-                  userId: userId,
-                  dayNumber: day,
-                  completion: completion,
-                  progress: progress,
-                ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Completion data not found'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showCompletedDayDialog(context, day, completion, progress);
       return;
     }
 
@@ -169,6 +151,84 @@ class DayListScreen extends StatelessWidget {
               child: DayChallengeOverviewScreen(userId: userId, dayNumber: day),
             ),
       ),
+    );
+  }
+
+  void _showCompletedDayDialog(
+    BuildContext context,
+    int day,
+    DailyCompletion? completion,
+    UserProgress progress,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Day Already Completed! 🎉',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Text(
+              'You\'ve already completed Day $day. What would you like to do?',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  // Navigate to details if completion exists
+                  if (completion != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (_) => DayDetailsScreen(
+                              userId: userId,
+                              dayNumber: day,
+                              completion: completion,
+                              progress: progress,
+                            ),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('View Details'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  // Navigate to re-record
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (_) => BlocProvider(
+                            create:
+                                (_) =>
+                                    sl<DailyChallengeBloc>()..add(
+                                      DayLoaded(userId: userId, dayNumber: day),
+                                    ),
+                            child: DayChallengeOverviewScreen(
+                              userId: userId,
+                              dayNumber: day,
+                            ),
+                          ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF22C55E),
+                ),
+                child: const Text('Record Again'),
+              ),
+            ],
+          ),
     );
   }
 }

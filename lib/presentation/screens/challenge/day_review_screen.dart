@@ -176,8 +176,8 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
     Navigator.of(context).pop();
   }
 
-  void _recordAnotherTake() {
-    Navigator.of(context).pushReplacement(
+  Future<void> _recordAnotherTake() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (_) => BlocProvider.value(
@@ -189,6 +189,11 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
             ),
       ),
     );
+
+    // Reload takes when returning from recording
+    if (mounted) {
+      context.read<DailyChallengeBloc>().add(const PreviewTakesRequested());
+    }
   }
 
   @override

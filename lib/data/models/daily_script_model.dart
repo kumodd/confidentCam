@@ -44,30 +44,67 @@ class DailyScriptModel extends DailyScript {
 
     if (scriptJson is String) {
       scriptData = jsonDecode(scriptJson) as Map<String, dynamic>;
+    } else if (scriptJson is Map<String, dynamic>) {
+      scriptData = scriptJson;
     } else {
-      scriptData = scriptJson as Map<String, dynamic>;
+      scriptData = <String, dynamic>{};
     }
 
-    final scriptType = json['script_type'] as String;
+    final scriptType = json['script_type']?.toString() ?? 'full';
+
+    // Robust day_number parsing
+    int dayNumber = 1;
+    final rawDayNumber = json['day_number'];
+    if (rawDayNumber is int) {
+      dayNumber = rawDayNumber;
+    } else if (rawDayNumber is num) {
+      dayNumber = rawDayNumber.toInt();
+    } else if (rawDayNumber is String) {
+      dayNumber = int.tryParse(rawDayNumber) ?? 1;
+    }
 
     List<ScriptSegment>? segments;
     if (scriptType == 'segmented' && scriptData['segments'] != null) {
-      segments = (scriptData['segments'] as List)
-          .map((s) => ScriptSegmentModel.fromJson(s as Map<String, dynamic>))
-          .toList();
+      try {
+        segments =
+            (scriptData['segments'] as List)
+                .map(
+                  (s) => ScriptSegmentModel.fromJson(s as Map<String, dynamic>),
+                )
+                .toList();
+      } catch (e) {
+        // Fallback if segments parsing fails
+        segments = null;
+      }
+    }
+
+    // Robust word_count parsing
+    int? wordCount;
+    final rawWordCount = scriptData['wordCount'] ?? scriptData['word_count'];
+    if (rawWordCount is int) {
+      wordCount = rawWordCount;
+    } else if (rawWordCount is num) {
+      wordCount = rawWordCount.toInt();
+    } else if (rawWordCount is String) {
+      wordCount = int.tryParse(rawWordCount);
     }
 
     return DailyScriptModel(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
-      dayNumber: json['day_number'] as int,
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      dayNumber: dayNumber,
       scriptType: scriptType,
-      title: scriptData['title'] as String? ?? 'Day ${json['day_number']}',
-      fullScript: scriptData['script'] as String?,
+      title: scriptData['title']?.toString() ?? 'Day $dayNumber',
+      fullScript: scriptData['script']?.toString(),
       segments: segments,
-      wordCount: scriptData['word_count'] as int?,
-      estimatedDuration: scriptData['estimated_duration'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      wordCount: wordCount,
+      estimatedDuration:
+          (scriptData['estimatedDuration'] ?? scriptData['estimated_duration'])
+              ?.toString(),
+      createdAt:
+          json['created_at'] != null
+              ? DateTime.parse(json['created_at'] as String)
+              : DateTime.now(),
     );
   }
 
@@ -75,9 +112,8 @@ class DailyScriptModel extends DailyScript {
     final scriptData = <String, dynamic>{'title': title};
 
     if (isSegmented && segments != null) {
-      scriptData['segments'] = segments!
-          .map((s) => (s as ScriptSegmentModel).toJson())
-          .toList();
+      scriptData['segments'] =
+          segments!.map((s) => (s as ScriptSegmentModel).toJson()).toList();
     } else {
       scriptData['script'] = fullScript;
       scriptData['word_count'] = wordCount;

@@ -9,6 +9,64 @@ import '../../bloc/onboarding/onboarding_bloc.dart';
 import '../../bloc/onboarding/onboarding_event.dart';
 import '../../bloc/onboarding/onboarding_state.dart';
 
+void _showErrorDialog(BuildContext context, String message) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder:
+        (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[400], size: 28),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Script Generation Failed',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message, style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 16),
+              const Text(
+                'Please check your internet connection and try again.',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pop(); // Exit onboarding
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                // Retry - trigger the complete event again
+                context.read<OnboardingBloc>().add(const OnboardingSubmitted());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6366F1),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+  );
+}
+
 /// Dynamic onboarding screen with multi-select questions.
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -24,9 +82,7 @@ class OnboardingScreen extends StatelessWidget {
           Navigator.of(context).pop(true);
         } else if (state is OnboardingFailure) {
           EasyLoading.dismiss();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          _showErrorDialog(context, state.message);
         } else {
           EasyLoading.dismiss();
         }
