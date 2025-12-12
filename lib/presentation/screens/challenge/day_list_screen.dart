@@ -102,11 +102,12 @@ class DayListScreen extends StatelessWidget {
 
     // Check if warmups are complete first
     if (!warmupsComplete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Complete all warmups first!'),
-          backgroundColor: Colors.orange,
-        ),
+      _showLockedDayDialog(
+        context,
+        'Complete Warmups First! 🎯',
+        'You need to complete all 3 warmup videos before starting the 30-day challenge.',
+        'Go to Warmups',
+        Icons.play_circle_outline,
       );
       return;
     }
@@ -122,11 +123,42 @@ class DayListScreen extends StatelessWidget {
     if (!isUnlocked) {
       // Check if it's the next day but not a new calendar day yet
       if (day == currentDay + 1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Come back tomorrow to record this day!'),
-            backgroundColor: Colors.orange,
-          ),
+        final now = DateTime.now();
+        final lastDate = progress.lastCompletedDate;
+
+        String message = 'Great job completing Day $currentDay! 🎉\n\n';
+        if (lastDate != null) {
+          final todayStart = DateTime(now.year, now.month, now.day);
+          final lastDateStart = DateTime(
+            lastDate.year,
+            lastDate.month,
+            lastDate.day,
+          );
+
+          if (todayStart.isAtSameMomentAs(lastDateStart)) {
+            message +=
+                'Day $day will unlock tomorrow. Come back then to continue your streak!';
+          } else {
+            message += 'Day $day is ready for you!';
+          }
+        } else {
+          message += 'Day $day will unlock tomorrow.';
+        }
+
+        _showLockedDayDialog(
+          context,
+          'Come Back Tomorrow! 📅',
+          message,
+          'Got It',
+          Icons.schedule,
+        );
+      } else if (day > currentDay + 1) {
+        _showLockedDayDialog(
+          context,
+          'Day $day Locked 🔒',
+          'Complete Day ${currentDay + 1} first to unlock this day.\n\nOne day at a time - consistency is key!',
+          'OK',
+          Icons.lock_outline,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -151,6 +183,50 @@ class DayListScreen extends StatelessWidget {
               child: DayChallengeOverviewScreen(userId: userId, dayNumber: day),
             ),
       ),
+    );
+  }
+
+  void _showLockedDayDialog(
+    BuildContext context,
+    String title,
+    String message,
+    String buttonText,
+    IconData icon,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(icon, color: const Color(0xFF6366F1), size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              message,
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                ),
+                child: Text(buttonText),
+              ),
+            ],
+          ),
     );
   }
 

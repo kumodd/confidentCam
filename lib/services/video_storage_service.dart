@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -44,11 +45,14 @@ abstract class VideoStorageService {
   /// Clear all videos.
   Future<void> clearAllVideos();
 
-  /// Export video to camera roll/gallery.
+  /// Export video to camera roll/gallery (saves directly without share dialog).
   Future<bool> exportToGallery(String videoPath);
 
   /// Export video to a shareable location (allows user to save to Files/Downloads).
   Future<void> exportToFolder(String videoPath);
+
+  /// Share video via apps (social media, messaging, etc.).
+  Future<void> shareVideo(String videoPath);
 
   /// Get all videos for display in library.
   Future<List<VideoInfo>> getAllVideos();
@@ -350,14 +354,14 @@ class VideoStorageServiceImpl implements VideoStorageService {
         return false;
       }
 
-      // Use share_plus to allow saving to Photos/Gallery
-      // On iOS, this will show the share sheet allowing "Save Video"
-      // On Android, this will allow saving to gallery
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(videoPath)], text: 'My ConfidentCam video'),
-      );
-      logger.i('Video shared/exported: $videoPath');
+      // Use gal package to save directly to camera roll/gallery
+      // This does NOT show share dialog, it saves directly
+      await Gal.putVideo(videoPath, album: 'ConfidentCam');
+      logger.i('Video saved to gallery: $videoPath');
       return true;
+    } on GalException catch (e) {
+      logger.e('Gal error exporting to gallery: ${e.type.name}', e);
+      return false;
     } catch (e) {
       logger.e('Error exporting to gallery', e);
       return false;
@@ -373,11 +377,12 @@ class VideoStorageServiceImpl implements VideoStorageService {
         return;
       }
 
-      // Copy to exports folder then share
+      // Copy to exports folder with a user-friendly name
       final appDir = await _getAppDir();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final exportPath =
           '${appDir.path}/${AppConstants.exportsFolderName}/'
-          'ConfidentCam_${DateTime.now().millisecondsSinceEpoch}.mp4';
+          'ConfidentCam_$timestamp.mp4';
 
       await file.copy(exportPath);
 
@@ -391,6 +396,28 @@ class VideoStorageServiceImpl implements VideoStorageService {
       logger.i('Video exported to folder: $exportPath');
     } catch (e) {
       logger.e('Error exporting to folder', e);
+    }
+  }
+
+  /// Share video via apps (social media, messaging, etc.)
+  @override
+  Future<void> shareVideo(String videoPath) async {
+    try {
+      final file = File(videoPath);
+      if (!await file.exists()) {
+        logger.e('Video not found for share: $videoPath');
+        return;
+      }
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(videoPath)],
+          text: 'Check out my ConfidentCam video!',
+        ),
+      );
+      logger.i('Video shared: $videoPath');
+    } catch (e) {
+      logger.e('Error sharing video', e);
     }
   }
 

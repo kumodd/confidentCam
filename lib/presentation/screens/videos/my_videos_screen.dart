@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/di/injection_container.dart';
@@ -167,33 +168,163 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(Icons.share, color: Colors.white70, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Export ${video.displayName}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _formatBytes(video.sizeBytes),
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white12),
                 ListTile(
-                  leading: const Icon(
-                    Icons.photo_library,
-                    color: Colors.white70,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.photo_library,
+                      color: Color(0xFF22C55E),
+                    ),
                   ),
-                  title: const Text('Save to Photos'),
-                  subtitle: const Text('Export to camera roll'),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    final service = sl<VideoStorageService>();
-                    await service.exportToGallery(video.path);
-                  },
+                  title: const Text(
+                    'Save to Gallery ',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    'Export to camera roll/gallery',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white38,
+                    size: 16,
+                  ),
+                  onTap: () => _handleExportToGallery(ctx, video),
                 ),
+                // ListTile(
+                //   leading: Container(
+                //     padding: const EdgeInsets.all(10),
+                //     decoration: BoxDecoration(
+                //       color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                //       borderRadius: BorderRadius.circular(10),
+                //     ),
+                //     child: const Icon(Icons.folder, color: Color(0xFF6366F1)),
+                //   ),
+                //   title: const Text(
+                //     'Save to Files',
+                //     style: TextStyle(color: Colors.white),
+                //   ),
+                //   subtitle: const Text(
+                //     'Choose location in Files app',
+                //     style: TextStyle(color: Colors.white54),
+                //   ),
+                //   trailing: const Icon(
+                //     Icons.arrow_forward_ios,
+                //     color: Colors.white38,
+                //     size: 16,
+                //   ),
+                //   onTap: () => _handleExportToFiles(ctx, video),
+                // ),
                 ListTile(
-                  leading: const Icon(Icons.folder, color: Colors.white70),
-                  title: const Text('Save to Files'),
-                  subtitle: const Text('Export to Downloads folder'),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    final service = sl<VideoStorageService>();
-                    await service.exportToFolder(video.path);
-                  },
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.share, color: Color(0xFF3B82F6)),
+                  ),
+                  title: const Text(
+                    'Share',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    'Share via apps',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white38,
+                    size: 16,
+                  ),
+                  onTap: () => _handleShare(ctx, video),
                 ),
+                const SizedBox(height: 8),
               ],
             ),
           ),
     );
+  }
+
+  Future<void> _handleExportToGallery(BuildContext ctx, VideoInfo video) async {
+    Navigator.pop(ctx);
+    EasyLoading.show(status: 'Saving to Photos...');
+    final service = sl<VideoStorageService>();
+    final success = await service.exportToGallery(video.path);
+    EasyLoading.dismiss();
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Video saved! Check your Photos app.'),
+          backgroundColor: Color(0xFF22C55E),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleExportToFiles(BuildContext ctx, VideoInfo video) async {
+    Navigator.pop(ctx);
+    EasyLoading.show(status: 'Preparing export...');
+    final service = sl<VideoStorageService>();
+    await service.exportToFolder(video.path);
+    EasyLoading.dismiss();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose where to save your video'),
+          backgroundColor: Color(0xFF6366F1),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleShare(BuildContext ctx, VideoInfo video) async {
+    Navigator.pop(ctx);
+    EasyLoading.show(status: 'Preparing to share...');
+    final service = sl<VideoStorageService>();
+    await service.shareVideo(video.path);
+    EasyLoading.dismiss();
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
 

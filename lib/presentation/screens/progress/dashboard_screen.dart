@@ -321,13 +321,160 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTodaysChallengeCard() {
     return BlocBuilder<ProgressBloc, ProgressState>(
       builder: (context, progressState) {
-        final currentDay =
-            progressState is ProgressLoadSuccess
-                ? progressState.progress.currentDay + 1
-                : 1;
+        if (progressState is! ProgressLoadSuccess) {
+          return const SizedBox.shrink();
+        }
 
+        final progress = progressState.progress;
+        final currentDay = progress.currentDay;
+        final nextDay = currentDay + 1;
+        final canRecord = progress.canRecordNextDay;
+        final isChallengeComplete = progress.isChallengeComplete;
+
+        // If challenge is complete (all 30 days done)
+        if (isChallengeComplete) {
+          return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF22C55E).withValues(alpha: 0.3),
+                        const Color(0xFF10B981).withValues(alpha: 0.2),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF22C55E).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22C55E),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.emoji_events,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Challenge Complete! 🎉",
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You finished all 30 days!',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .animate()
+              .fadeIn(delay: 200.ms, duration: 400.ms)
+              .slideY(begin: 0.2, end: 0);
+        }
+
+        // If can't record today (already completed today's challenge)
+        if (!canRecord && currentDay > 0) {
+          return GestureDetector(
+                onTap: () => _showComeBackTomorrowDialog(),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.grey.withValues(alpha: 0.2),
+                          Colors.grey.withValues(alpha: 0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[700],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.lock_clock,
+                            color: Colors.white54,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Day $currentDay Complete! ✅",
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Day $nextDay unlocks tomorrow',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.white54),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.schedule,
+                            color: Colors.white38,
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              .animate()
+              .fadeIn(delay: 200.ms, duration: 400.ms)
+              .slideY(begin: 0.2, end: 0);
+        }
+
+        // Normal state - can record
         return GestureDetector(
-          onTap: () => _navigateToDailyChallenge(currentDay),
+          onTap: () => _navigateToDailyChallenge(nextDay),
           child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Container(
@@ -373,7 +520,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Today's Challenge - Day $currentDay",
+                              "Today's Challenge - Day $nextDay",
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
@@ -407,6 +554,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
               .slideY(begin: 0.2, end: 0),
         );
       },
+    );
+  }
+
+  void _showComeBackTomorrowDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.schedule, color: Color(0xFF6366F1), size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Great Job Today! 🎉',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              "You've completed today's challenge!\n\nYour next day will unlock tomorrow. Consistency is key to building confidence!",
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                ),
+                child: const Text('Got It'),
+              ),
+            ],
+          ),
     );
   }
 
