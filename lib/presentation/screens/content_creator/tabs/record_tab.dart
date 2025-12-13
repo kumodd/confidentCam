@@ -360,20 +360,16 @@ class _RecordTabState extends State<RecordTab> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _isRecording ? Colors.red : const Color(0xFFEC4899),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                Expanded(
                   child: Text(
                     script.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
-                  _isRecording ? '📖 ${_currentSpeed.toStringAsFixed(1)}x' : '📖 Teleprompter',
+                  _isRecording ? '${_currentSpeed.toStringAsFixed(1)}x' : '📖',
                   style: TextStyle(
                     color: _isRecording ? Colors.white : const Color(0xFFFBBF24),
                     fontSize: 11,
@@ -383,25 +379,162 @@ class _RecordTabState extends State<RecordTab> {
               ],
             ),
           ),
-          // Script content
+          // Script content with sections
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               physics: _isRecording ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
-              child: Text(
-                script.fullScript,
-                style: TextStyle(
-                  color: _currentTextColor,
-                  fontSize: _currentFontSize,
-                  height: 1.6,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Hook Section
+                  _buildScriptSection(
+                    icon: '🎯',
+                    title: 'HOOK',
+                    content: script.part1,
+                    color: const Color(0xFFEC4899),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Content Section
+                  _buildScriptSection(
+                    icon: '💡',
+                    title: 'CONTENT',
+                    content: script.part2,
+                    color: const Color(0xFF8B5CF6),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Ending Section
+                  _buildScriptSection(
+                    icon: '🎬',
+                    title: 'ENDING',
+                    content: script.part3,
+                    color: const Color(0xFF22C55E),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildScriptSection({
+    required String icon,
+    required String title,
+    required String content,
+    required Color color,
+  }) {
+    if (content.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Section content with markdown rendering
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: RichText(
+            text: TextSpan(
+              children: _parseMarkdown(content),
+              style: TextStyle(
+                color: _currentTextColor,
+                fontSize: _currentFontSize,
+                height: 1.7,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Parse simple markdown (bold, line breaks, bullets) into TextSpans
+  List<TextSpan> _parseMarkdown(String text) {
+    final spans = <TextSpan>[];
+    
+    // Split by line breaks first
+    final lines = text.split(RegExp(r'\\n|[\n]'));
+    
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      
+      if (line.isEmpty) {
+        spans.add(const TextSpan(text: '\n'));
+        continue;
+      }
+      
+      // Check if line starts with bullet
+      String processedLine = line;
+      if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+        // Already has bullet, keep it
+      } else if (line.trim().startsWith('* ')) {
+        // Convert asterisk bullet to nicer bullet
+        processedLine = line.replaceFirst('* ', '• ');
+      }
+      
+      // Parse bold text (**text**)
+      final boldPattern = RegExp(r'\*\*(.+?)\*\*');
+      var lastEnd = 0;
+      
+      for (final match in boldPattern.allMatches(processedLine)) {
+        // Text before the match
+        if (match.start > lastEnd) {
+          spans.add(TextSpan(text: processedLine.substring(lastEnd, match.start)));
+        }
+        // Bold text
+        spans.add(TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFFBBF24), // Yellow highlight for bold
+            fontSize: _currentFontSize,
+          ),
+        ));
+        lastEnd = match.end;
+      }
+      
+      // Remaining text after last match
+      if (lastEnd < processedLine.length) {
+        spans.add(TextSpan(text: processedLine.substring(lastEnd)));
+      }
+      
+      // Add line break after each line (except the last)
+      if (i < lines.length - 1) {
+        spans.add(const TextSpan(text: '\n'));
+      }
+    }
+    
+    return spans;
   }
 
   void _showSettingsSheet(BuildContext context) {

@@ -60,6 +60,7 @@ class ContentCreatorBloc
       audience: event.audience,
       message: event.message,
       tone: event.tone,
+      language: event.language,
       template: event.template,
       customPrompt: event.customPrompt,
     );

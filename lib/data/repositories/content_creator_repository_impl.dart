@@ -80,6 +80,7 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
     required String tone,
     required PromptTemplate template,
     String? customPrompt,
+    required String language,
   }) async {
     try {
       final prompt = _buildGenerationPrompt(
@@ -87,6 +88,7 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
         audience: audience,
         message: message,
         tone: tone,
+        language: language,
         template: template,
         customPrompt: customPrompt,
       );
@@ -165,6 +167,7 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
   required String audience,
   required String message,
   required String tone,
+  required String language,
   required PromptTemplate template,
   String? customPrompt,
 }) {
@@ -178,6 +181,7 @@ Topic: $topic
 Target audience: $audience
 Core message: $message
 Tone: $tone
+Language: $language
 
 STYLE GUIDANCE:
 $templateGuide
@@ -188,6 +192,7 @@ STRUCTURE (STRICT):
 - part3: Closing (20–40 words)
 
 CONTENT RULES:
+- Write ENTIRELY in $language language
 - Spoken words only
 - No explaining what the video is about
 - No teaching tone, talk like a founder explaining reality
@@ -264,7 +269,7 @@ CUSTOM STYLE:
           {
             'role': 'system',
             'content': '''
-You are a founder-style short-form video script writer.
+You are a founder-style short-form video script writer for teleprompter display.
 
 CORE IDENTITY:
 - Founder + operator mindset
@@ -273,27 +278,36 @@ CORE IDENTITY:
 - Speak like explaining to one smart person
 
 LANGUAGE:
-- Hinglish
+- Hinglish (mix of Hindi and English)
 - Simple Indian conversational tone
 
-OUTPUT RULES (STRICT):
-- Return ONLY valid JSON
-- Spoken words only (teleprompter-ready)
-- No emojis, no hashtags, no markdown
-- No labels, no meta commentary
-
-SCRIPT FORMAT (MANDATORY):
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON with this structure:
 {
-  "part1": "Hook or opening spoken words",
-  "part2": "Main body spoken words",
-  "part3": "Closing spoken words"
+  "part1": "Hook/opening with markdown formatting",
+  "part2": "Main content with markdown formatting", 
+  "part3": "Closing with markdown formatting"
 }
 
-STYLE RULES:
-- Short sentences
-- Natural pauses using "..."
-- Confident but grounded
+MARKDOWN RULES FOR TELEPROMPTER:
+- Use **bold** for key words to emphasize while speaking
+- Use line breaks (\\n\\n) between thoughts for natural pauses
+- Use bullet points (• ) for lists of tips or points
+- Keep sentences short (max 12 words)
+- Use "..." for dramatic pauses
+
+STYLE:
+- Confident but grounded tone
 - Clear thinking over fancy words
+- No hashtags, no emojis in content
+- Spoken words only - what you actually say on camera
+
+EXAMPLE OUTPUT:
+{
+  "part1": "Ek baat batao...\\n\\n**90% founders** yahi galti karte hain.",
+  "part2": "• Pehli baat - **system** banao, tool nahi dhundo\\n\\n• Doosri baat - **consistency** beats perfection\\n\\nJab clarity hai... toh execution easy ho jata hai.",
+  "part3": "Yaad rakhna...\\n\\n**Simple systems** se hi **big results** aate hain."
+}
 '''
           },
           {

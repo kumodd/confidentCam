@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/di/injection_container.dart';
+import '../../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../../domain/entities/content_script.dart';
+import '../../../../domain/entities/onboarding_data.dart';
 import '../../../bloc/content_creator/content_creator_bloc.dart';
 import '../../../bloc/content_creator/content_creator_event.dart';
 import '../../../bloc/content_creator/content_creator_state.dart';
@@ -24,6 +27,9 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
   final _messageController = TextEditingController();
 
   String _selectedTone = 'Casual';
+  LanguageOption? _selectedLanguage;
+  List<LanguageOption> _languageOptions = [];
+  bool _isLoadingLanguages = true;
   PromptTemplate _selectedTemplate = PromptTemplate.tips;
   final _customPromptController = TextEditingController();
 
@@ -34,6 +40,33 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
     'Humorous',
     'Educational',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLanguageOptions();
+  }
+
+  Future<void> _loadLanguageOptions() async {
+    try {
+      final languageDataSource = sl<SupabaseLanguageDataSource>();
+      final options = await languageDataSource.getLanguageOptions();
+      
+      if (mounted) {
+        setState(() {
+          _languageOptions = options;
+          _selectedLanguage = options.isNotEmpty ? options.first : null;
+          _isLoadingLanguages = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingLanguages = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -125,6 +158,71 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
                       );
                     }).toList(),
               ),
+              const SizedBox(height: 24),
+
+              // Language selector
+              _buildLabel('Script Language'),
+              const SizedBox(height: 8),
+              _isLoadingLanguages
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2D2D3D),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEC4899))),
+                          SizedBox(width: 12),
+                          Text('Loading languages...', style: TextStyle(color: Colors.white54)),
+                        ],
+                      ),
+                    )
+                  : _languageOptions.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D2D3D),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text('No languages available', style: TextStyle(color: Colors.white54)),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D2D3D),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<LanguageOption>(
+                              value: _selectedLanguage,
+                              isExpanded: true,
+                              dropdownColor: const Color(0xFF2D2D3D),
+                              icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFEC4899)),
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              items: _languageOptions.map((lang) {
+                                return DropdownMenuItem<LanguageOption>(
+                                  value: lang,
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.language, color: Color(0xFFEC4899), size: 18),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          '${lang.name} (${lang.nativeName})',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) setState(() => _selectedLanguage = value);
+                              },
+                            ),
+                          ),
+                        ),
               const SizedBox(height: 24),
 
               // Template selector
@@ -375,6 +473,13 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
   void _generateScript() {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedLanguage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait for languages to load'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     context.read<ContentCreatorBloc>().add(
       GenerateScript(
         userId: widget.userId,
@@ -382,6 +487,7 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
         audience: _audienceController.text,
         message: _messageController.text,
         tone: _selectedTone,
+        language: _selectedLanguage!.name,
         template: _selectedTemplate,
         customPrompt:
             _selectedTemplate == PromptTemplate.custom
@@ -593,11 +699,42 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
                         style: const TextStyle(color: Colors.white),
                         maxLines: 3,
                         decoration: InputDecoration(
-                          hintText: 'End with a call to action or memorable close...',
+                          hintText: 'End with **key takeaway**...',
                           hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                           filled: true,
                           fillColor: const Color(0xFF2D2D3D),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Markdown Tips Card
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.tips_and_updates, color: Color(0xFF8B5CF6), size: 18),
+                                SizedBox(width: 8),
+                                Text('💡 Markdown Tips', style: TextStyle(color: Color(0xFF8B5CF6), fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildMarkdownTip('**word**', 'Bold text (highlights yellow)'),
+                            const SizedBox(height: 6),
+                            _buildMarkdownTip('...', 'Pause while speaking'),
+                            const SizedBox(height: 6),
+                            _buildMarkdownTip('• or -', 'Bullet point for lists'),
+                            const SizedBox(height: 6),
+                            _buildMarkdownTip('\\n', 'Line break'),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -658,6 +795,36 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMarkdownTip(String code, String description) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E2E),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            code,
+            style: const TextStyle(
+              color: Color(0xFFFBBF24),
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            description,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 }

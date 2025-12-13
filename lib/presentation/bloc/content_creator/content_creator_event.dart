@@ -27,6 +27,7 @@ class GenerateScript extends ContentCreatorEvent {
   final String audience;
   final String message;
   final String tone;
+  final String language;
   final PromptTemplate template;
   final String? customPrompt;
 
@@ -36,6 +37,7 @@ class GenerateScript extends ContentCreatorEvent {
     required this.audience,
     required this.message,
     required this.tone,
+    required this.language,
     required this.template,
     this.customPrompt,
   });
@@ -47,6 +49,7 @@ class GenerateScript extends ContentCreatorEvent {
     audience,
     message,
     tone,
+    language,
     template,
     customPrompt,
   ];

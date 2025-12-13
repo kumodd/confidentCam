@@ -25,6 +25,7 @@ abstract class ContentCreatorRepository {
     required String audience,
     required String message,
     required String tone,
+    required String language,
     required PromptTemplate template,
     String? customPrompt,
   });
