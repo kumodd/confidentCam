@@ -11,6 +11,7 @@ import '../../data/datasources/local/hive_progress_datasource.dart';
 import '../../data/datasources/local/hive_scripts_datasource.dart';
 import '../../data/datasources/local/hive_settings_datasource.dart';
 import '../../data/datasources/remote/supabase_auth_datasource.dart';
+import '../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../data/datasources/remote/supabase_progress_datasource.dart';
 import '../../data/datasources/remote/supabase_script_datasource.dart';
@@ -128,6 +129,9 @@ void _initDataSources() {
   sl.registerLazySingleton<SupabaseOnboardingDataSource>(
     () => SupabaseOnboardingDataSourceImpl(client: sl()),
   );
+  sl.registerLazySingleton<SupabaseLanguageDataSource>(
+    () => SupabaseLanguageDataSource(client: sl()),
+  );
 
   // Local Data Sources
   sl.registerLazySingleton<HiveAuthDataSource>(
@@ -202,6 +206,7 @@ void _initBlocs() {
   sl.registerFactory<OnboardingBloc>(
     () => OnboardingBloc(
       onboardingDataSource: sl(),
+      languageDataSource: sl(),
       scriptRepository: sl(),
       openAiService: sl(),
     ),

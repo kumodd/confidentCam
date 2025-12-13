@@ -32,6 +32,16 @@ class PersonalInfoUpdated extends OnboardingEvent {
   List<Object?> get props => [firstName, age, location];
 }
 
+/// User selected a language preference
+class LanguageSelected extends OnboardingEvent {
+  final LanguageOption language;
+
+  const LanguageSelected(this.language);
+
+  @override
+  List<Object?> get props => [language];
+}
+
 /// User selected a goal
 class GoalSelected extends OnboardingEvent {
   final GoalOption goal;

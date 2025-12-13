@@ -29,11 +29,13 @@ class OnboardingInProgress extends OnboardingState {
   // Questions loaded from Supabase
   final List<OnboardingQuestion> questions;
   final List<GoalOption> goalOptions;
+  final List<LanguageOption> languageOptions;
 
   // User input
   final String? firstName;
   final int? age;
   final String? location;
+  final LanguageOption? selectedLanguage;
   final GoalOption? selectedGoal;
   final String? customGoal;
   final Map<String, List<String>> answers; // questionKey -> selected options
@@ -44,9 +46,11 @@ class OnboardingInProgress extends OnboardingState {
     required this.totalSteps,
     required this.questions,
     required this.goalOptions,
+    this.languageOptions = const [],
     this.firstName,
     this.age,
     this.location,
+    this.selectedLanguage,
     this.selectedGoal,
     this.customGoal,
     this.answers = const {},
@@ -102,9 +106,11 @@ class OnboardingInProgress extends OnboardingState {
     int? totalSteps,
     List<OnboardingQuestion>? questions,
     List<GoalOption>? goalOptions,
+    List<LanguageOption>? languageOptions,
     String? firstName,
     int? age,
     String? location,
+    LanguageOption? selectedLanguage,
     GoalOption? selectedGoal,
     String? customGoal,
     Map<String, List<String>>? answers,
@@ -115,9 +121,11 @@ class OnboardingInProgress extends OnboardingState {
       totalSteps: totalSteps ?? this.totalSteps,
       questions: questions ?? this.questions,
       goalOptions: goalOptions ?? this.goalOptions,
+      languageOptions: languageOptions ?? this.languageOptions,
       firstName: firstName ?? this.firstName,
       age: age ?? this.age,
       location: location ?? this.location,
+      selectedLanguage: selectedLanguage ?? this.selectedLanguage,
       selectedGoal: selectedGoal ?? this.selectedGoal,
       customGoal: customGoal ?? this.customGoal,
       answers: answers ?? this.answers,
@@ -131,9 +139,11 @@ class OnboardingInProgress extends OnboardingState {
     totalSteps,
     questions,
     goalOptions,
+    languageOptions,
     firstName,
     age,
     location,
+    selectedLanguage,
     selectedGoal,
     customGoal,
     answers,

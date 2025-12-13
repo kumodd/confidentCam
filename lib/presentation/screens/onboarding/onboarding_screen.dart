@@ -470,7 +470,97 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
             icon: Icons.location_on_outlined,
             onChanged: (_) => _updateInfo(),
           ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
+
+          const SizedBox(height: 24),
+
+          // Language Selection
+          if (widget.state.languageOptions.isNotEmpty) ...[
+            Text(
+              'Script Language',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Colors.white70,
+              ),
+            ).animate().fadeIn(delay: 450.ms, duration: 400.ms),
+            const SizedBox(height: 8),
+            Text(
+              'Choose the language for your daily scripts',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white38,
+              ),
+            ).animate().fadeIn(delay: 475.ms, duration: 400.ms),
+            const SizedBox(height: 12),
+            _buildLanguageSelector(context).animate().fadeIn(delay: 500.ms, duration: 400.ms),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageSelector(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF252538),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<LanguageOption>(
+          value: widget.state.selectedLanguage,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF252538),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
+          hint: const Text(
+            'Select language',
+            style: TextStyle(color: Colors.white38),
+          ),
+          items: widget.state.languageOptions.map((lang) {
+            return DropdownMenuItem<LanguageOption>(
+              value: lang,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.language,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          lang.nativeName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (lang.description != null)
+                          Text(
+                            lang.description!,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (lang) {
+            if (lang != null) {
+              context.read<OnboardingBloc>().add(LanguageSelected(lang));
+            }
+          },
+        ),
       ),
     );
   }

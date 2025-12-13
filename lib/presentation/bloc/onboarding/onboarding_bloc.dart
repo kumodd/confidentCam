@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/utils/logger.dart';
+import '../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../../services/openai_service.dart';
 import '../../../domain/repositories/script_repository.dart';
@@ -10,6 +11,7 @@ import 'onboarding_state.dart';
 /// BLoC for handling dynamic onboarding flow.
 class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final SupabaseOnboardingDataSource onboardingDataSource;
+  final SupabaseLanguageDataSource languageDataSource;
   final ScriptRepository scriptRepository;
   final OpenAiService openAiService;
 
@@ -18,11 +20,13 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
 
   OnboardingBloc({
     required this.onboardingDataSource,
+    required this.languageDataSource,
     required this.scriptRepository,
     required this.openAiService,
   }) : super(const OnboardingInitial()) {
     on<OnboardingStarted>(_onStarted);
     on<PersonalInfoUpdated>(_onPersonalInfoUpdated);
+    on<LanguageSelected>(_onLanguageSelected);
     on<GoalSelected>(_onGoalSelected);
     on<AnswerToggled>(_onAnswerToggled);
     on<OnboardingNextRequested>(_onNextRequested);
@@ -37,16 +41,21 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     emit(const OnboardingLoading());
 
     try {
-      // Load questions and goals from Supabase
+      // Load questions, goals, and language options from Supabase
       final questions = await onboardingDataSource.getQuestions();
       final goalOptions = await onboardingDataSource.getGoalOptions();
+      final languageOptions = await languageDataSource.getLanguageOptions();
 
       logger.i(
-        'Loaded ${questions.length} questions, ${goalOptions.length} goals',
+        'Loaded ${questions.length} questions, ${goalOptions.length} goals, ${languageOptions.length} languages',
       );
 
       // Total steps: personal info (1) + goal (1) + dynamic questions
       final totalSteps = 2 + questions.length;
+
+      // Default to first language option or English
+      final defaultLanguage =
+          languageOptions.isNotEmpty ? languageOptions.first : null;
 
       emit(
         OnboardingInProgress(
@@ -55,6 +64,8 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
           totalSteps: totalSteps,
           questions: questions,
           goalOptions: goalOptions,
+          languageOptions: languageOptions,
+          selectedLanguage: defaultLanguage,
         ),
       );
     } catch (e) {
@@ -76,6 +87,16 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
           location: event.location ?? current.location,
         ),
       );
+    }
+  }
+
+  void _onLanguageSelected(
+    LanguageSelected event,
+    Emitter<OnboardingState> emit,
+  ) {
+    if (state is OnboardingInProgress) {
+      final current = state as OnboardingInProgress;
+      emit(current.copyWith(selectedLanguage: event.language));
     }
   }
 
@@ -207,12 +228,17 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
           current.selectedGoal?.text ??
           'build camera confidence';
 
+      // Get selected language code (default to 'en' if none selected)
+      final languageCode = current.selectedLanguage?.code ?? 'en';
+      logger.i('Generating scripts in language: $languageCode');
+
       final scripts = await openAiService.generateScripts(
         firstName: personalInfo.firstName,
         age: personalInfo.age,
         location: personalInfo.location,
         goal: goal,
         onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
+        language: languageCode,
       );
 
       logger.i('OpenAI generation complete: ${scripts.length} scripts');
