@@ -51,12 +51,13 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
   ) async {
     try {
       logger.d('Fetching script for day $dayNumber');
-      final response = await client
-          .from(AppConstants.dailyScriptsTable)
-          .select()
-          .eq('user_id', userId)
-          .eq('day_number', dayNumber)
-          .maybeSingle();
+      final response =
+          await client
+              .from(AppConstants.dailyScriptsTable)
+              .select()
+              .eq('user_id', userId)
+              .eq('day_number', dayNumber)
+              .maybeSingle();
 
       return response;
     } catch (e) {
@@ -71,14 +72,28 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
   @override
   Future<void> saveScripts(List<Map<String, dynamic>> scripts) async {
     try {
-      logger.i('Saving ${scripts.length} scripts');
+      logger.i('=== SAVING SCRIPTS TO SUPABASE ===');
+      logger.i('Total scripts to save: ${scripts.length}');
+
+      if (scripts.isNotEmpty) {
+        logger.i('First script sample:');
+        logger.i('  - id: ${scripts.first['id']}');
+        logger.i('  - user_id: ${scripts.first['user_id']}');
+        logger.i('  - day_number: ${scripts.first['day_number']}');
+        logger.i('  - script_type: ${scripts.first['script_type']}');
+        logger.i(
+          '  - script_json keys: ${(scripts.first['script_json'] as Map?)?.keys.toList()}',
+        );
+      }
+
       await client
           .from(AppConstants.dailyScriptsTable)
           .upsert(scripts, onConflict: 'user_id,day_number');
 
-      logger.i('Scripts saved successfully');
+      logger.i('=== SCRIPTS SAVED TO SUPABASE SUCCESSFULLY ===');
     } catch (e) {
-      logger.e('Error saving scripts', e);
+      logger.e('=== FAILED TO SAVE SCRIPTS TO SUPABASE ===');
+      logger.e('Error: $e');
       throw ServerException(
         message: 'Failed to save scripts',
         originalError: e,

@@ -66,6 +66,7 @@ class VideoInfo {
   final String path;
   final String type; // 'warmup' or 'daily'
   final int dayOrWarmupIndex;
+  final int takeNumber;
   final DateTime createdAt;
   final int sizeBytes;
 
@@ -73,15 +74,16 @@ class VideoInfo {
     required this.path,
     required this.type,
     required this.dayOrWarmupIndex,
+    this.takeNumber = 1,
     required this.createdAt,
     required this.sizeBytes,
   });
 
   String get displayName {
     if (type == 'warmup') {
-      return 'Warmup ${dayOrWarmupIndex + 1}';
+      return 'Warmup ${dayOrWarmupIndex + 1} - Take $takeNumber';
     }
-    return 'Day $dayOrWarmupIndex';
+    return 'Day $dayOrWarmupIndex - Take $takeNumber';
   }
 }
 
@@ -426,11 +428,14 @@ class VideoStorageServiceImpl implements VideoStorageService {
     final videos = <VideoInfo>[];
     final appDir = await _getAppDir();
 
-    // Get warmup videos
+    // Get warmup videos and group by warmup index to calculate take numbers
     final warmupDir = Directory(
       '${appDir.path}/${AppConstants.warmupsFolderName}',
     );
     if (await warmupDir.exists()) {
+      // Group warmup files by index
+      final warmupsByIndex = <int, List<Map<String, dynamic>>>{};
+
       await for (final entity in warmupDir.list()) {
         if (entity is File && entity.path.endsWith('.mp4')) {
           final stat = await entity.stat();
@@ -443,13 +448,30 @@ class VideoStorageServiceImpl implements VideoStorageService {
             warmupIndex = int.parse(match.group(1)!);
           }
 
+          warmupsByIndex.putIfAbsent(warmupIndex, () => []);
+          warmupsByIndex[warmupIndex]!.add({'path': entity.path, 'stat': stat});
+        }
+      }
+
+      // Sort and assign take numbers within each warmup index
+      for (final warmupIndex in warmupsByIndex.keys) {
+        final warmupFiles = warmupsByIndex[warmupIndex]!;
+        warmupFiles.sort(
+          (a, b) => (a['stat'] as FileStat).modified.compareTo(
+            (b['stat'] as FileStat).modified,
+          ),
+        );
+
+        for (var i = 0; i < warmupFiles.length; i++) {
+          final file = warmupFiles[i];
           videos.add(
             VideoInfo(
-              path: entity.path,
+              path: file['path'] as String,
               type: 'warmup',
               dayOrWarmupIndex: warmupIndex,
-              createdAt: stat.modified,
-              sizeBytes: stat.size,
+              takeNumber: i + 1,
+              createdAt: (file['stat'] as FileStat).modified,
+              sizeBytes: (file['stat'] as FileStat).size,
             ),
           );
         }
@@ -468,19 +490,45 @@ class VideoStorageServiceImpl implements VideoStorageService {
           if (dayMatch != null) {
             final dayNumber = int.parse(dayMatch.group(1)!);
 
+            // Collect all files for this day
+            final dayFiles = <Map<String, dynamic>>[];
             await for (final entity in dayFolder.list()) {
               if (entity is File && entity.path.endsWith('.mp4')) {
                 final stat = await entity.stat();
-                videos.add(
-                  VideoInfo(
-                    path: entity.path,
-                    type: 'daily',
-                    dayOrWarmupIndex: dayNumber,
-                    createdAt: stat.modified,
-                    sizeBytes: stat.size,
-                  ),
-                );
+                final filename = entity.path.split('/').last;
+
+                // Try to extract take number from filename
+                int takeNumber = 1;
+                final takeMatch = RegExp(r'take_(\d+)').firstMatch(filename);
+                if (takeMatch != null) {
+                  takeNumber = int.parse(takeMatch.group(1)!);
+                }
+
+                dayFiles.add({
+                  'path': entity.path,
+                  'stat': stat,
+                  'takeNumber': takeNumber,
+                });
               }
+            }
+
+            // Sort by take number (or by date if take numbers are missing)
+            dayFiles.sort(
+              (a, b) =>
+                  (a['takeNumber'] as int).compareTo(b['takeNumber'] as int),
+            );
+
+            for (final file in dayFiles) {
+              videos.add(
+                VideoInfo(
+                  path: file['path'] as String,
+                  type: 'daily',
+                  dayOrWarmupIndex: dayNumber,
+                  takeNumber: file['takeNumber'] as int,
+                  createdAt: (file['stat'] as FileStat).modified,
+                  sizeBytes: (file['stat'] as FileStat).size,
+                ),
+              );
             }
           }
         }

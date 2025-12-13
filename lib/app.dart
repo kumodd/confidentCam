@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'presentation/bloc/auth/auth_bloc.dart';
 import 'presentation/bloc/auth/auth_state.dart';
 import 'presentation/bloc/network/network_bloc.dart';
-import 'presentation/screens/auth/phone_entry_screen.dart';
+import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/progress/dashboard_screen.dart';
 import 'presentation/widgets/common/network_status_banner.dart';
@@ -53,7 +53,7 @@ class _AuthWrapper extends StatelessWidget {
               );
             }
 
-            return const PhoneEntryScreen();
+            return const LoginScreen();
           },
         ),
         // Network status banner at top

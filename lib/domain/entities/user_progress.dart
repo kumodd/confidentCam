@@ -77,12 +77,20 @@ class UserProgress extends Equatable {
   /// 1. All warmups complete
   /// 2. Day is <= currentDay (already completed), OR
   /// 3. Day is currentDay + 1 AND it's a new calendar day since last completion
-  bool isDayUnlocked(int day) {
+  /// 4. DevMode is enabled (bypasses all restrictions)
+  /// 5. Premium user can access without waiting
+  bool isDayUnlocked(int day, {bool devMode = false, bool isPremium = false}) {
     if (day < 1 || day > 30) return false;
     if (!allWarmupsComplete) return false;
 
+    // DevMode bypasses all day restrictions
+    if (devMode) return true;
+
     // Already completed days are always unlocked
     if (day <= currentDay) return true;
+
+    // Premium users can access next day without waiting
+    if (isPremium && day == currentDay + 1) return true;
 
     // Next day (currentDay + 1) is only unlocked if it's a new calendar day
     if (day == currentDay + 1) {

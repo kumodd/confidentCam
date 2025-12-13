@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_event.dart';
 import '../../bloc/daily_challenge/daily_challenge_state.dart';
-import 'day_recording_screen.dart';
+import '../warmup/warmup_recording_screen.dart';
 import 'day_review_screen.dart';
 
 /// Day challenge overview screen - shows script and tips before recording.
@@ -372,16 +372,104 @@ class _DayChallengeOverviewScreenState
   }
 
   void _startRecording() {
+    final state = context.read<DailyChallengeBloc>().state;
+    if (state is! DayChallengeReady) return;
+
+    // Show warning if user already has recordings for this day
+    if (state.takes.isNotEmpty) {
+      _showReRecordWarning(state);
+      return;
+    }
+
+    _navigateToRecording(state);
+  }
+
+  void _showReRecordWarning(DayChallengeReady state) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFFBBF24),
+                  size: 28,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Re-record Day?',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'You have already completed Day ${widget.dayNumber}!\n\n'
+              'Recording again will add another take. Your previous recordings will still be saved.\n\n'
+              'Do you want to continue?',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _navigateToRecording(state);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                ),
+                child: const Text('Record Anyway'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _navigateToRecording(DayChallengeReady state) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder:
-            (_) => DayRecordingScreen(
-              userId: widget.userId,
-              dayNumber: widget.dayNumber,
+            (_) => BlocProvider.value(
+              value: context.read<DailyChallengeBloc>(),
+              child: WarmupRecordingScreen.dailyChallenge(
+                userId: widget.userId,
+                dayNumber: widget.dayNumber,
+                script: state.script.fullText,
+              ),
             ),
       ),
-    );
+    ).then((videoPath) {
+      // Handle returned video path from recording
+      if (videoPath != null && videoPath is String && mounted) {
+        context.read<DailyChallengeBloc>().add(RecordingStopped(videoPath));
+
+        // Navigate to DayReviewScreen after recording
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => BlocProvider.value(
+                  value: context.read<DailyChallengeBloc>(),
+                  child: DayReviewScreen(
+                    dayNumber: widget.dayNumber,
+                    userId: widget.userId,
+                  ),
+                ),
+          ),
+        );
+      }
+    });
   }
 
   void _previewExistingTakes(DayChallengeReady state) {

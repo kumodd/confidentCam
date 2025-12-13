@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/di/injection_container.dart';
 import '../../../domain/entities/user.dart';
+import '../../../domain/repositories/script_repository.dart';
 import '../../bloc/onboarding/onboarding_bloc.dart';
 import '../../bloc/onboarding/onboarding_event.dart';
 import '../../bloc/progress/progress_bloc.dart';
@@ -45,26 +46,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
       context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
 
-      // If new user, navigate to onboarding
-      if (widget.isNewUser) {
-        _navigateToOnboarding();
-      }
+      // Check scripts and navigate accordingly
+      _checkScriptsAndNavigate();
     });
   }
 
+  Future<void> _checkScriptsAndNavigate() async {
+    final scriptRepository = sl<ScriptRepository>();
+
+    // Check if scripts exist in database
+    final hasScripts = await scriptRepository.hasLocalScripts(widget.user.id);
+
+    if (!mounted) return;
+
+    // If no scripts exist or new user, force onboarding
+    if (!hasScripts || widget.isNewUser) {
+      _navigateToOnboarding();
+    }
+  }
+
   void _navigateToOnboarding() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create:
-                  (_) =>
-                      sl<OnboardingBloc>()
-                        ..add(OnboardingStarted(widget.user.id)),
-              child: const OnboardingScreen(),
-            ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder:
+                (_) => BlocProvider(
+                  create:
+                      (_) =>
+                          sl<OnboardingBloc>()
+                            ..add(OnboardingStarted(widget.user.id)),
+                  child: const OnboardingScreen(),
+                ),
+          ),
+        )
+        .then((result) {
+          // Reload data after onboarding completes
+          if (result == true && mounted) {
+            context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
+            context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
+          }
+        });
   }
 
   @override
@@ -124,7 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       radius: 24,
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       child: Text(
-                        (widget.user.displayName ?? 'C')[0].toUpperCase(),
+                        (widget.user.displayName ?? 'C'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

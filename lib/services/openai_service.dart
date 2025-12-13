@@ -38,7 +38,6 @@ class OpenAiService {
       return scripts;
     } catch (e) {
       logger.e('Failed to generate scripts', e);
-      // Rethrow with actual error message
       rethrow;
     }
   }
@@ -62,21 +61,40 @@ This is Extension $extensionNumber, covering Days $startDay to $endDay.
 Their goal: $goal
 
 Generate ${endDay - startDay + 1} advanced video scripts that build on the foundational skills.
-Focus on:
+
+Focus areas:
 - Advanced techniques
 - Niche-specific content for their goal
 - Collaboration and engagement strategies
 - Monetization tips (if relevant)
 - Building a consistent content calendar
 
+STRICT 3-PART SCRIPT FORMAT:
+Each script MUST have exactly 3 parts containing ONLY spoken words:
+- part1: Hook/Opening (20-40 words) - Grab attention immediately
+- part2: Content/Body (80-150 words) - Deliver main value
+- part3: Close/Ending (20-40 words) - End with impact
+
+CRITICAL RULES:
+1. Write ONLY the exact words to speak aloud
+2. NO tips, instructions, or suggestions
+3. NO labels like "Hook:", "Part 1:", "[pause]"
+4. NO meta phrases like "In this video", "Today I'll show you"
+5. Use short sentences (max 12 words each)
+6. Use "..." for natural pause points
+
 Return a JSON array with each script having:
 {
   "dayNumber": <number>,
   "title": "<catchy title>",
-  "script": "<full script text 100-200 words>",
+  "part1": "<hook text - spoken words only>",
+  "part2": "<content text - spoken words only>",
+  "part3": "<closing text - spoken words only>",
   "focus": "<main skill focus>",
   "duration": "<recommended video duration>"
 }
+
+IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 ''';
 
     try {
@@ -112,8 +130,20 @@ Create 3 short warmup scripts (30-60 seconds each) that:
 - Are encouraging and personal
 - Build confidence progressively
 - Use their name and goal naturally
-- Feel natural to read aloud
-- Are written in the specified language
+
+STRICT 3-PART SCRIPT FORMAT:
+Each script MUST have exactly 3 parts containing ONLY spoken words:
+- part1: Hook/Opening (15-25 words) - Energizing opener
+- part2: Content/Body (40-60 words) - Building confidence
+- part3: Close/Ending (15-25 words) - Ready to go statement
+
+CRITICAL RULES:
+1. Write ONLY the exact words to speak aloud
+2. NO tips, instructions, or suggestions
+3. NO labels like "Hook:", "Part 1:", "[pause]"
+4. NO meta phrases like "In this video", "Today I'll show you"
+5. Use short sentences (max 12 words each)
+6. Use "..." for natural pause points
 
 Warmup 1: "First Steps" - Introduction to being on camera
 Warmup 2: "Finding Your Energy" - Building energy and presence  
@@ -123,7 +153,9 @@ Return a JSON array with 3 objects:
 {
   "warmupIndex": <0, 1, or 2>,
   "title": "<warmup title>",
-  "script": "<full script text 75-120 words>",
+  "part1": "<hook text - spoken words only>",
+  "part2": "<content text - spoken words only>",
+  "part3": "<closing text - spoken words only>",
   "focus": "<main focus of this warmup>"
 }
 
@@ -157,87 +189,91 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
         (answers['platform'] as List?)?.join(', ') ?? 'social media';
     final timeCommitment = answers['time_commitment'] ?? '10-20 minutes';
 
-    // Language instruction based on preference
     final languageInstruction = _getLanguageInstruction(language);
 
     return '''
-You are a camera confidence coach creating a personalized 30-day video challenge.
+You are a calm camera-confidence coach who helps fearful beginners speak through personal stories, not advice.
 
-$languageInstruction
+${_getLanguageInstruction(language)}
 
-USER PROFILE:
-- Name: $firstName
-- Age: $age
-- Location: $location
-- Goal: $goal
-- Challenges: $challenges
-- Content style preference: $contentStyle
-- Target platforms: $platforms
-- Daily time commitment: $timeCommitment
+USER:
+Name: $firstName
+Age: $age
+Location: $location
+Goal after 30 days: $goal
+Challenges: $challenges
+Style: $contentStyle
+Platforms: $platforms
+Daily time: $timeCommitment
 
-Create 30 unique, personalized video scripts with PROGRESSIVELY INCREASING DIFFICULTY:
+CORE PRINCIPLES:
+- Every script is a small personal story
+- Speaker discovers confidence while speaking
+- Fear, pauses, awkwardness are allowed
+- No teaching, no coaching, no authority tone
+- Confidence must naturally emerge by Day 30
 
-PHASE 1 - Foundation (Days 1-5): ~75-100 words each
-- Simple introductions with segmented practice
-- Focus on eye contact, breathing, and basic comfort
-- Include specific training segments with focus areas
+30-DAY STORY ARC:
+Days 1–5: Showing up despite fear  
+Days 6–12: Getting used to voice and presence  
+Days 13–20: Sharing thoughts and explaining ideas  
+Days 21–25: Feeling heard and accepted  
+Days 26–30: Feeling at home on camera  
 
-PHASE 2 - Building Confidence (Days 6-12): ~150-200 words each  
-- Longer continuous scripts
-- Introduce storytelling elements
-- Add personality and humor
+Each day must feel like the next page of one journey.
 
-PHASE 3 - Content Creation (Days 13-20): ~250-350 words each
-- Niche-specific content for their goal: $goal
-- Teach them to structure valuable content
-- Hook, content, call-to-action format
+SCRIPT FORMAT (STRICT):
+Exactly 3 parts. Spoken words only.
+- part1: Opening story moment
+- part2: Inner thought or realization
+- part3: Soft closing that moves forward
 
-PHASE 4 - Advanced Skills (Days 21-25): ~400-500 words each
-- Complex multi-topic scripts
-- Engagement strategies for $platforms
-- Building authority in their niche
+WORD LIMITS:
+Days 1–5: 20–30 / 50–80 / 20–30  
+Days 6–12: 25–40 / 80–120 / 25–40  
+Days 13–20: 30–45 / 120–180 / 30–45  
+Days 21–25: 35–55 / 180–240 / 35–55  
+Days 26–30: 45–65 / 260–320 / 45–65  
 
-PHASE 5 - Mastery (Days 26-30): ~500-600 words each
-- Professional-quality long-form scripts
-- Complete episodes/videos
-- Monetization and growth tips related to $goal
+LANGUAGE RULES:
+- Max 12 words per sentence
+- Use "..." for pauses
+- No questions to audience
+- No commands or advice
+- No meta phrases:
+  “In this video”, “Today I will”, “Let me explain”, “Tips”
 
-Each script MUST:
-- Be personalized with their name ($firstName) and location ($location)
-- Address their specific challenges: $challenges
-- Relate directly to their goal: $goal
-- Match their content style: $contentStyle
-- Include actionable speaking prompts
-- Be written in the specified language
+PERSONALIZATION:
+- Use $firstName naturally in early days only
+- Casual references to $location
+- Reflect beginner thoughts tied to $challenges
+- Align growth slowly with $goal
 
-For Days 1-5, include "segments" array with 3-4 parts each having "text" and "focus".
-For Days 6-30, include full "script" text with the word count specified above.
+OUTPUT:
+Return ONLY a valid JSON array of 30 objects.
 
-Return a JSON array with 30 objects:
+Each object:
 {
   "dayNumber": <1-30>,
-  "title": "<catchy title>",
-  "scriptType": "<segmented or full>",
-  "segments": [{"part": 1, "text": "...", "focus": "..."}] // for days 1-5
-  "script": "<full script text>" // for days 6-30
-  "focus": "<main skill focus>",
-  "wordCount": <actual word count>,
-  "estimatedDuration": "<e.g., 30 seconds, 2 minutes, 3-4 minutes>"
+  "title": "<short emotional title>",
+  "part1": "<spoken words only>",
+  "part2": "<spoken words only>",
+  "part3": "<spoken words only>",
+  "focus": "<story focus>",
+  "duration": "<estimated duration>"
 }
-
-IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
-''';
+''';  
   }
 
   String _getLanguageInstruction(String language) {
     switch (language) {
       case 'hi':
-        return 'LANGUAGE: Write all scripts in Hindi (हिन्दी). Use Devanagari script.';
+        return 'LANGUAGE: Write all script parts in Hindi (हिन्दी). Use Devanagari script.';
       case 'hinglish':
-        return 'LANGUAGE: Write all scripts in Hinglish - a natural mix of Hindi and English commonly used by Indian content creators. Mix the languages naturally as young Indians speak, using Roman script.';
+        return 'LANGUAGE: Write all script parts in Hinglish - a natural mix of Hindi and English commonly used by Indian content creators. Mix the languages naturally as young Indians speak, using Roman script.';
       case 'en':
       default:
-        return 'LANGUAGE: Write all scripts in English.';
+        return 'LANGUAGE: Write all script parts in English.';
     }
   }
 
@@ -264,12 +300,12 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
             {
               'role': 'system',
               'content':
-                  'You are a helpful camera confidence coach. Always respond with valid JSON only.',
+                  'You are a helpful camera confidence coach. You generate teleprompter scripts containing ONLY spoken words. Always respond with valid JSON only. Never include instructions, labels, or meta-commentary in scripts.',
             },
             {'role': 'user', 'content': prompt},
           ],
-          'max_tokens': AppConfig.maxScriptTokens,
-          'temperature': 0.7,
+          'max_completion_tokens': AppConfig.maxScriptTokens,
+          'temperature': 1,
         }),
       );
 
@@ -279,7 +315,6 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
         final errorBody = response.body;
         logger.e('OpenAI API error: ${response.statusCode} - $errorBody');
 
-        // Parse error message from response
         String errorMessage = 'OpenAI API error (${response.statusCode})';
         try {
           final errorData = jsonDecode(errorBody);
@@ -294,7 +329,6 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 
       final data = jsonDecode(response.body);
 
-      // Check if response was truncated
       final finishReason = data['choices']?[0]?['finish_reason'];
       logger.d('OpenAI: finish_reason = $finishReason');
 
@@ -323,7 +357,6 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
     logger.d('Parsing: Starting to parse OpenAI response');
     logger.d('Parsing: Response length: ${response.length} characters');
 
-    // Clean up response - remove markdown code blocks if present
     var cleaned = response.trim();
 
     if (cleaned.startsWith('```json')) {
@@ -342,7 +375,6 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 
     logger.d('Parsing: Cleaned response length: ${cleaned.length} characters');
 
-    // Check if JSON looks complete
     if (!cleaned.endsWith(']')) {
       logger.e('Parsing: Response appears truncated - does not end with ]');
       logger.e(
@@ -370,6 +402,24 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
         'Failed to parse OpenAI response. The response may be truncated or malformed. Error: $e',
       );
     }
+  }
+
+  /// Get the full combined script text from a script map
+  static String getFullScript(Map<String, dynamic> script) {
+    final part1 = script['part1'] ?? '';
+    final part2 = script['part2'] ?? '';
+    final part3 = script['part3'] ?? '';
+
+    return '$part1\n\n$part2\n\n$part3'.trim();
+  }
+
+  /// Get script parts as a list for teleprompter display
+  static List<String> getScriptParts(Map<String, dynamic> script) {
+    return [
+      script['part1'].toString(),
+      script['part2'].toString(),
+      script['part3'].toString(),
+    ].where((part) => part.isNotEmpty).toList();
   }
 
   void dispose() {

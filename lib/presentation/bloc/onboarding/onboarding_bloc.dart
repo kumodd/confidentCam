@@ -13,6 +13,9 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final ScriptRepository scriptRepository;
   final OpenAiService openAiService;
 
+  /// Cache the last valid in-progress state for retry functionality
+  OnboardingInProgress? _lastValidState;
+
   OnboardingBloc({
     required this.onboardingDataSource,
     required this.scriptRepository,
@@ -151,9 +154,24 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     OnboardingSubmitted event,
     Emitter<OnboardingState> emit,
   ) async {
-    if (state is! OnboardingInProgress) return;
+    // Get the state to use - either current OnboardingInProgress or cached state for retry
+    late OnboardingInProgress current;
 
-    final current = state as OnboardingInProgress;
+    if (state is OnboardingInProgress) {
+      current = state as OnboardingInProgress;
+      _lastValidState = current; // Cache for potential retry
+    } else if (_lastValidState != null) {
+      // Retry scenario - use cached state
+      current = _lastValidState!;
+      logger.i('Using cached state for retry');
+    } else {
+      logger.e('No valid state for submission');
+      emit(
+        const OnboardingFailure('Unable to retry. Please restart onboarding.'),
+      );
+      return;
+    }
+
     final personalInfo = current.toPersonalInfo();
 
     emit(
@@ -172,6 +190,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
 
       if (hasScripts) {
         logger.i('Scripts already exist, skipping OpenAI generation');
+        _lastValidState = null; // Clear cache on success
         emit(const OnboardingComplete());
         return;
       }
@@ -196,16 +215,34 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
       );
 
+      logger.i('OpenAI generation complete: ${scripts.length} scripts');
+
       // Save scripts to repository
-      await scriptRepository.saveGeneratedScripts(
+      logger.i('Saving scripts to repository...');
+      final saveResult = await scriptRepository.saveGeneratedScripts(
         userId: current.userId,
         scripts: scripts,
       );
 
-      logger.i('Onboarding complete - ${scripts.length} scripts generated');
+      // Check if save was successful
+      saveResult.fold(
+        (failure) {
+          logger.e('Failed to save scripts: ${failure.message}');
+          throw Exception('Failed to save scripts: ${failure.message}');
+        },
+        (_) {
+          logger.i('Scripts saved successfully!');
+        },
+      );
+
+      logger.i(
+        'Onboarding complete - ${scripts.length} scripts generated and saved',
+      );
+      _lastValidState = null; // Clear cache on success
       emit(const OnboardingComplete());
     } catch (e) {
       logger.e('Onboarding error', e);
+      // Keep _lastValidState so retry can use it
       emit(OnboardingFailure('Error: ${e.toString()}'));
     }
   }

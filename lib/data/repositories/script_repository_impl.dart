@@ -415,9 +415,13 @@ class ScriptRepositoryImpl implements ScriptRepository {
       }
 
       // Cache locally
-      logger.d('SaveScripts: Caching locally...');
+      logger.i('========================================');
+      logger.i('>>> STARTING LOCAL CACHE SAVE <<<');
+      logger.i('========================================');
       await localDataSource.cacheScripts(formattedScripts);
-      logger.i('SaveScripts: Cached locally successfully');
+      logger.i('========================================');
+      logger.i('>>> LOCAL CACHE SAVE COMPLETE <<<');
+      logger.i('========================================');
 
       return const Right(null);
     } catch (e, stackTrace) {

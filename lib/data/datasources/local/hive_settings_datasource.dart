@@ -47,6 +47,18 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
           AppConstants.teleprompterTextColorKey,
           defaultValue: AppConstants.defaultTextColor,
         ),
+        AppConstants.teleprompterHeightKey: settingsBox.get(
+          AppConstants.teleprompterHeightKey,
+          defaultValue: AppConstants.defaultTeleprompterHeight,
+        ),
+        AppConstants.teleprompterOpacityKey: settingsBox.get(
+          AppConstants.teleprompterOpacityKey,
+          defaultValue: AppConstants.defaultTeleprompterOpacity,
+        ),
+        'auto_scroll_enabled': settingsBox.get(
+          'auto_scroll_enabled',
+          defaultValue: true,
+        ),
         AppConstants.defaultCameraKey: settingsBox.get(
           AppConstants.defaultCameraKey,
           defaultValue: 'front',
@@ -54,6 +66,10 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
         AppConstants.videoQualityKey: settingsBox.get(
           AppConstants.videoQualityKey,
           defaultValue: '1080p',
+        ),
+        AppConstants.languagePreferenceKey: settingsBox.get(
+          AppConstants.languagePreferenceKey,
+          defaultValue: 'en',
         ),
       };
     } catch (e) {
@@ -67,8 +83,13 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
     AppConstants.teleprompterSpeedKey: AppConstants.defaultScrollSpeed,
     AppConstants.teleprompterFontSizeKey: AppConstants.defaultFontSize,
     AppConstants.teleprompterTextColorKey: AppConstants.defaultTextColor,
+    AppConstants.teleprompterHeightKey: AppConstants.defaultTeleprompterHeight,
+    AppConstants.teleprompterOpacityKey:
+        AppConstants.defaultTeleprompterOpacity,
+    'auto_scroll_enabled': true,
     AppConstants.defaultCameraKey: 'front',
     AppConstants.videoQualityKey: '1080p',
+    AppConstants.languagePreferenceKey: 'en',
   };
 
   @override

@@ -14,13 +14,13 @@ class AppConstants {
   static const String displayNameKey = 'display_name';
 
   // Progress Keys
-  static const String warmup0Key = 'warmup_0_complete';
-  static const String warmup1Key = 'warmup_1_complete';
-  static const String warmup2Key = 'warmup_2_complete';
+  static const String warmup0Key = 'warmup_0_done';
+  static const String warmup1Key = 'warmup_1_done';
+  static const String warmup2Key = 'warmup_2_done';
   static const String currentDayKey = 'current_day';
-  static const String streakKey = 'streak';
+  static const String streakKey = 'streak_count';
   static const String longestStreakKey = 'longest_streak';
-  static const String lastCompletedDateKey = 'last_completed_date';
+  static const String lastCompletedDateKey = 'last_completion_date';
 
   // Settings Keys
   static const String reminderTimeKey = 'reminder_time';

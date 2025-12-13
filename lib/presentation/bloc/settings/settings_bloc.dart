@@ -13,6 +13,7 @@ class Settings extends Equatable {
   final String teleprompterTextColor;
   final double teleprompterHeight;
   final double teleprompterOpacity;
+  final bool autoScrollEnabled;
   final String defaultCamera;
   final String videoQuality;
   final String languagePreference;
@@ -24,6 +25,7 @@ class Settings extends Equatable {
     required this.teleprompterTextColor,
     required this.teleprompterHeight,
     required this.teleprompterOpacity,
+    required this.autoScrollEnabled,
     required this.defaultCamera,
     required this.videoQuality,
     required this.languagePreference,
@@ -36,6 +38,7 @@ class Settings extends Equatable {
     teleprompterTextColor: 'white',
     teleprompterHeight: 0.25,
     teleprompterOpacity: 0.85,
+    autoScrollEnabled: true,
     defaultCamera: 'front',
     videoQuality: '1080p',
     languagePreference: 'en',
@@ -53,6 +56,7 @@ class Settings extends Equatable {
     teleprompterTextColor,
     teleprompterHeight,
     teleprompterOpacity,
+    autoScrollEnabled,
     defaultCamera,
     videoQuality,
     languagePreference,
@@ -91,6 +95,13 @@ class TeleprompterFontSizeUpdated extends SettingsEvent {
   List<Object?> get props => [fontSize];
 }
 
+class TeleprompterTextColorUpdated extends SettingsEvent {
+  final String color;
+  const TeleprompterTextColorUpdated(this.color);
+  @override
+  List<Object?> get props => [color];
+}
+
 class TeleprompterHeightUpdated extends SettingsEvent {
   final double height;
   const TeleprompterHeightUpdated(this.height);
@@ -103,6 +114,13 @@ class TeleprompterOpacityUpdated extends SettingsEvent {
   const TeleprompterOpacityUpdated(this.opacity);
   @override
   List<Object?> get props => [opacity];
+}
+
+class AutoScrollToggled extends SettingsEvent {
+  final bool enabled;
+  const AutoScrollToggled(this.enabled);
+  @override
+  List<Object?> get props => [enabled];
 }
 
 class DefaultCameraUpdated extends SettingsEvent {
@@ -158,8 +176,10 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<ReminderTimeUpdated>(_onReminderTimeUpdated);
     on<TeleprompterSpeedUpdated>(_onSpeedUpdated);
     on<TeleprompterFontSizeUpdated>(_onFontSizeUpdated);
+    on<TeleprompterTextColorUpdated>(_onTextColorUpdated);
     on<TeleprompterHeightUpdated>(_onHeightUpdated);
     on<TeleprompterOpacityUpdated>(_onOpacityUpdated);
+    on<AutoScrollToggled>(_onAutoScrollToggled);
     on<DefaultCameraUpdated>(_onCameraUpdated);
     on<LanguagePreferenceUpdated>(_onLanguageUpdated);
   }
@@ -196,6 +216,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
           teleprompterOpacity:
               (data[AppConstants.teleprompterOpacityKey] as num?)?.toDouble() ??
               AppConstants.defaultTeleprompterOpacity,
+          autoScrollEnabled: data['auto_scroll_enabled'] as bool? ?? true,
           defaultCamera:
               data[AppConstants.defaultCameraKey] as String? ?? 'front',
           videoQuality:
@@ -239,6 +260,17 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     add(const SettingsLoaded());
   }
 
+  Future<void> _onTextColorUpdated(
+    TeleprompterTextColorUpdated event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await settingsDataSource.saveSetting(
+      AppConstants.teleprompterTextColorKey,
+      event.color,
+    );
+    add(const SettingsLoaded());
+  }
+
   Future<void> _onHeightUpdated(
     TeleprompterHeightUpdated event,
     Emitter<SettingsState> emit,
@@ -258,6 +290,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       AppConstants.teleprompterOpacityKey,
       event.opacity,
     );
+    add(const SettingsLoaded());
+  }
+
+  Future<void> _onAutoScrollToggled(
+    AutoScrollToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await settingsDataSource.saveSetting('auto_scroll_enabled', event.enabled);
     add(const SettingsLoaded());
   }
 

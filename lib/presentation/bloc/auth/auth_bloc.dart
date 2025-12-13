@@ -16,6 +16,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ResendOtpRequested>(_onResendOtp);
     on<LogoutRequested>(_onLogout);
     on<AccountDeletionRequested>(_onDeleteAccount);
+    on<EmailSignUpRequested>(_onEmailSignUp);
+    on<EmailSignInRequested>(_onEmailSignIn);
   }
 
   Future<void> _onSessionCheck(
@@ -124,6 +126,59 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       (_) {
         logger.i('Account deleted');
         emit(const AuthLoggedOut());
+      },
+    );
+  }
+
+  Future<void> _onEmailSignUp(
+    EmailSignUpRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await authRepository.signUpWithEmail(
+      event.email,
+      event.password,
+      phone: event.phone,
+    );
+
+    result.fold(
+      (failure) {
+        logger.e('Email sign up failed: ${failure.message}');
+        emit(AuthFailure(message: failure.message));
+      },
+      (data) {
+        final (user, isNewUser) = data;
+        logger.i('Email sign up successful. New user: $isNewUser');
+
+        // Always show confirmation screen for email signup
+        // Supabase requires email confirmation by default
+        logger.i('Email confirmation required for: ${event.email}');
+        emit(EmailConfirmationRequired(email: event.email));
+      },
+    );
+  }
+
+  Future<void> _onEmailSignIn(
+    EmailSignInRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await authRepository.signInWithEmail(
+      event.email,
+      event.password,
+    );
+
+    result.fold(
+      (failure) {
+        logger.e('Email sign in failed: ${failure.message}');
+        emit(AuthFailure(message: failure.message));
+      },
+      (data) {
+        final (user, isNewUser) = data;
+        logger.i('Email sign in successful. New user: $isNewUser');
+        emit(AuthSuccess(user: user, isNewUser: isNewUser));
       },
     );
   }

@@ -10,8 +10,16 @@ class AppConfig {
       'sb_publishable_Bg4FZF-KFlpRfX4Oqt9V4A_oWtvysow';
 
   // App Settings
-  static const String appName = 'ConfidentCam';
+  static const String appName = 'Confident Creator';
   static const String appVersion = '1.0.0';
+
+  // Developer Settings
+  /// When true, bypasses day unlock restrictions (all days accessible)
+  /// Set to false for production
+  static const bool devMode = true;
+
+  /// Premium users can access next challenge without waiting
+  static const bool isPremiumUser = false;
 
   // Video Recording Settings
   static const int maxRecordingDurationSeconds = 180; // 3 minutes
@@ -24,9 +32,13 @@ class AppConfig {
   static const int maxOtpAttempts = 5;
   static const int otpLockoutMinutes = 15;
 
+  // Auth Methods (enable/disable)
+  static const bool enablePhoneAuth = true;
+  static const bool enableEmailAuth = true;
+
   // Challenge Settings
-  static const int totalDays = 30;
-  static const int totalWarmups = 3;
+  static const int totalDays = 3;
+  static const int totalWarmups = 1;
   static const int segmentedDaysEnd = 5; // Days 1-5 are segmented
 
   // Cache Settings
@@ -39,10 +51,11 @@ class AppConfig {
 
   // OpenAI Configuration
   // TODO: Replace with your OpenAI API key
-  static const String openAiApiKey = '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';
-  static const String openAiModel = 'gpt-4o-mini'; // Cost-effective model
+  static const String openAiApiKey =
+      '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';
+  static const String openAiModel = 'gpt-5-nano'; // Cost-effective model
   static const String openAiBaseUrl = 'https://api.openai.com/v1';
-  static const int maxScriptTokens = 10000;
+  static const int maxScriptTokens = 55000;
 
   // Extension Settings
   static const int extensionDaysCount = 15; // Days per extension

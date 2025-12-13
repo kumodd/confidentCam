@@ -27,6 +27,21 @@ abstract class AuthRepository {
   /// Delete user account.
   Future<Either<Failure, void>> deleteAccount();
 
+  /// Sign up with email and password.
+  /// Returns [Right((User, isNewUser))] on success.
+  Future<Either<Failure, (User, bool isNewUser)>> signUpWithEmail(
+    String email,
+    String password, {
+    String? phone,
+  });
+
+  /// Sign in with email and password.
+  /// Returns [Right((User, isNewUser))] on success.
+  Future<Either<Failure, (User, bool isNewUser)>> signInWithEmail(
+    String email,
+    String password,
+  );
+
   /// Get current user ID if logged in.
   String? get currentUserId;
 }

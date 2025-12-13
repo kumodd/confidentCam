@@ -74,18 +74,52 @@ class HiveScriptsDataSourceImpl implements HiveScriptsDataSource {
   @override
   Future<void> cacheScripts(List<Map<String, dynamic>> scripts) async {
     try {
-      logger.d('Caching ${scripts.length} scripts');
+      logger.i('=== CACHING SCRIPTS LOCALLY ===');
+      logger.i('Total scripts to cache: ${scripts.length}');
 
+      if (scripts.isEmpty) {
+        logger.w('No scripts to cache!');
+        return;
+      }
+
+      // Log first script structure for debugging
+      logger.d('First script keys: ${scripts.first.keys.toList()}');
+      logger.d('First script day_number: ${scripts.first['day_number']}');
+
+      int cachedCount = 0;
       for (final script in scripts) {
-        final dayNumber = script['day_number'] as int;
+        // Robust day_number extraction
+        int? dayNumber;
+        final rawDayNumber = script['day_number'];
+        if (rawDayNumber is int) {
+          dayNumber = rawDayNumber;
+        } else if (rawDayNumber is num) {
+          dayNumber = rawDayNumber.toInt();
+        } else if (rawDayNumber is String) {
+          dayNumber = int.tryParse(rawDayNumber);
+        }
+
+        if (dayNumber == null) {
+          logger.e(
+            'Script has invalid day_number: $rawDayNumber (${rawDayNumber?.runtimeType})',
+          );
+          logger.e('Script data: $script');
+          continue;
+        }
+
         final key = '$_scriptsKeyPrefix$dayNumber';
         await scriptsBox.put(key, jsonEncode(script));
+        cachedCount++;
       }
 
       await scriptsBox.put(_hasCachedKey, true);
-      logger.d('Scripts cached successfully');
-    } catch (e) {
-      logger.e('Error caching scripts', e);
+      logger.i(
+        '=== SCRIPTS CACHED SUCCESSFULLY: $cachedCount/${scripts.length} ===',
+      );
+    } catch (e, stackTrace) {
+      logger.e('=== ERROR CACHING SCRIPTS ===');
+      logger.e('Error: $e');
+      logger.e('Stack trace: $stackTrace');
       throw CacheException(
         message: 'Failed to cache scripts',
         originalError: e,

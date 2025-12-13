@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../domain/entities/daily_completion.dart';
 import '../../../domain/entities/user_progress.dart';
@@ -97,7 +98,11 @@ class DayListScreen extends StatelessWidget {
 
     final warmupsComplete = progress.warmupsComplete;
     final isCompleted = progress.isDayCompleted(day);
-    final isUnlocked = progress.isDayUnlocked(day);
+    final isUnlocked = progress.isDayUnlocked(
+      day,
+      devMode: AppConfig.devMode,
+      isPremium: AppConfig.isPremiumUser,
+    );
     final currentDay = progress.currentDay;
 
     // Check if warmups are complete first
@@ -328,7 +333,13 @@ class _DayCard extends StatelessWidget {
     final warmupsComplete = progress?.warmupsComplete ?? false;
     final isComplete =
         progress?.completedDays.any((c) => c.dayNumber == day) ?? false;
-    final isUnlocked = progress?.isDayUnlocked(day) ?? false;
+    final isUnlocked =
+        progress?.isDayUnlocked(
+          day,
+          devMode: AppConfig.devMode,
+          isPremium: AppConfig.isPremiumUser,
+        ) ??
+        false;
     final isCurrent = day == currentDay + 1 && warmupsComplete && isUnlocked;
 
     Color getBackgroundColor() {

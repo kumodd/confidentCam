@@ -64,14 +64,55 @@ class DailyScriptModel extends DailyScript {
     }
 
     List<ScriptSegment>? segments;
-    if (scriptType == 'segmented' && scriptData['segments'] != null) {
+    if (scriptType == 'segmented') {
       try {
-        segments =
-            (scriptData['segments'] as List)
-                .map(
-                  (s) => ScriptSegmentModel.fromJson(s as Map<String, dynamic>),
-                )
-                .toList();
+        if (scriptData['segments'] != null) {
+          // Standard segments array format
+          segments =
+              (scriptData['segments'] as List)
+                  .map(
+                    (s) =>
+                        ScriptSegmentModel.fromJson(s as Map<String, dynamic>),
+                  )
+                  .toList();
+        } else if (scriptData['part1'] != null) {
+          // OpenAI format: part1, part2, part3 as separate fields
+          final segmentsList = <ScriptSegment>[];
+          final focus =
+              scriptData['focus']?.toString() ?? 'Building confidence';
+
+          if (scriptData['part1'] != null) {
+            segmentsList.add(
+              ScriptSegmentModel(
+                part: 1,
+                text: scriptData['part1'].toString(),
+                focus: focus,
+              ),
+            );
+          }
+          if (scriptData['part2'] != null) {
+            segmentsList.add(
+              ScriptSegmentModel(
+                part: 2,
+                text: scriptData['part2'].toString(),
+                focus: focus,
+              ),
+            );
+          }
+          if (scriptData['part3'] != null) {
+            segmentsList.add(
+              ScriptSegmentModel(
+                part: 3,
+                text: scriptData['part3'].toString(),
+                focus: focus,
+              ),
+            );
+          }
+
+          if (segmentsList.isNotEmpty) {
+            segments = segmentsList;
+          }
+        }
       } catch (e) {
         // Fallback if segments parsing fails
         segments = null;
@@ -89,17 +130,35 @@ class DailyScriptModel extends DailyScript {
       wordCount = int.tryParse(rawWordCount);
     }
 
+    // Build fullScript - try 'script' field first, then combine parts
+    String? fullScript = scriptData['script']?.toString();
+    if (fullScript == null || fullScript.isEmpty) {
+      // Fallback: combine part1, part2, part3 for full scripts
+      final parts = <String>[];
+      if (scriptData['part1'] != null)
+        parts.add(scriptData['part1'].toString());
+      if (scriptData['part2'] != null)
+        parts.add(scriptData['part2'].toString());
+      if (scriptData['part3'] != null)
+        parts.add(scriptData['part3'].toString());
+      if (parts.isNotEmpty) {
+        fullScript = parts.join(' ');
+      }
+    }
+
     return DailyScriptModel(
       id: json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       dayNumber: dayNumber,
       scriptType: scriptType,
       title: scriptData['title']?.toString() ?? 'Day $dayNumber',
-      fullScript: scriptData['script']?.toString(),
+      fullScript: fullScript,
       segments: segments,
       wordCount: wordCount,
       estimatedDuration:
-          (scriptData['estimatedDuration'] ?? scriptData['estimated_duration'])
+          (scriptData['estimatedDuration'] ??
+                  scriptData['estimated_duration'] ??
+                  scriptData['duration'])
               ?.toString(),
       createdAt:
           json['created_at'] != null

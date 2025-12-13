@@ -53,3 +53,30 @@ class LogoutRequested extends AuthEvent {
 class AccountDeletionRequested extends AuthEvent {
   const AccountDeletionRequested();
 }
+
+/// Sign up with email and password
+class EmailSignUpRequested extends AuthEvent {
+  final String email;
+  final String password;
+  final String? phone;
+
+  const EmailSignUpRequested({
+    required this.email,
+    required this.password,
+    this.phone,
+  });
+
+  @override
+  List<Object?> get props => [email, password, phone];
+}
+
+/// Sign in with email and password
+class EmailSignInRequested extends AuthEvent {
+  final String email;
+  final String password;
+
+  const EmailSignInRequested({required this.email, required this.password});
+
+  @override
+  List<Object?> get props => [email, password];
+}

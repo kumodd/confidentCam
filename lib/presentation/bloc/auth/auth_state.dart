@@ -71,3 +71,13 @@ class AuthLoggedOut extends AuthState {
 class AuthDeletingAccount extends AuthState {
   const AuthDeletingAccount();
 }
+
+/// User needs to confirm their email before proceeding
+class EmailConfirmationRequired extends AuthState {
+  final String email;
+
+  const EmailConfirmationRequired({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}

@@ -11,7 +11,7 @@ import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_event.dart';
 import '../../bloc/daily_challenge/daily_challenge_state.dart';
 import 'day_checklist_screen.dart';
-import 'day_recording_screen.dart';
+import '../warmup/warmup_recording_screen.dart';
 
 /// Review screen for selecting the best take.
 class DayReviewScreen extends StatefulWidget {
@@ -177,18 +177,85 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
   }
 
   Future<void> _recordAnotherTake() async {
-    await Navigator.of(context).push(
+    // Pause video if playing
+    if (_controller?.value.isPlaying == true) {
+      await _controller?.pause();
+    }
+
+    // Show warning dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E1E2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFFBBF24),
+                  size: 28,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Record New Take?',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'You already have ${_takes.length} take(s) for Day ${widget.dayNumber}.\n\n'
+              'Recording another take will add to your collection. Do you want to continue?',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                ),
+                child: const Text('Record New Take'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final state = context.read<DailyChallengeBloc>().state;
+    String script = '';
+    if (state is DayChallengeReady) {
+      script = state.script.fullText;
+    } else if (state is DayChallengePlayback) {
+      script = state.script.fullText;
+    }
+
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (_) => BlocProvider.value(
               value: context.read<DailyChallengeBloc>(),
-              child: DayRecordingScreen(
+              child: WarmupRecordingScreen.dailyChallenge(
                 userId: widget.userId,
                 dayNumber: widget.dayNumber,
+                script: script,
               ),
             ),
       ),
     );
+
+    // Handle returned video path from recording
+    if (result != null && result is String && mounted) {
+      context.read<DailyChallengeBloc>().add(RecordingStopped(result));
+    }
 
     // Reload takes when returning from recording
     if (mounted) {

@@ -4,7 +4,7 @@ import '../../domain/entities/user.dart';
 class UserModel extends User {
   const UserModel({
     required super.id,
-    required super.phone,
+    super.phone,
     super.displayName,
     required super.createdAt,
     super.updatedAt,
@@ -13,12 +13,13 @@ class UserModel extends User {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
-      phone: json['phone'] as String,
+      phone: json['phone'] as String?,
       displayName: json['display_name'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : null,
+      updatedAt:
+          json['updated_at'] != null
+              ? DateTime.parse(json['updated_at'] as String)
+              : null,
     );
   }
 

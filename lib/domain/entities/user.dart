@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 /// User entity representing the authenticated user.
 class User extends Equatable {
   final String id;
-  final String phone;
+  final String? phone;
   final String? displayName;
   final DateTime createdAt;
   final DateTime? updatedAt;

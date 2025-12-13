@@ -89,6 +89,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SettingsSection(
                         title: 'Teleprompter',
                         children: [
+                          // Auto-scroll toggle
+                          SwitchListTile(
+                            secondary: const Icon(
+                              Icons.play_arrow_outlined,
+                              color: Colors.white54,
+                            ),
+                            title: const Text(
+                              'Auto-Scroll',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            subtitle: const Text(
+                              'Automatically scroll teleprompter during recording',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                            value: settings.autoScrollEnabled,
+                            activeColor: const Color(0xFF22D3EE),
+                            onChanged: (v) {
+                              context.read<SettingsBloc>().add(
+                                AutoScrollToggled(v),
+                              );
+                            },
+                          ),
                           _SliderTile(
                             icon: Icons.speed_outlined,
                             title: 'Scroll Speed',
@@ -107,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             title: 'Display Height',
                             value: settings.teleprompterHeight * 100,
                             min: 15,
-                            max: 50,
+                            max: 80,
                             suffix: '%',
                             onChanged: (v) {
                               context.read<SettingsBloc>().add(
@@ -117,9 +142,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           _SliderTile(
                             icon: Icons.opacity_outlined,
-                            title: 'Opacity',
+                            title: 'Background Opacity',
                             value: settings.teleprompterOpacity * 100,
-                            min: 50,
+                            min: 30,
                             max: 100,
                             suffix: '%',
                             onChanged: (v) {
@@ -141,6 +166,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onChanged: (v) {
                               context.read<SettingsBloc>().add(
                                 TeleprompterFontSizeUpdated(v),
+                              );
+                            },
+                          ),
+                          _DropdownTile(
+                            icon: Icons.palette_outlined,
+                            title: 'Text Color',
+                            value: settings.teleprompterTextColor,
+                            options: const {
+                              'white': 'White',
+                              'yellow': 'Yellow',
+                              'cyan': 'Cyan',
+                              'green': 'Green',
+                              'pink': 'Pink',
+                            },
+                            onChanged: (v) {
+                              context.read<SettingsBloc>().add(
+                                TeleprompterTextColorUpdated(v),
                               );
                             },
                           ),
@@ -549,7 +591,7 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _SliderTile extends StatelessWidget {
+class _SliderTile extends StatefulWidget {
   final IconData icon;
   final String title;
   final double value;
@@ -569,6 +611,28 @@ class _SliderTile extends StatelessWidget {
   });
 
   @override
+  State<_SliderTile> createState() => _SliderTileState();
+}
+
+class _SliderTileState extends State<_SliderTile> {
+  late double _currentValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentValue = widget.value.clamp(widget.min, widget.max);
+  }
+
+  @override
+  void didUpdateWidget(_SliderTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update local value when prop changes (after bloc update)
+    if (oldWidget.value != widget.value) {
+      _currentValue = widget.value.clamp(widget.min, widget.max);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -577,12 +641,12 @@ class _SliderTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.white54, size: 20),
+              Icon(widget.icon, color: Colors.white54, size: 20),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(color: Colors.white)),
+              Text(widget.title, style: const TextStyle(color: Colors.white)),
               const Spacer(),
               Text(
-                '${value.toStringAsFixed(1)}$suffix',
+                '${_currentValue.toStringAsFixed(1)}${widget.suffix}',
                 style: const TextStyle(
                   color: Color(0xFF22D3EE),
                   fontWeight: FontWeight.bold,
@@ -591,12 +655,15 @@ class _SliderTile extends StatelessWidget {
             ],
           ),
           Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
+            value: _currentValue,
+            min: widget.min,
+            max: widget.max,
             activeColor: const Color(0xFF22D3EE),
             inactiveColor: Colors.white24,
-            onChanged: onChanged,
+            onChanged: (v) {
+              setState(() => _currentValue = v);
+              widget.onChanged(v);
+            },
           ),
         ],
       ),

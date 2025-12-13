@@ -73,14 +73,14 @@ class ProgressRepositoryImpl implements ProgressRepository {
 
         switch (warmupIndex) {
           case 0:
-            updateData = {'warmup_0_complete': true};
+            updateData = {'warmup_0_done': true};
             break;
           case 1:
-            updateData = {'warmup_1_complete': true};
+            updateData = {'warmup_1_done': true};
             break;
           case 2:
             updateData = {
-              'warmup_2_complete': true,
+              'warmup_2_done': true,
               'challenge_started_at': DateTime.now().toIso8601String(),
             };
             break;
@@ -159,15 +159,16 @@ class ProgressRepositoryImpl implements ProgressRepository {
           }
         }
 
-        final longestStreak = newStreak > currentProgress.longestStreak
-            ? newStreak
-            : currentProgress.longestStreak;
+        final longestStreak =
+            newStreak > currentProgress.longestStreak
+                ? newStreak
+                : currentProgress.longestStreak;
 
         final updateData = {
           'current_day': dayNumber,
-          'streak': newStreak,
+          'streak_count': newStreak,
           'longest_streak': longestStreak,
-          'last_completed_date': today.toIso8601String().split('T')[0],
+          'last_completion_date': today.toIso8601String().split('T')[0],
         };
 
         // Add challenge completed if day 30
@@ -235,9 +236,8 @@ class ProgressRepositoryImpl implements ProgressRepository {
 
     try {
       final data = await remoteDataSource.getCompletions(userId);
-      final completions = data
-          .map((json) => DailyCompletionModel.fromJson(json))
-          .toList();
+      final completions =
+          data.map((json) => DailyCompletionModel.fromJson(json)).toList();
       return Right(completions);
     } on ServerException catch (e) {
       logger.e('Server error getting completions', e);
@@ -295,12 +295,12 @@ class ProgressRepositoryImpl implements ProgressRepository {
               final warmupIndex = action['warmup_index'] as int;
               final updateData = <String, dynamic>{};
 
-              if (warmupIndex == 0) updateData['warmup_0_complete'] = true;
-              if (warmupIndex == 1) updateData['warmup_1_complete'] = true;
+              if (warmupIndex == 0) updateData['warmup_0_done'] = true;
+              if (warmupIndex == 1) updateData['warmup_1_done'] = true;
               if (warmupIndex == 2) {
-                updateData['warmup_2_complete'] = true;
-                updateData['challenge_started_at'] = DateTime.now()
-                    .toIso8601String();
+                updateData['warmup_2_done'] = true;
+                updateData['challenge_started_at'] =
+                    DateTime.now().toIso8601String();
               }
 
               await remoteDataSource.updateProgress(userId, updateData);

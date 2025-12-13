@@ -15,20 +15,61 @@ import '../../bloc/warmup/warmup_event.dart';
 import '../../widgets/camera/coach_tips_card.dart';
 import 'warmup_playback_screen.dart';
 
-/// Warmup recording screen with configurable teleprompter.
+/// Recording mode to distinguish between warmup and daily challenge.
+enum RecordingMode { warmup, dailyChallenge }
+
+/// Unified recording screen for both warmup and daily challenges.
 class WarmupRecordingScreen extends StatefulWidget {
-  final int warmupIndex;
+  final RecordingMode mode;
+  final int warmupIndex; // For warmup mode
+  final int? dayNumber; // For daily challenge mode
+  final String? userId; // For daily challenge mode
+  final String? script; // Pre-loaded script for daily challenge
   final String? userName;
   final String? userGoal;
   final String? userLocation;
 
   const WarmupRecordingScreen({
     super.key,
-    required this.warmupIndex,
+    this.mode = RecordingMode.warmup,
+    this.warmupIndex = 0,
+    this.dayNumber,
+    this.userId,
+    this.script,
     this.userName,
     this.userGoal,
     this.userLocation,
   });
+
+  /// Factory constructor for warmup mode
+  factory WarmupRecordingScreen.warmup({
+    Key? key,
+    required int warmupIndex,
+    String? userName,
+    String? userGoal,
+    String? userLocation,
+  }) => WarmupRecordingScreen(
+    key: key,
+    mode: RecordingMode.warmup,
+    warmupIndex: warmupIndex,
+    userName: userName,
+    userGoal: userGoal,
+    userLocation: userLocation,
+  );
+
+  /// Factory constructor for daily challenge mode
+  factory WarmupRecordingScreen.dailyChallenge({
+    Key? key,
+    required String userId,
+    required int dayNumber,
+    required String script,
+  }) => WarmupRecordingScreen(
+    key: key,
+    mode: RecordingMode.dailyChallenge,
+    userId: userId,
+    dayNumber: dayNumber,
+    script: script,
+  );
 
   @override
   State<WarmupRecordingScreen> createState() => _WarmupRecordingScreenState();
@@ -43,17 +84,22 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
   Timer? _countdownTimer;
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
-  late Warmup _warmup;
+  Warmup? _warmup; // Nullable for daily challenge mode
 
   // Teleprompter settings (can be adjusted in real-time)
   double _currentSpeed = 1.0;
   double _currentHeight = 0.25;
   double _currentOpacity = 0.85;
+  double _currentFontSize = 16.0;
+  Color _currentTextColor = Colors.white;
 
   @override
   void initState() {
     super.initState();
-    _warmup = Warmups.getByIndex(widget.warmupIndex)!;
+    // Only load warmup data in warmup mode
+    if (widget.mode == RecordingMode.warmup) {
+      _warmup = Warmups.getByIndex(widget.warmupIndex);
+    }
     _recordingService = sl<VideoRecordingService>();
     _initCamera();
     _loadSettings();
@@ -63,11 +109,31 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
     // Load settings from bloc if available
     final settingsState = context.read<SettingsBloc>().state;
     if (settingsState is SettingsLoadSuccess) {
+      final settings = settingsState.settings;
       setState(() {
-        _currentSpeed = settingsState.settings.teleprompterSpeed;
-        _currentHeight = settingsState.settings.teleprompterHeight;
-        _currentOpacity = settingsState.settings.teleprompterOpacity;
+        _currentSpeed = settings.teleprompterSpeed;
+        _currentHeight = settings.teleprompterHeight;
+        _currentOpacity = settings.teleprompterOpacity;
+        _currentFontSize = settings.fontSizePixels;
+        _currentTextColor = _getColorFromString(settings.teleprompterTextColor);
       });
+    }
+  }
+
+  Color _getColorFromString(String colorName) {
+    switch (colorName.toLowerCase()) {
+      case 'white':
+        return Colors.white;
+      case 'yellow':
+        return const Color(0xFFFBBF24);
+      case 'cyan':
+        return const Color(0xFF22D3EE);
+      case 'green':
+        return const Color(0xFF22C55E);
+      case 'pink':
+        return const Color(0xFFF472B6);
+      default:
+        return Colors.white;
     }
   }
 
@@ -113,15 +179,23 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
       _recordingSeconds = 0;
     });
 
-    // Ensure bloc state is WarmupInProgress (handles retake scenario)
-    context.read<WarmupBloc>().add(WarmupStarted(widget.warmupIndex));
+    // Notify appropriate bloc based on mode
+    if (widget.mode == RecordingMode.warmup) {
+      context.read<WarmupBloc>().add(WarmupStarted(widget.warmupIndex));
+    }
 
     await _recordingService.startRecording();
+
+    // For warmup mode, auto-stop at duration; for daily challenge, manual stop
+    final maxDuration =
+        widget.mode == RecordingMode.warmup
+            ? (_warmup?.durationSeconds ?? 60)
+            : 300; // 5 min max for daily challenge
 
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() => _recordingSeconds++);
 
-      if (_recordingSeconds >= _warmup.durationSeconds) {
+      if (_recordingSeconds >= maxDuration) {
         _stopRecording();
       }
     });
@@ -137,20 +211,25 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
     final path = await _recordingService.stopRecording();
 
     if (path != null && mounted) {
-      context.read<WarmupBloc>().add(WarmupRecordingStopped(path));
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder:
-              (_) => BlocProvider.value(
-                value: context.read<WarmupBloc>(),
-                child: WarmupPlaybackScreen(
-                  warmupIndex: widget.warmupIndex,
-                  videoPath: path,
+      if (widget.mode == RecordingMode.warmup) {
+        // Warmup mode: notify WarmupBloc and go to playback
+        context.read<WarmupBloc>().add(WarmupRecordingStopped(path));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder:
+                (_) => BlocProvider.value(
+                  value: context.read<WarmupBloc>(),
+                  child: WarmupPlaybackScreen(
+                    warmupIndex: widget.warmupIndex,
+                    videoPath: path,
+                  ),
                 ),
-              ),
-        ),
-      );
+          ),
+        );
+      } else {
+        // Daily challenge mode: return path to caller
+        Navigator.of(context).pop(path);
+      }
     } else if (mounted) {
       Navigator.of(context).pop();
     }
@@ -281,14 +360,18 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
                 right: 12,
                 height: teleprompterHeight,
                 child: TeleprompterWidget(
+                  mode: widget.mode,
+                  script: widget.script,
                   userName: widget.userName,
                   userGoal: widget.userGoal,
                   userLocation: widget.userLocation,
                   warmupIndex: widget.warmupIndex,
-                  warmupTitle: _warmup.title,
+                  warmupTitle: _warmup?.title ?? 'Day ${widget.dayNumber}',
                   isRecording: _isRecording,
                   scrollSpeed: _currentSpeed,
                   opacity: _currentOpacity,
+                  fontSize: _currentFontSize,
+                  textColor: _currentTextColor,
                   onSpeedChange: _adjustSpeed,
                 ),
               ),
@@ -336,13 +419,15 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
               right: 0,
               child: Column(
                 children: [
-                  if (_isRecording)
+                  if (_isRecording &&
+                      widget.mode == RecordingMode.warmup &&
+                      _warmup != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 48),
                       child: Column(
                         children: [
                           LinearProgressIndicator(
-                            value: _recordingSeconds / _warmup.durationSeconds,
+                            value: _recordingSeconds / _warmup!.durationSeconds,
                             backgroundColor: Colors.white24,
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               Colors.red,
@@ -351,7 +436,7 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${_warmup.durationSeconds - _recordingSeconds}s remaining',
+                            '${_warmup!.durationSeconds - _recordingSeconds}s remaining',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -475,7 +560,7 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
                         label: 'Height',
                         value: _currentHeight * 100,
                         min: 15,
-                        max: 50,
+                        max: 80,
                         suffix: '%',
                         onChanged: (v) {
                           setSheetState(() => _currentHeight = v / 100);
@@ -569,6 +654,8 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
 
 /// Teleprompter widget with auto-scroll during recording.
 class TeleprompterWidget extends StatefulWidget {
+  final RecordingMode mode;
+  final String? script; // For daily challenge mode
   final String? userName;
   final String? userGoal;
   final String? userLocation;
@@ -577,18 +664,24 @@ class TeleprompterWidget extends StatefulWidget {
   final bool isRecording;
   final double scrollSpeed;
   final double opacity;
+  final double fontSize;
+  final Color textColor;
   final Function(double) onSpeedChange;
 
   const TeleprompterWidget({
     super.key,
+    this.mode = RecordingMode.warmup,
+    this.script,
     this.userName,
     this.userGoal,
     this.userLocation,
-    required this.warmupIndex,
+    this.warmupIndex = 0,
     required this.warmupTitle,
     required this.isRecording,
     required this.scrollSpeed,
     required this.opacity,
+    this.fontSize = 16.0,
+    this.textColor = Colors.white,
     required this.onSpeedChange,
   });
 
@@ -659,6 +752,12 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
   }
 
   String _getPersonalizedScript() {
+    // For daily challenge mode, use the passed script
+    if (widget.mode == RecordingMode.dailyChallenge && widget.script != null) {
+      return widget.script!;
+    }
+
+    // For warmup mode, generate personalized script
     final name = widget.userName ?? 'everyone';
     final goal = widget.userGoal ?? 'become more confident on camera';
     final location = widget.userLocation ?? '';
@@ -835,9 +934,9 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                         : const BouncingScrollPhysics(),
                 child: Text(
                   _getPersonalizedScript(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
+                  style: TextStyle(
+                    color: widget.textColor,
+                    fontSize: widget.fontSize,
                     height: 1.6,
                     fontWeight: FontWeight.w400,
                   ),

@@ -18,34 +18,38 @@ class UserProgressModel extends UserProgress {
   factory UserProgressModel.fromJson(Map<String, dynamic> json) {
     return UserProgressModel(
       userId: json['user_id'] as String,
-      warmup0Complete: json['warmup_0_complete'] as bool? ?? false,
-      warmup1Complete: json['warmup_1_complete'] as bool? ?? false,
-      warmup2Complete: json['warmup_2_complete'] as bool? ?? false,
+      warmup0Complete: json['warmup_0_done'] as bool? ?? false,
+      warmup1Complete: json['warmup_1_done'] as bool? ?? false,
+      warmup2Complete: json['warmup_2_done'] as bool? ?? false,
       currentDay: json['current_day'] as int? ?? 0,
-      streak: json['streak'] as int? ?? 0,
+      streak: json['streak_count'] as int? ?? json['streak'] as int? ?? 0,
       longestStreak: json['longest_streak'] as int? ?? 0,
-      lastCompletedDate: json['last_completed_date'] != null
-          ? DateTime.parse(json['last_completed_date'] as String)
-          : null,
-      challengeStartedAt: json['challenge_started_at'] != null
-          ? DateTime.parse(json['challenge_started_at'] as String)
-          : null,
-      challengeCompletedAt: json['challenge_completed_at'] != null
-          ? DateTime.parse(json['challenge_completed_at'] as String)
-          : null,
+      lastCompletedDate:
+          json['last_completion_date'] != null
+              ? DateTime.parse(json['last_completion_date'] as String)
+              : null,
+      challengeStartedAt:
+          json['challenge_started_at'] != null
+              ? DateTime.parse(json['challenge_started_at'] as String)
+              : null,
+      challengeCompletedAt:
+          json['challenge_completed_at'] != null
+              ? DateTime.parse(json['challenge_completed_at'] as String)
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'user_id': userId,
-      'warmup_0_complete': warmup0Complete,
-      'warmup_1_complete': warmup1Complete,
-      'warmup_2_complete': warmup2Complete,
+      'warmup_0_done': warmup0Complete,
+      'warmup_1_done': warmup1Complete,
+      'warmup_2_done': warmup2Complete,
       'current_day': currentDay,
-      'streak': streak,
+      'streak_count': streak,
       'longest_streak': longestStreak,
-      'last_completed_date': lastCompletedDate?.toIso8601String().split('T')[0],
+      'last_completion_date':
+          lastCompletedDate?.toIso8601String().split('T')[0],
       'challenge_started_at': challengeStartedAt?.toIso8601String(),
       'challenge_completed_at': challengeCompletedAt?.toIso8601String(),
     };
@@ -73,13 +77,13 @@ class UserProgressModel extends UserProgress {
   /// Convert to local Hive storage format.
   Map<String, dynamic> toHiveJson() {
     return {
-      'warmup_0_complete': warmup0Complete,
-      'warmup_1_complete': warmup1Complete,
-      'warmup_2_complete': warmup2Complete,
+      'warmup_0_done': warmup0Complete,
+      'warmup_1_done': warmup1Complete,
+      'warmup_2_done': warmup2Complete,
       'current_day': currentDay,
-      'streak': streak,
+      'streak_count': streak,
       'longest_streak': longestStreak,
-      'last_completed_date': lastCompletedDate?.toIso8601String(),
+      'last_completion_date': lastCompletedDate?.toIso8601String(),
       'challenge_started_at': challengeStartedAt?.toIso8601String(),
       'challenge_completed_at': challengeCompletedAt?.toIso8601String(),
     };
@@ -91,21 +95,24 @@ class UserProgressModel extends UserProgress {
   ) {
     return UserProgressModel(
       userId: userId,
-      warmup0Complete: json['warmup_0_complete'] as bool? ?? false,
-      warmup1Complete: json['warmup_1_complete'] as bool? ?? false,
-      warmup2Complete: json['warmup_2_complete'] as bool? ?? false,
+      warmup0Complete: json['warmup_0_done'] as bool? ?? false,
+      warmup1Complete: json['warmup_1_done'] as bool? ?? false,
+      warmup2Complete: json['warmup_2_done'] as bool? ?? false,
       currentDay: json['current_day'] as int? ?? 0,
-      streak: json['streak'] as int? ?? 0,
+      streak: json['streak_count'] as int? ?? json['streak'] as int? ?? 0,
       longestStreak: json['longest_streak'] as int? ?? 0,
-      lastCompletedDate: json['last_completed_date'] != null
-          ? DateTime.parse(json['last_completed_date'] as String)
-          : null,
-      challengeStartedAt: json['challenge_started_at'] != null
-          ? DateTime.parse(json['challenge_started_at'] as String)
-          : null,
-      challengeCompletedAt: json['challenge_completed_at'] != null
-          ? DateTime.parse(json['challenge_completed_at'] as String)
-          : null,
+      lastCompletedDate:
+          json['last_completion_date'] != null
+              ? DateTime.parse(json['last_completion_date'] as String)
+              : null,
+      challengeStartedAt:
+          json['challenge_started_at'] != null
+              ? DateTime.parse(json['challenge_started_at'] as String)
+              : null,
+      challengeCompletedAt:
+          json['challenge_completed_at'] != null
+              ? DateTime.parse(json['challenge_completed_at'] as String)
+              : null,
     );
   }
 }

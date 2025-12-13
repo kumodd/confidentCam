@@ -64,7 +64,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // Cache session locally
       await localDataSource.saveSession(
         userId: user.id,
-        phone: user.phone,
+        phone: user.phone??"",
         displayName: user.displayName,
       );
 
@@ -98,7 +98,7 @@ class AuthRepositoryImpl implements AuthRepository {
           // Update local cache
           await localDataSource.saveSession(
             userId: user.id,
-            phone: user.phone,
+            phone: user.phone??"",
             displayName: user.displayName,
           );
 
@@ -166,6 +166,80 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (e) {
       logger.e('Error deleting account', e);
       return const Left(ServerFailure(message: 'Failed to delete account'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, (User, bool)>> signUpWithEmail(
+    String email,
+    String password, {
+    String? phone,
+  }) async {
+    if (!await networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      final (userData, isNewUser) = await remoteDataSource.signUpWithEmail(
+        email,
+        password,
+        phone: phone,
+      );
+      final user = UserModel.fromJson(userData);
+
+      // Cache session locally
+      await localDataSource.saveSession(
+        userId: user.id,
+        phone: user.phone??"",
+        displayName: user.displayName??"",
+      );
+
+      return Right((user, isNewUser));
+    } on AuthException catch (e) {
+      logger.e('Auth error during email sign up', e);
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      logger.e('Server error during email sign up', e);
+      return Left(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      logger.e('Unexpected error during email sign up', e);
+      return const Left(ServerFailure(message: 'Failed to create account'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, (User, bool)>> signInWithEmail(
+    String email,
+    String password,
+  ) async {
+    if (!await networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      final (userData, isNewUser) = await remoteDataSource.signInWithEmail(
+        email,
+        password,
+      );
+      final user = UserModel.fromJson(userData);
+
+      // Cache session locally
+      await localDataSource.saveSession(
+        userId: user.id,
+        phone: user.phone??"",
+        displayName: user.displayName??"",
+      );
+
+      return Right((user, isNewUser));
+    } on AuthException catch (e) {
+      logger.e('Auth error during email sign in', e);
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      logger.e('Server error during email sign in', e);
+      return Left(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      logger.e('Unexpected error during email sign in', e);
+      return const Left(ServerFailure(message: 'Failed to sign in'));
     }
   }
 
