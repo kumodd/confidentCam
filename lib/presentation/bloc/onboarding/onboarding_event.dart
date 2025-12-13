@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../core/config/prompt_config.dart';
 import '../../../domain/entities/onboarding_data.dart';
 
 /// Onboarding BLoC Events
@@ -62,6 +63,22 @@ class AnswerToggled extends OnboardingEvent {
 
   @override
   List<Object?> get props => [questionKey, option];
+}
+
+/// User updated prompt configuration
+class PromptConfigUpdated extends OnboardingEvent {
+  final PromptMode? promptMode;
+  final HumanTouchLevel? humanTouchLevel;
+  final AudienceCulture? audienceCulture;
+
+  const PromptConfigUpdated({
+    this.promptMode,
+    this.humanTouchLevel,
+    this.audienceCulture,
+  });
+
+  @override
+  List<Object?> get props => [promptMode, humanTouchLevel, audienceCulture];
 }
 
 /// Move to next step

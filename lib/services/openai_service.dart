@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/config/app_config.dart';
+import '../core/config/prompt_config.dart';
 import '../core/utils/logger.dart';
 
 /// Service for generating personalized scripts using OpenAI.
@@ -19,8 +20,12 @@ class OpenAiService {
     required String goal,
     required Map<String, dynamic> onboardingAnswers,
     String language = 'en',
+    PromptMode promptMode = PromptMode.selfDiscovery,
+    HumanTouchLevel humanTouch = HumanTouchLevel.natural,
+    AudienceCulture culture = AudienceCulture.india,
   }) async {
     logger.i('Generating scripts for $firstName from $location in $language');
+    logger.i('Prompt mode: $promptMode, Human touch: $humanTouch, Culture: $culture');
 
     final prompt = _buildScriptPrompt(
       firstName: firstName,
@@ -29,6 +34,9 @@ class OpenAiService {
       goal: goal,
       answers: onboardingAnswers,
       language: language,
+      promptMode: promptMode,
+      humanTouch: humanTouch,
+      culture: culture,
     );
 
     try {
@@ -174,80 +182,68 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
   }
 
   String _buildScriptPrompt({
-    required String firstName,
-    required int age,
-    required String location,
-    required String goal,
-    required Map<String, dynamic> answers,
-    String language = 'en',
-  }) {
-    final challenges =
-        (answers['challenges'] as List?)?.join(', ') ?? 'general anxiety';
-    final contentStyle =
-        (answers['content_style'] as List?)?.join(', ') ?? 'educational';
-    final platforms =
-        (answers['platform'] as List?)?.join(', ') ?? 'social media';
-    final timeCommitment = answers['time_commitment'] ?? '10-20 minutes';
+  required String firstName,
+  required int age,
+  required String location,
+  required String goal,
+  required Map<String, dynamic> answers,
+  required PromptMode promptMode,
+  required HumanTouchLevel humanTouch,
+  required AudienceCulture culture,
+  String language = 'en',
+}) {
+  final profile = PromptConfigFactory.build(
+    mode: promptMode,
+    humanTouch: humanTouch,
+    culture: culture,
+  );
 
-    final languageInstruction = _getLanguageInstruction(language);
+  final challenges =
+      (answers['challenges'] as List?)?.join(', ') ?? 'self-doubt';
 
-    return '''
-You are a calm camera-confidence coach who helps fearful beginners speak through personal stories, not advice.
-
+  return '''
 ${_getLanguageInstruction(language)}
 
-USER:
+SYSTEM PERSONA:
+${profile.systemPersona}
+
+CORE INTENT:
+${profile.coreIntent}
+
+SPEAKER MINDSET:
+${profile.speakerMindset}
+
+EMOTIONAL ARC:
+${profile.emotionalArc}
+
+HUMAN SPEECH RULES:
+${profile.humanSpeechRules}
+
+AUDIENCE MIRROR:
+${profile.audienceMirrorRules}
+
+CULTURAL CONTEXT:
+${profile.culturalRules}
+
+FORBIDDEN:
+${profile.forbiddenPatterns}
+
+CLOSING STYLE:
+${profile.closingBehavior}
+
+USER CONTEXT:
 Name: $firstName
 Age: $age
 Location: $location
 Goal after 30 days: $goal
 Challenges: $challenges
-Style: $contentStyle
-Platforms: $platforms
-Daily time: $timeCommitment
 
-CORE PRINCIPLES:
-- Every script is a small personal story
-- Speaker discovers confidence while speaking
-- Fear, pauses, awkwardness are allowed
-- No teaching, no coaching, no authority tone
-- Confidence must naturally emerge by Day 30
-
-30-DAY STORY ARC:
-Days 1–5: Showing up despite fear  
-Days 6–12: Getting used to voice and presence  
-Days 13–20: Sharing thoughts and explaining ideas  
-Days 21–25: Feeling heard and accepted  
-Days 26–30: Feeling at home on camera  
-
-Each day must feel like the next page of one journey.
-
-SCRIPT FORMAT (STRICT):
-Exactly 3 parts. Spoken words only.
-- part1: Opening story moment
-- part2: Inner thought or realization
-- part3: Soft closing that moves forward
-
-WORD LIMITS:
-Days 1–5: 20–30 / 50–80 / 20–30  
-Days 6–12: 25–40 / 80–120 / 25–40  
-Days 13–20: 30–45 / 120–180 / 30–45  
-Days 21–25: 35–55 / 180–240 / 35–55  
-Days 26–30: 45–65 / 260–320 / 45–65  
-
-LANGUAGE RULES:
-- Max 12 words per sentence
+STRUCTURE:
+- Exactly 3 parts
+- Spoken words only
 - Use "..." for pauses
-- No questions to audience
-- No commands or advice
-- No meta phrases:
-  “In this video”, “Today I will”, “Let me explain”, “Tips”
-
-PERSONALIZATION:
-- Use $firstName naturally in early days only
-- Casual references to $location
-- Reflect beginner thoughts tied to $challenges
-- Align growth slowly with $goal
+- Max 12 words per sentence
+- No advice, no teaching
 
 OUTPUT:
 Return ONLY a valid JSON array of 30 objects.
@@ -259,11 +255,11 @@ Each object:
   "part1": "<spoken words only>",
   "part2": "<spoken words only>",
   "part3": "<spoken words only>",
-  "focus": "<story focus>",
+  "focus": "<emotional focus>",
   "duration": "<estimated duration>"
 }
-''';  
-  }
+''';
+}
 
   String _getLanguageInstruction(String language) {
     switch (language) {

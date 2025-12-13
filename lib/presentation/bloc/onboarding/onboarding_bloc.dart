@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/config/prompt_config.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../data/datasources/remote/supabase_onboarding_datasource.dart';
@@ -29,6 +30,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<LanguageSelected>(_onLanguageSelected);
     on<GoalSelected>(_onGoalSelected);
     on<AnswerToggled>(_onAnswerToggled);
+    on<PromptConfigUpdated>(_onPromptConfigUpdated);
     on<OnboardingNextRequested>(_onNextRequested);
     on<OnboardingPreviousRequested>(_onPreviousRequested);
     on<OnboardingSubmitted>(_onSubmitted);
@@ -97,6 +99,20 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     if (state is OnboardingInProgress) {
       final current = state as OnboardingInProgress;
       emit(current.copyWith(selectedLanguage: event.language));
+    }
+  }
+
+  void _onPromptConfigUpdated(
+    PromptConfigUpdated event,
+    Emitter<OnboardingState> emit,
+  ) {
+    if (state is OnboardingInProgress) {
+      final current = state as OnboardingInProgress;
+      emit(current.copyWith(
+        promptMode: event.promptMode ?? current.promptMode,
+        humanTouchLevel: event.humanTouchLevel ?? current.humanTouchLevel,
+        audienceCulture: event.audienceCulture ?? current.audienceCulture,
+      ));
     }
   }
 
@@ -239,6 +255,9 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         goal: goal,
         onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
         language: languageCode,
+        promptMode: current.promptMode,
+        humanTouch: current.humanTouchLevel,
+        culture: current.audienceCulture,
       );
 
       logger.i('OpenAI generation complete: ${scripts.length} scripts');

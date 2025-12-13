@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/config/prompt_config.dart';
 import '../../../domain/entities/onboarding_data.dart';
 import '../../bloc/onboarding/onboarding_bloc.dart';
 import '../../bloc/onboarding/onboarding_event.dart';
@@ -491,8 +492,199 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
             const SizedBox(height: 12),
             _buildLanguageSelector(context).animate().fadeIn(delay: 500.ms, duration: 400.ms),
           ],
+
+          const SizedBox(height: 32),
+
+          // Script Style (PromptMode)
+          Text(
+            '🎭 Script Style',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ).animate().fadeIn(delay: 550.ms, duration: 400.ms),
+          const SizedBox(height: 8),
+          Text(
+            'How would you like your scripts to feel?',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white38,
+            ),
+          ).animate().fadeIn(delay: 575.ms, duration: 400.ms),
+          const SizedBox(height: 12),
+          _buildPromptModeSelector(context).animate().fadeIn(delay: 600.ms, duration: 400.ms),
+
+          const SizedBox(height: 24),
+
+          // Human Touch Level
+          Text(
+            '✨ Expression Style',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ).animate().fadeIn(delay: 650.ms, duration: 400.ms),
+          const SizedBox(height: 8),
+          Text(
+            'How polished should your scripts sound?',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white38,
+            ),
+          ).animate().fadeIn(delay: 675.ms, duration: 400.ms),
+          const SizedBox(height: 12),
+          _buildHumanTouchSelector(context).animate().fadeIn(delay: 700.ms, duration: 400.ms),
+
+          const SizedBox(height: 24),
+
+          // Audience Culture
+          Text(
+            '🌍 Cultural Context',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ).animate().fadeIn(delay: 750.ms, duration: 400.ms),
+          const SizedBox(height: 8),
+          Text(
+            'Who is your primary audience?',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white38,
+            ),
+          ).animate().fadeIn(delay: 775.ms, duration: 400.ms),
+          const SizedBox(height: 12),
+          _buildCultureSelector(context).animate().fadeIn(delay: 800.ms, duration: 400.ms),
+
+          const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  Widget _buildPromptModeSelector(BuildContext context) {
+    final options = [
+      (PromptMode.selfDiscovery, '🌱 Self Discovery', 'Feel safe being seen'),
+      (PromptMode.clarityTraining, '💭 Clarity Training', 'Clear thinking through speaking'),
+      (PromptMode.storytelling, '📖 Storytelling', 'Connect through shared moments'),
+      (PromptMode.authorityBuild, '🎯 Authority Build', 'Calm, grounded presence'),
+      (PromptMode.rawDiary, '📓 Raw Diary', 'Honest expression without polish'),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((option) {
+        final isSelected = widget.state.promptMode == option.$1;
+        return GestureDetector(
+          onTap: () {
+            context.read<OnboardingBloc>().add(
+              PromptConfigUpdated(promptMode: option.$1),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                const SizedBox(height: 2),
+                Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildHumanTouchSelector(BuildContext context) {
+    final options = [
+      (HumanTouchLevel.raw, '🌊 Raw', 'Messy, real, unfiltered'),
+      (HumanTouchLevel.natural, '🍃 Natural', 'Imperfect but flowing'),
+      (HumanTouchLevel.composed, '🎭 Composed', 'Calm and controlled'),
+    ];
+
+    return Row(
+      children: options.map((option) {
+        final isSelected = widget.state.humanTouchLevel == option.$1;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              context.read<OnboardingBloc>().add(
+                PromptConfigUpdated(humanTouchLevel: option.$1),
+              );
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: option.$1 != HumanTouchLevel.composed ? 8 : 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 10), textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCultureSelector(BuildContext context) {
+    final options = [
+      (AudienceCulture.india, '🇮🇳 Indian Context', 'Quiet self-doubt, fear of judgement'),
+      (AudienceCulture.global, '🌐 Global', 'Universal, no cultural specifics'),
+    ];
+
+    return Row(
+      children: options.map((option) {
+        final isSelected = widget.state.audienceCulture == option.$1;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              context.read<OnboardingBloc>().add(
+                PromptConfigUpdated(audienceCulture: option.$1),
+              );
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: option.$1 == AudienceCulture.india ? 8 : 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 10), textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../core/config/prompt_config.dart';
 import '../../../domain/entities/onboarding_data.dart';
 
 /// Onboarding BLoC States
@@ -40,6 +41,11 @@ class OnboardingInProgress extends OnboardingState {
   final String? customGoal;
   final Map<String, List<String>> answers; // questionKey -> selected options
 
+  // Prompt configuration
+  final PromptMode promptMode;
+  final HumanTouchLevel humanTouchLevel;
+  final AudienceCulture audienceCulture;
+
   const OnboardingInProgress({
     required this.userId,
     required this.currentStep,
@@ -54,6 +60,9 @@ class OnboardingInProgress extends OnboardingState {
     this.selectedGoal,
     this.customGoal,
     this.answers = const {},
+    this.promptMode = PromptMode.selfDiscovery,
+    this.humanTouchLevel = HumanTouchLevel.natural,
+    this.audienceCulture = AudienceCulture.india,
   });
 
   /// Check if current step can proceed
@@ -114,6 +123,9 @@ class OnboardingInProgress extends OnboardingState {
     GoalOption? selectedGoal,
     String? customGoal,
     Map<String, List<String>>? answers,
+    PromptMode? promptMode,
+    HumanTouchLevel? humanTouchLevel,
+    AudienceCulture? audienceCulture,
   }) {
     return OnboardingInProgress(
       userId: userId ?? this.userId,
@@ -129,6 +141,9 @@ class OnboardingInProgress extends OnboardingState {
       selectedGoal: selectedGoal ?? this.selectedGoal,
       customGoal: customGoal ?? this.customGoal,
       answers: answers ?? this.answers,
+      promptMode: promptMode ?? this.promptMode,
+      humanTouchLevel: humanTouchLevel ?? this.humanTouchLevel,
+      audienceCulture: audienceCulture ?? this.audienceCulture,
     );
   }
 
@@ -147,6 +162,9 @@ class OnboardingInProgress extends OnboardingState {
     selectedGoal,
     customGoal,
     answers,
+    promptMode,
+    humanTouchLevel,
+    audienceCulture,
   ];
 }
 
