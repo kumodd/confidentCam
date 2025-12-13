@@ -6,6 +6,7 @@ class AppConstants {
   static const String scriptsBox = 'scripts_box';
   static const String settingsBox = 'settings_box';
   static const String offlineQueueBox = 'offline_queue_box';
+  static const String contentScriptsBox = 'content_scripts_box';
 
   // Hive Keys
   static const String sessionTokenKey = 'session_token';
@@ -36,6 +37,7 @@ class AppConstants {
   // Video Storage Paths
   static const String warmupsFolderName = 'warmups';
   static const String dailyFolderName = 'daily';
+  static const String contentFolderName = 'content';
   static const String exportsFolderName = 'exports';
 
   // Teleprompter Defaults

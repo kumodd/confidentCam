@@ -82,6 +82,8 @@ class VideoInfo {
   String get displayName {
     if (type == 'warmup') {
       return 'Warmup ${dayOrWarmupIndex + 1} - Take $takeNumber';
+    } else if (type == 'content') {
+      return 'Content Video $takeNumber';
     }
     return 'Day $dayOrWarmupIndex - Take $takeNumber';
   }
@@ -103,6 +105,9 @@ class VideoStorageServiceImpl implements VideoStorageService {
     ).create(recursive: true);
     await Directory(
       '${_appDirectory!.path}/${AppConstants.exportsFolderName}',
+    ).create(recursive: true);
+    await Directory(
+      '${_appDirectory!.path}/${AppConstants.contentFolderName}',
     ).create(recursive: true);
 
     logger.d('Video storage initialized at ${_appDirectory!.path}');
@@ -132,6 +137,11 @@ class VideoStorageServiceImpl implements VideoStorageService {
       targetPath =
           '${appDir.path}/${AppConstants.warmupsFolderName}/'
           'warmup_${dayOrWarmupIndex}_$timestamp.mp4';
+    } else if (type == 'content') {
+      // Content Creator videos go to content folder
+      targetPath =
+          '${appDir.path}/${AppConstants.contentFolderName}/'
+          'content_${dayOrWarmupIndex}_$timestamp.mp4';
     } else {
       final dayDir =
           '${appDir.path}/${AppConstants.dailyFolderName}/day_$dayOrWarmupIndex';
@@ -532,6 +542,42 @@ class VideoStorageServiceImpl implements VideoStorageService {
             }
           }
         }
+      }
+    }
+
+    // Get content creator videos
+    final contentDir = Directory(
+      '${appDir.path}/${AppConstants.contentFolderName}',
+    );
+    if (await contentDir.exists()) {
+      final contentFiles = <Map<String, dynamic>>[];
+      
+      await for (final entity in contentDir.list()) {
+        if (entity is File && entity.path.endsWith('.mp4')) {
+          final stat = await entity.stat();
+          contentFiles.add({'path': entity.path, 'stat': stat});
+        }
+      }
+
+      // Sort by creation time
+      contentFiles.sort(
+        (a, b) => (a['stat'] as FileStat).modified.compareTo(
+          (b['stat'] as FileStat).modified,
+        ),
+      );
+
+      for (var i = 0; i < contentFiles.length; i++) {
+        final file = contentFiles[i];
+        videos.add(
+          VideoInfo(
+            path: file['path'] as String,
+            type: 'content',
+            dayOrWarmupIndex: i,
+            takeNumber: i + 1,
+            createdAt: (file['stat'] as FileStat).modified,
+            sizeBytes: (file['stat'] as FileStat).size,
+          ),
+        );
       }
     }
 

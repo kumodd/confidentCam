@@ -18,6 +18,7 @@ import '../challenge/day_list_screen.dart';
 import '../challenge/day_challenge_overview_screen.dart';
 import '../videos/my_videos_screen.dart';
 import '../settings/settings_screen.dart';
+import '../content_creator/widgets/content_creator_card.dart';
 
 /// Main dashboard screen after authentication.
 class DashboardScreen extends StatefulWidget {
@@ -186,6 +187,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Quick actions
             SliverToBoxAdapter(child: _buildQuickActions()),
+
+            // Content Creator Card (standalone)
+            SliverToBoxAdapter(
+              child: ContentCreatorCard(userId: widget.user.id),
+            ),
 
             // Guide Section
             const SliverToBoxAdapter(child: GuideSection()),

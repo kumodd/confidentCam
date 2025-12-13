@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../constants/app_constants.dart';
 import '../network/network_info.dart';
 import '../../data/datasources/local/hive_auth_datasource.dart';
+import '../../data/datasources/local/hive_content_scripts_datasource.dart';
 import '../../data/datasources/local/hive_progress_datasource.dart';
 import '../../data/datasources/local/hive_scripts_datasource.dart';
 import '../../data/datasources/local/hive_settings_datasource.dart';
@@ -18,16 +19,19 @@ import '../../data/datasources/remote/supabase_script_datasource.dart';
 import '../../data/datasources/remote/supabase_user_datasource.dart';
 import '../../services/openai_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/repositories/content_creator_repository_impl.dart';
 import '../../data/repositories/progress_repository_impl.dart';
 import '../../data/repositories/script_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/repositories/video_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/repositories/content_creator_repository.dart';
 import '../../domain/repositories/progress_repository.dart';
 import '../../domain/repositories/script_repository.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../../domain/repositories/video_repository.dart';
 import '../../presentation/bloc/auth/auth_bloc.dart';
+import '../../presentation/bloc/content_creator/content_creator_bloc.dart';
 import '../../presentation/bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../presentation/bloc/network/network_bloc.dart';
 import '../../presentation/bloc/onboarding/onboarding_bloc.dart';
@@ -101,6 +105,13 @@ Future<void> _initExternal() async {
     instanceName: AppConstants.offlineQueueBox,
   );
 
+  // Content Scripts Box (standalone for Content Creator)
+  final contentScriptsBox = await Hive.openBox(AppConstants.contentScriptsBox);
+  sl.registerLazySingleton<Box>(
+    () => contentScriptsBox,
+    instanceName: AppConstants.contentScriptsBox,
+  );
+
   // Internet connection checker
   sl.registerLazySingleton(() => InternetConnectionChecker());
 }
@@ -153,6 +164,13 @@ void _initDataSources() {
       settingsBox: sl(instanceName: AppConstants.settingsBox),
     ),
   );
+
+  // Content Creator Local Data Source (standalone)
+  sl.registerLazySingleton<HiveContentScriptsDataSource>(
+    () => HiveContentScriptsDataSourceImpl(
+      contentScriptsBox: sl(instanceName: AppConstants.contentScriptsBox),
+    ),
+  );
 }
 
 void _initRepositories() {
@@ -182,6 +200,13 @@ void _initRepositories() {
   );
   sl.registerLazySingleton<VideoRepository>(
     () => VideoRepositoryImpl(videoStorageService: sl()),
+  );
+
+  // Content Creator Repository (standalone - uses its own HTTP client for OpenAI)
+  sl.registerLazySingleton<ContentCreatorRepository>(
+    () => ContentCreatorRepositoryImpl(
+      localDataSource: sl(),
+    ),
   );
 }
 
@@ -234,5 +259,10 @@ void _initBlocs() {
   // Settings BLoC
   sl.registerFactory<SettingsBloc>(
     () => SettingsBloc(settingsDataSource: sl()),
+  );
+
+  // Content Creator BLoC (standalone)
+  sl.registerFactory<ContentCreatorBloc>(
+    () => ContentCreatorBloc(repository: sl(), videoStorageService: sl()),
   );
 }
