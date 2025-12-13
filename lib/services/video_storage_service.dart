@@ -22,6 +22,7 @@ abstract class VideoStorageService {
     required int dayOrWarmupIndex,
     int? segmentIndex,
     required int takeNumber,
+    String? title,
   });
 
   /// Get all takes for a day.
@@ -64,11 +65,12 @@ abstract class VideoStorageService {
 /// Video info for library display.
 class VideoInfo {
   final String path;
-  final String type; // 'warmup' or 'daily'
+  final String type; // 'warmup', 'daily', or 'content'
   final int dayOrWarmupIndex;
   final int takeNumber;
   final DateTime createdAt;
   final int sizeBytes;
+  final String? title; // Optional title for content videos
 
   VideoInfo({
     required this.path,
@@ -77,13 +79,15 @@ class VideoInfo {
     this.takeNumber = 1,
     required this.createdAt,
     required this.sizeBytes,
+    this.title,
   });
 
   String get displayName {
     if (type == 'warmup') {
       return 'Warmup ${dayOrWarmupIndex + 1} - Take $takeNumber';
     } else if (type == 'content') {
-      return 'Content Video $takeNumber';
+      // Use title if available, otherwise default name
+      return title ?? 'Content Video $takeNumber';
     }
     return 'Day $dayOrWarmupIndex - Take $takeNumber';
   }
@@ -127,6 +131,7 @@ class VideoStorageServiceImpl implements VideoStorageService {
     required int dayOrWarmupIndex,
     int? segmentIndex,
     required int takeNumber,
+    String? title,
   }) async {
     final appDir = await _getAppDir();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -138,10 +143,14 @@ class VideoStorageServiceImpl implements VideoStorageService {
           '${appDir.path}/${AppConstants.warmupsFolderName}/'
           'warmup_${dayOrWarmupIndex}_$timestamp.mp4';
     } else if (type == 'content') {
-      // Content Creator videos go to content folder
+      // Content Creator videos - use sanitized title if available
+      final sanitizedTitle = title != null 
+          ? title.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '').replaceAll(' ', '_').toLowerCase()
+          : 'content';
+      final safeName = sanitizedTitle.length > 30 ? sanitizedTitle.substring(0, 30) : sanitizedTitle;
       targetPath =
           '${appDir.path}/${AppConstants.contentFolderName}/'
-          'content_${dayOrWarmupIndex}_$timestamp.mp4';
+          '${safeName}_$timestamp.mp4';
     } else {
       final dayDir =
           '${appDir.path}/${AppConstants.dailyFolderName}/day_$dayOrWarmupIndex';

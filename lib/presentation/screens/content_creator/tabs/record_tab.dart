@@ -135,19 +135,32 @@ class _RecordTabState extends State<RecordTab> {
     final path = await _recordingService.stopRecording();
     if (path != null && mounted) {
       final storageService = sl<VideoStorageService>();
+      
+      // Get script title for video naming
+      String? scriptTitle;
+      final state = context.read<ContentCreatorBloc>().state;
+      if (state is ContentCreatorLoaded && state.selectedScript != null) {
+        scriptTitle = state.selectedScript!.title;
+      }
+      
       final savedPath = await storageService.saveVideo(
-        tempPath: path, type: 'content',
-        dayOrWarmupIndex: DateTime.now().millisecondsSinceEpoch, takeNumber: 1,
+        tempPath: path,
+        type: 'content',
+        dayOrWarmupIndex: DateTime.now().millisecondsSinceEpoch,
+        takeNumber: 1,
+        title: scriptTitle ?? 'Content Video',
       );
 
       if (savedPath.isNotEmpty) {
-        final state = context.read<ContentCreatorBloc>().state;
         if (state is ContentCreatorLoaded && state.selectedScript != null) {
           context.read<ContentCreatorBloc>().add(MarkScriptRecorded(state.selectedScript!.id));
         }
         context.read<ContentCreatorBloc>().add(LoadContentVideos(widget.userId));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Video saved!'), backgroundColor: Color(0xFF22C55E)),
+          SnackBar(
+            content: Text(scriptTitle != null ? '"$scriptTitle" saved!' : 'Video saved!'),
+            backgroundColor: const Color(0xFF22C55E),
+          ),
         );
       }
     }
@@ -588,6 +601,62 @@ class _RecordTabState extends State<RecordTab> {
               _buildSliderRow(
                 label: 'Font Size', value: _currentFontSize, min: 12, max: 24, suffix: 'pt',
                 onChanged: (v) { setSheetState(() => _currentFontSize = v); setState(() {}); },
+              ),
+              const SizedBox(height: 24),
+              
+              // Video Quality selector
+              Row(
+                children: [
+                  const Icon(Icons.high_quality, color: Color(0xFF8B5CF6), size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Video Quality', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2D2D3D),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<ResolutionPreset>(
+                        value: _recordingService.currentQuality,
+                        dropdownColor: const Color(0xFF2D2D3D),
+                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF8B5CF6), size: 20),
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        items: const [
+                          DropdownMenuItem(
+                            value: ResolutionPreset.low,
+                            child: Text('480p (Low)'),
+                          ),
+                          DropdownMenuItem(
+                            value: ResolutionPreset.medium,
+                            child: Text('720p (Medium)'),
+                          ),
+                          DropdownMenuItem(
+                            value: ResolutionPreset.high,
+                            child: Text('1080p (High)'),
+                          ),
+                          DropdownMenuItem(
+                            value: ResolutionPreset.veryHigh,
+                            child: Text('1440p (Very High)'),
+                          ),
+                          DropdownMenuItem(
+                            value: ResolutionPreset.ultraHigh,
+                            child: Text('4K (Ultra)'),
+                          ),
+                        ],
+                        onChanged: (value) async {
+                          if (value != null) {
+                            Navigator.pop(ctx);
+                            setState(() => _isInitializing = true);
+                            await _recordingService.setQuality(value);
+                            if (mounted) setState(() => _isInitializing = false);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
