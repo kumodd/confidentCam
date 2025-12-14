@@ -12,39 +12,39 @@ import '../../core/error/failures.dart';
 import '../../core/utils/logger.dart';
 import '../../domain/entities/content_script.dart';
 import '../../domain/repositories/content_creator_repository.dart';
-import '../datasources/local/hive_content_scripts_datasource.dart';
+import '../datasources/remote/supabase_content_scripts_datasource.dart';
 
 /// Implementation of ContentCreatorRepository.
-/// Uses Hive for local storage and OpenAI for script generation.
+/// Uses Supabase for cloud storage and OpenAI for script generation.
 class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
-  final HiveContentScriptsDataSource localDataSource;
+  final SupabaseContentScriptsDataSource remoteDataSource;
   final http.Client _client;
   final Uuid _uuid = const Uuid();
 
   ContentCreatorRepositoryImpl({
-    required this.localDataSource,
+    required this.remoteDataSource,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
   @override
   Future<Either<Failure, List<ContentScript>>> getScripts(String userId) async {
     try {
-      final scripts = await localDataSource.getScripts(userId);
+      final scripts = await remoteDataSource.getScripts(userId);
       // Sort by createdAt descending (newest first)
       scripts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return Right(scripts);
     } catch (e) {
-      return Left(CacheFailure(message: 'Failed to load scripts: $e'));
+      return Left(ServerFailure(message: 'Failed to load scripts: $e'));
     }
   }
 
   @override
   Future<Either<Failure, ContentScript?>> getScriptById(String scriptId) async {
     try {
-      final script = await localDataSource.getScriptById(scriptId);
+      final script = await remoteDataSource.getScriptById(scriptId);
       return Right(script);
     } catch (e) {
-      return Left(CacheFailure(message: 'Failed to load script: $e'));
+      return Left(ServerFailure(message: 'Failed to load script: $e'));
     }
   }
 
@@ -54,20 +54,20 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
   ) async {
     try {
       final updatedScript = script.copyWith(updatedAt: DateTime.now());
-      await localDataSource.saveScript(updatedScript);
-      return Right(updatedScript);
+      final savedScript = await remoteDataSource.saveScript(updatedScript);
+      return Right(savedScript);
     } catch (e) {
-      return Left(CacheFailure(message: 'Failed to save script: $e'));
+      return Left(ServerFailure(message: 'Failed to save script: $e'));
     }
   }
 
   @override
   Future<Either<Failure, void>> deleteScript(String scriptId) async {
     try {
-      await localDataSource.deleteScript(scriptId);
+      await remoteDataSource.deleteScript(scriptId);
       return const Right(null);
     } catch (e) {
-      return Left(CacheFailure(message: 'Failed to delete script: $e'));
+      return Left(ServerFailure(message: 'Failed to delete script: $e'));
     }
   }
 
@@ -116,8 +116,8 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
         isRecorded: false,
       );
 
-      // Save to local storage
-      await localDataSource.saveScript(script);
+      // Save to Supabase
+      await remoteDataSource.saveScript(script);
 
       return Right(script);
     } catch (e) {
@@ -128,10 +128,10 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
   @override
   Future<Either<Failure, void>> markAsRecorded(String scriptId) async {
     try {
-      await localDataSource.markAsRecorded(scriptId);
+      await remoteDataSource.markAsRecorded(scriptId);
       return const Right(null);
     } catch (e) {
-      return Left(CacheFailure(message: 'Failed to mark as recorded: $e'));
+      return Left(ServerFailure(message: 'Failed to mark as recorded: $e'));
     }
   }
 

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../data/datasources/local/hive_settings_datasource.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/di/injection_container.dart';
+import '../../../services/notification_service.dart';
 
 // Settings entity
 class Settings extends Equatable {
@@ -235,6 +237,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final timeStr =
         '${event.time.hour.toString().padLeft(2, '0')}:${event.time.minute.toString().padLeft(2, '0')}';
     await settingsDataSource.saveSetting(AppConstants.reminderTimeKey, timeStr);
+    
+    // Schedule the daily notification
+    try {
+      final notificationService = sl<NotificationService>();
+      await notificationService.scheduleDailyReminder(event.time);
+    } catch (e) {
+      // Notification scheduling failed, but we still save the setting
+    }
+    
     add(const SettingsLoaded());
   }
 

@@ -108,11 +108,13 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   ) {
     if (state is OnboardingInProgress) {
       final current = state as OnboardingInProgress;
-      emit(current.copyWith(
-        promptMode: event.promptMode ?? current.promptMode,
-        humanTouchLevel: event.humanTouchLevel ?? current.humanTouchLevel,
-        audienceCulture: event.audienceCulture ?? current.audienceCulture,
-      ));
+      emit(
+        current.copyWith(
+          promptMode: event.promptMode ?? current.promptMode,
+          humanTouchLevel: event.humanTouchLevel ?? current.humanTouchLevel,
+          audienceCulture: event.audienceCulture ?? current.audienceCulture,
+        ),
+      );
     }
   }
 
@@ -222,11 +224,18 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         personalInfo,
       );
 
-      // Check if scripts already exist for this user (avoid double OpenAI calls)
-      final hasScripts = await scriptRepository.hasLocalScripts(current.userId);
+      // Check if scripts already exist for this user (local OR remote - avoid double OpenAI calls)
+      final hasLocalScripts = await scriptRepository.hasLocalScripts(
+        current.userId,
+      );
+      final hasRemoteScripts = await scriptRepository.hasRemoteScripts(
+        current.userId,
+      );
 
-      if (hasScripts) {
-        logger.i('Scripts already exist, skipping OpenAI generation');
+      if (hasLocalScripts || hasRemoteScripts) {
+        logger.i(
+          'Scripts already exist (local: $hasLocalScripts, remote: $hasRemoteScripts), skipping OpenAI generation',
+        );
         _lastValidState = null; // Clear cache on success
         emit(const OnboardingComplete());
         return;

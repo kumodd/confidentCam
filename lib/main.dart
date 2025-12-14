@@ -4,6 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 import 'core/di/injection_container.dart';
+import 'services/notification_service.dart';
+import 'data/datasources/local/hive_settings_datasource.dart';
+import 'core/constants/app_constants.dart';
 import 'presentation/bloc/auth/auth_bloc.dart';
 import 'presentation/bloc/auth/auth_event.dart';
 import 'presentation/bloc/daily_challenge/daily_challenge_bloc.dart';
@@ -35,10 +38,36 @@ void main() async {
   // Initialize dependencies
   await initDependencies();
 
+  // Initialize and configure notifications
+  await _initializeNotifications();
+
   // Configure EasyLoading
   _configureEasyLoading();
 
   runApp(const ConfidentCamApp());
+}
+
+/// Initialize notification service and schedule saved reminder.
+Future<void> _initializeNotifications() async {
+  try {
+    final notificationService = sl<NotificationService>();
+    await notificationService.initialize();
+    await notificationService.requestPermissions();
+    
+    // Schedule reminder from saved settings
+    final settingsDataSource = sl<HiveSettingsDataSource>();
+    final settings = await settingsDataSource.getSettings();
+    final timeStr = settings[AppConstants.reminderTimeKey] as String? ?? '09:00';
+    final parts = timeStr.split(':');
+    final hour = int.tryParse(parts[0]) ?? 9;
+    final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    
+    await notificationService.scheduleDailyReminder(
+      TimeOfDay(hour: hour, minute: minute),
+    );
+  } catch (e) {
+    // Notification initialization failed, but app should continue
+  }
 }
 
 void _configureEasyLoading() {

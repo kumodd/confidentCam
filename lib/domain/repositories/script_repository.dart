@@ -36,6 +36,9 @@ abstract class ScriptRepository {
   /// Check if scripts are cached locally.
   Future<bool> hasLocalScripts(String userId);
 
+  /// Check if scripts exist in remote Supabase database.
+  Future<bool> hasRemoteScripts(String userId);
+
   /// Clear cached scripts.
   Future<void> clearCache();
 }

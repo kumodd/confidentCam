@@ -55,12 +55,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _checkScriptsAndNavigate() async {
     final scriptRepository = sl<ScriptRepository>();
 
-    // Check if scripts exist in database
-    final hasScripts = await scriptRepository.hasLocalScripts(widget.user.id);
+    // Check if scripts exist in local cache OR remote database
+    final hasLocalScripts = await scriptRepository.hasLocalScripts(
+      widget.user.id,
+    );
+    final hasRemoteScripts = await scriptRepository.hasRemoteScripts(
+      widget.user.id,
+    );
+    final hasScripts = hasLocalScripts || hasRemoteScripts;
 
     if (!mounted) return;
 
-    // If no scripts exist or new user, force onboarding
+    // If no scripts exist (local or remote) or new user, force onboarding
     if (!hasScripts || widget.isNewUser) {
       _navigateToOnboarding();
     }

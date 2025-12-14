@@ -12,6 +12,7 @@ import '../../data/datasources/local/hive_progress_datasource.dart';
 import '../../data/datasources/local/hive_scripts_datasource.dart';
 import '../../data/datasources/local/hive_settings_datasource.dart';
 import '../../data/datasources/remote/supabase_auth_datasource.dart';
+import '../../data/datasources/remote/supabase_content_scripts_datasource.dart';
 import '../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../data/datasources/remote/supabase_progress_datasource.dart';
@@ -40,6 +41,7 @@ import '../../presentation/bloc/settings/settings_bloc.dart';
 import '../../presentation/bloc/warmup/warmup_bloc.dart';
 import '../../services/video_recording_service.dart';
 import '../../services/video_storage_service.dart';
+import '../../services/notification_service.dart';
 
 final sl = GetIt.instance;
 
@@ -143,6 +145,9 @@ void _initDataSources() {
   sl.registerLazySingleton<SupabaseLanguageDataSource>(
     () => SupabaseLanguageDataSource(client: sl()),
   );
+  sl.registerLazySingleton<SupabaseContentScriptsDataSource>(
+    () => SupabaseContentScriptsDataSource(client: sl()),
+  );
 
   // Local Data Sources
   sl.registerLazySingleton<HiveAuthDataSource>(
@@ -202,10 +207,10 @@ void _initRepositories() {
     () => VideoRepositoryImpl(videoStorageService: sl()),
   );
 
-  // Content Creator Repository (standalone - uses its own HTTP client for OpenAI)
+  // Content Creator Repository (standalone - uses Supabase for storage and OpenAI for generation)
   sl.registerLazySingleton<ContentCreatorRepository>(
     () => ContentCreatorRepositoryImpl(
-      localDataSource: sl(),
+      remoteDataSource: sl(),
     ),
   );
 }
@@ -218,6 +223,7 @@ void _initServices() {
     () => VideoRecordingServiceImpl(),
   );
   sl.registerLazySingleton<OpenAiService>(() => OpenAiService());
+  sl.registerLazySingleton<NotificationService>(() => NotificationService());
 }
 
 void _initBlocs() {

@@ -337,6 +337,25 @@ class ScriptRepositoryImpl implements ScriptRepository {
   }
 
   @override
+  Future<bool> hasRemoteScripts(String userId) async {
+    try {
+      if (!await networkInfo.isConnected) {
+        return false;
+      }
+
+      final scripts = await remoteDataSource.getScripts(userId);
+      final hasScripts = scripts.isNotEmpty;
+      logger.d(
+        'hasRemoteScripts: found ${scripts.length} scripts for user $userId',
+      );
+      return hasScripts;
+    } catch (e) {
+      logger.w('hasRemoteScripts: Error checking remote scripts', e);
+      return false;
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> saveGeneratedScripts({
     required String userId,
     required List<Map<String, dynamic>> scripts,
