@@ -5,20 +5,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../domain/entities/user.dart';
 import '../../../domain/repositories/script_repository.dart';
-import '../../bloc/onboarding/onboarding_bloc.dart';
-import '../../bloc/onboarding/onboarding_event.dart';
 import '../../bloc/progress/progress_bloc.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import '../../bloc/warmup/warmup_event.dart';
 import '../../bloc/warmup/warmup_state.dart';
 import '../../widgets/dashboard/guide_section.dart';
-import '../onboarding/onboarding_screen.dart';
 import '../warmup/warmup_overview_screen.dart';
 import '../challenge/day_list_screen.dart';
 import '../challenge/day_challenge_overview_screen.dart';
 import '../videos/my_videos_screen.dart';
 import '../settings/settings_screen.dart';
 import '../content_creator/widgets/content_creator_card.dart';
+import '../beginner_challenge/widgets/beginner_challenge_card.dart';
 
 /// Main dashboard screen after authentication.
 class DashboardScreen extends StatefulWidget {
@@ -37,6 +35,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  bool _hasScripts = false;
 
   @override
   void initState() {
@@ -47,12 +46,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
       context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
 
-      // Check scripts and navigate accordingly
-      _checkScriptsAndNavigate();
+      // Check if scripts exist (for conditional UI)
+      _checkScriptsExist();
     });
   }
 
-  Future<void> _checkScriptsAndNavigate() async {
+  Future<void> _checkScriptsExist() async {
     final scriptRepository = sl<ScriptRepository>();
 
     // Check if scripts exist in local cache OR remote database
@@ -62,37 +61,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final hasRemoteScripts = await scriptRepository.hasRemoteScripts(
       widget.user.id,
     );
-    final hasScripts = hasLocalScripts || hasRemoteScripts;
 
     if (!mounted) return;
 
-    // If no scripts exist (local or remote) or new user, force onboarding
-    if (!hasScripts || widget.isNewUser) {
-      _navigateToOnboarding();
-    }
+    setState(() {
+      _hasScripts = hasLocalScripts || hasRemoteScripts;
+    });
   }
 
-  void _navigateToOnboarding() {
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder:
-                (_) => BlocProvider(
-                  create:
-                      (_) =>
-                          sl<OnboardingBloc>()
-                            ..add(OnboardingStarted(widget.user.id)),
-                  child: const OnboardingScreen(),
-                ),
-          ),
-        )
-        .then((result) {
-          // Reload data after onboarding completes
-          if (result == true && mounted) {
-            context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
-            context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
-          }
-        });
+  void _onChallengeStarted() {
+    // Reload data after onboarding completes
+    context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
+    context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
+    _checkScriptsExist();
   }
 
   @override
@@ -177,26 +158,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Warmup or Today's challenge
-            SliverToBoxAdapter(
-              child: BlocBuilder<WarmupBloc, WarmupState>(
-                builder: (context, state) {
-                  if (state is WarmupOverview && !state.allWarmupsComplete) {
-                    return _buildWarmupCard(state);
-                  } else if (state is AllWarmupsComplete) {
-                    return _buildTodaysChallengeCard();
-                  }
-                  return const SizedBox.shrink();
-                },
+            // Warmup or Today's challenge (only show if scripts exist)
+            if (_hasScripts)
+              SliverToBoxAdapter(
+                child: BlocBuilder<WarmupBloc, WarmupState>(
+                  builder: (context, state) {
+                    if (state is WarmupOverview && !state.allWarmupsComplete) {
+                      return _buildWarmupCard(state);
+                    } else if (state is AllWarmupsComplete) {
+                      return _buildTodaysChallengeCard();
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ),
-            ),
 
             // Quick actions
             SliverToBoxAdapter(child: _buildQuickActions()),
 
-            // Content Creator Card (standalone)
+            // Content Creator Card (standalone - for experienced users)
             SliverToBoxAdapter(
               child: ContentCreatorCard(userId: widget.user.id),
+            ),
+
+            // Beginner Challenge Card (for 30-day confidence journey)
+            SliverToBoxAdapter(
+              child: BeginnerChallengeCard(
+                userId: widget.user.id,
+                userName: widget.user.displayName,
+                onChallengeStarted: _onChallengeStarted,
+              ),
             ),
 
             // Guide Section
