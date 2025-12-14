@@ -13,6 +13,7 @@ import '../../../bloc/content_creator/content_creator_bloc.dart';
 import '../../../bloc/content_creator/content_creator_event.dart';
 import '../../../bloc/content_creator/content_creator_state.dart';
 import '../../../bloc/settings/settings_bloc.dart';
+import '../content_creator_screen.dart';
 
 /// Tab for recording content videos with teleprompter and controls.
 class RecordTab extends StatefulWidget {
@@ -35,7 +36,7 @@ class _RecordTabState extends State<RecordTab> {
   int _recordingSeconds = 0;
 
   // Teleprompter settings
-  double _currentSpeed = 1.0;
+  double _currentSpeed = 0.6;
   double _currentHeight = 0.30;
   double _currentOpacity = 0.85;
   double _currentFontSize = 16.0;
@@ -70,12 +71,18 @@ class _RecordTabState extends State<RecordTab> {
 
   Color _getColorFromString(String colorName) {
     switch (colorName.toLowerCase()) {
-      case 'white': return Colors.white;
-      case 'yellow': return const Color(0xFFFBBF24);
-      case 'cyan': return const Color(0xFF22D3EE);
-      case 'green': return const Color(0xFF22C55E);
-      case 'pink': return const Color(0xFFF472B6);
-      default: return Colors.white;
+      case 'white':
+        return Colors.white;
+      case 'yellow':
+        return const Color(0xFFFBBF24);
+      case 'cyan':
+        return const Color(0xFF22D3EE);
+      case 'green':
+        return const Color(0xFF22C55E);
+      case 'pink':
+        return const Color(0xFFF472B6);
+      default:
+        return Colors.white;
     }
   }
 
@@ -86,7 +93,10 @@ class _RecordTabState extends State<RecordTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to initialize camera'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('Failed to initialize camera'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -103,7 +113,10 @@ class _RecordTabState extends State<RecordTab> {
   }
 
   void _startCountdown() {
-    setState(() { _countdown = 3; _showingCountdown = true; });
+    setState(() {
+      _countdown = 3;
+      _showingCountdown = true;
+    });
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown > 1) {
         setState(() => _countdown--);
@@ -116,10 +129,22 @@ class _RecordTabState extends State<RecordTab> {
   }
 
   Future<void> _startRecording() async {
-    setState(() { _isRecording = true; _recordingSeconds = 0; });
+    // Hide header and tab bar for more screen space
+    ContentCreatorTabController.of(context)?.setRecording(true);
+
+    setState(() {
+      _isRecording = true;
+      _recordingSeconds = 0;
+    });
     await _recordingService.startRecording();
-    _startAutoScroll();
-    
+
+    // Delay auto-scroll by 20 seconds to give user time to read the intro
+    Future.delayed(const Duration(seconds: 20), () {
+      if (_isRecording && mounted) {
+        _startAutoScroll();
+      }
+    });
+
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() => _recordingSeconds++);
       if (_recordingSeconds >= 300) _stopRecording();
@@ -132,17 +157,20 @@ class _RecordTabState extends State<RecordTab> {
     if (!_isRecording) return;
     setState(() => _isRecording = false);
 
+    // Show header and tab bar again
+    ContentCreatorTabController.of(context)?.setRecording(false);
+
     final path = await _recordingService.stopRecording();
     if (path != null && mounted) {
       final storageService = sl<VideoStorageService>();
-      
+
       // Get script title for video naming
       String? scriptTitle;
       final state = context.read<ContentCreatorBloc>().state;
       if (state is ContentCreatorLoaded && state.selectedScript != null) {
         scriptTitle = state.selectedScript!.title;
       }
-      
+
       final savedPath = await storageService.saveVideo(
         tempPath: path,
         type: 'content',
@@ -153,12 +181,18 @@ class _RecordTabState extends State<RecordTab> {
 
       if (savedPath.isNotEmpty) {
         if (state is ContentCreatorLoaded && state.selectedScript != null) {
-          context.read<ContentCreatorBloc>().add(MarkScriptRecorded(state.selectedScript!.id));
+          context.read<ContentCreatorBloc>().add(
+            MarkScriptRecorded(state.selectedScript!.id),
+          );
         }
-        context.read<ContentCreatorBloc>().add(LoadContentVideos(widget.userId));
+        context.read<ContentCreatorBloc>().add(
+          LoadContentVideos(widget.userId),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(scriptTitle != null ? '"$scriptTitle" saved!' : 'Video saved!'),
+            content: Text(
+              scriptTitle != null ? '"$scriptTitle" saved!' : 'Video saved!',
+            ),
             backgroundColor: const Color(0xFF22C55E),
           ),
         );
@@ -203,28 +237,43 @@ class _RecordTabState extends State<RecordTab> {
     }
   }
 
-  String _formatDuration(int s) => '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+  String _formatDuration(int s) =>
+      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
-    final teleprompterHeight = MediaQuery.of(context).size.height * _currentHeight;
+    final teleprompterHeight =
+        MediaQuery.of(context).size.height * _currentHeight;
 
     return BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
       builder: (context, state) {
         ContentScript? selectedScript;
-        if (state is ContentCreatorLoaded) selectedScript = state.selectedScript;
+        if (state is ContentCreatorLoaded)
+          selectedScript = state.selectedScript;
 
         return Stack(
           fit: StackFit.expand,
           children: [
             // Camera preview
             if (!_isInitializing && _recordingService.controller != null)
-              ClipRRect(borderRadius: BorderRadius.circular(16), child: CameraPreview(_recordingService.controller!))
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: CameraPreview(_recordingService.controller!),
+              )
             else
-              const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                CircularProgressIndicator(color: Colors.white), SizedBox(height: 16),
-                Text('Preparing camera...', style: TextStyle(color: Colors.white54)),
-              ])),
+              const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Preparing camera...',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
 
             // Settings button (top right)
             if (!_showingCountdown && !_isRecording)
@@ -238,7 +287,11 @@ class _RecordTabState extends State<RecordTab> {
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.tune, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.tune,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   onPressed: () => _showSettingsSheet(context),
                 ),
@@ -266,10 +319,18 @@ class _RecordTabState extends State<RecordTab> {
                     color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(children: [
-                    Icon(Icons.info_outline, color: Colors.white54), SizedBox(width: 12),
-                    Expanded(child: Text('No script selected. Go to My Scripts tab to select one.', style: TextStyle(color: Colors.white70, fontSize: 13))),
-                  ]),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.white54),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'No script selected. Go to My Scripts tab to select one.',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -279,14 +340,37 @@ class _RecordTabState extends State<RecordTab> {
                 top: 16,
                 left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle))
-                        .animate(onComplete: (c) => c.repeat(reverse: true)).fade(duration: 500.ms),
-                    const SizedBox(width: 8),
-                    Text(_formatDuration(_recordingSeconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ]),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                          .animate(onComplete: (c) => c.repeat(reverse: true))
+                          .fade(duration: 500.ms),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDuration(_recordingSeconds),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -301,48 +385,124 @@ class _RecordTabState extends State<RecordTab> {
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove, color: Colors.white, size: 20),
-                      onPressed: () => _adjustSpeed(-0.25),
-                    ),
-                    Text('${_currentSpeed.toStringAsFixed(1)}x', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    IconButton(
-                      icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                      onPressed: () => _adjustSpeed(0.25),
-                    ),
-                  ]),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.remove,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: () => _adjustSpeed(-0.25),
+                      ),
+                      Text(
+                        '${_currentSpeed.toStringAsFixed(1)}x',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: () => _adjustSpeed(0.25),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
             // Countdown overlay
             if (_showingCountdown)
-              Center(child: Container(
-                width: 120, height: 120,
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), shape: BoxShape.circle),
-                child: Center(child: Text('$_countdown', style: const TextStyle(color: Colors.white, fontSize: 64, fontWeight: FontWeight.bold))),
-              ).animate().scale(begin: const Offset(1.2, 1.2), end: const Offset(1, 1), duration: 800.ms)),
+              Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$_countdown',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 64,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ).animate().scale(
+                  begin: const Offset(1.2, 1.2),
+                  end: const Offset(1, 1),
+                  duration: 800.ms,
+                ),
+              ),
 
             // Record/Stop button
             Positioned(
               bottom: 32,
               left: 0,
               right: 0,
-              child: Center(child: _isRecording
-                  ? GestureDetector(onTap: _stopRecording, child: Container(
-                      width: 80, height: 80,
-                      decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: Colors.red, width: 4)),
-                      child: Center(child: Container(width: 32, height: 32, decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)))),
-                    ))
-                  : GestureDetector(onTap: _isInitializing ? null : _startCountdown, child: Container(
-                      width: 80, height: 80,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)]),
-                        shape: BoxShape.circle,
-                        boxShadow: _isInitializing ? null : [BoxShadow(color: const Color(0xFFEC4899).withOpacity(0.4), blurRadius: 20, spreadRadius: 2)],
-                      ),
-                      child: const Icon(Icons.videocam_rounded, color: Colors.white, size: 36),
-                    )),
+              child: Center(
+                child:
+                    _isRecording
+                        ? GestureDetector(
+                          onTap: _stopRecording,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.red, width: 4),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        : GestureDetector(
+                          onTap: _isInitializing ? null : _startCountdown,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow:
+                                  _isInitializing
+                                      ? null
+                                      : [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFFEC4899,
+                                          ).withOpacity(0.4),
+                                          blurRadius: 20,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                            ),
+                            child: const Icon(
+                              Icons.videocam_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                        ),
               ),
             ),
           ],
@@ -357,7 +517,8 @@ class _RecordTabState extends State<RecordTab> {
         color: Colors.black.withOpacity(_currentOpacity),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: (_isRecording ? Colors.red : const Color(0xFFEC4899)).withOpacity(0.6),
+          color: (_isRecording ? Colors.red : const Color(0xFFEC4899))
+              .withOpacity(0.6),
           width: 1.5,
         ),
       ),
@@ -368,15 +529,22 @@ class _RecordTabState extends State<RecordTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: (_isRecording ? Colors.red : const Color(0xFFEC4899)).withOpacity(0.2),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              color: (_isRecording ? Colors.red : const Color(0xFFEC4899))
+                  .withOpacity(0.2),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     script.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -384,7 +552,8 @@ class _RecordTabState extends State<RecordTab> {
                 Text(
                   _isRecording ? '${_currentSpeed.toStringAsFixed(1)}x' : '📖',
                   style: TextStyle(
-                    color: _isRecording ? Colors.white : const Color(0xFFFBBF24),
+                    color:
+                        _isRecording ? Colors.white : const Color(0xFFFBBF24),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -397,7 +566,8 @@ class _RecordTabState extends State<RecordTab> {
             child: SingleChildScrollView(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              physics: _isRecording ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+              // Enable manual scrolling even during recording for user control
+              physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -494,18 +664,18 @@ class _RecordTabState extends State<RecordTab> {
   /// Parse simple markdown (bold, line breaks, bullets) into TextSpans
   List<TextSpan> _parseMarkdown(String text) {
     final spans = <TextSpan>[];
-    
+
     // Split by line breaks first
     final lines = text.split(RegExp(r'\\n|[\n]'));
-    
+
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
-      
+
       if (line.isEmpty) {
         spans.add(const TextSpan(text: '\n'));
         continue;
       }
-      
+
       // Check if line starts with bullet
       String processedLine = line;
       if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
@@ -514,174 +684,254 @@ class _RecordTabState extends State<RecordTab> {
         // Convert asterisk bullet to nicer bullet
         processedLine = line.replaceFirst('* ', '• ');
       }
-      
+
       // Parse bold text (**text**)
       final boldPattern = RegExp(r'\*\*(.+?)\*\*');
       var lastEnd = 0;
-      
+
       for (final match in boldPattern.allMatches(processedLine)) {
         // Text before the match
         if (match.start > lastEnd) {
-          spans.add(TextSpan(text: processedLine.substring(lastEnd, match.start)));
+          spans.add(
+            TextSpan(text: processedLine.substring(lastEnd, match.start)),
+          );
         }
         // Bold text
-        spans.add(TextSpan(
-          text: match.group(1),
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFFFBBF24), // Yellow highlight for bold
-            fontSize: _currentFontSize,
+        spans.add(
+          TextSpan(
+            text: match.group(1),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFFFBBF24), // Yellow highlight for bold
+              fontSize: _currentFontSize,
+            ),
           ),
-        ));
+        );
         lastEnd = match.end;
       }
-      
+
       // Remaining text after last match
       if (lastEnd < processedLine.length) {
         spans.add(TextSpan(text: processedLine.substring(lastEnd)));
       }
-      
+
       // Add line break after each line (except the last)
       if (i < lines.length - 1) {
         spans.add(const TextSpan(text: '\n'));
       }
     }
-    
+
     return spans;
   }
 
   void _showSettingsSheet(BuildContext context) {
     showModalBottomSheet(
+      isDismissible: true,
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setSheetState) => Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1E1E2E),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.tune, color: Color(0xFFEC4899)),
-                  const SizedBox(width: 12),
-                  const Text('Teleprompter Settings', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const Spacer(),
-                  IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Speed slider
-              _buildSliderRow(
-                label: 'Scroll Speed', value: _currentSpeed, min: 0.5, max: 3.0, suffix: 'x',
-                onChanged: (v) { setSheetState(() => _currentSpeed = v); setState(() {}); },
-              ),
-              const SizedBox(height: 16),
-
-              // Height slider
-              _buildSliderRow(
-                label: 'Height', value: _currentHeight * 100, min: 15, max: 60, suffix: '%',
-                onChanged: (v) { setSheetState(() => _currentHeight = v / 100); setState(() {}); },
-              ),
-              const SizedBox(height: 16),
-
-              // Opacity slider
-              _buildSliderRow(
-                label: 'Opacity', value: _currentOpacity * 100, min: 50, max: 100, suffix: '%',
-                onChanged: (v) { setSheetState(() => _currentOpacity = v / 100); setState(() {}); },
-              ),
-              const SizedBox(height: 16),
-
-              // Font size slider
-              _buildSliderRow(
-                label: 'Font Size', value: _currentFontSize, min: 12, max: 24, suffix: 'pt',
-                onChanged: (v) { setSheetState(() => _currentFontSize = v); setState(() {}); },
-              ),
-              const SizedBox(height: 24),
-              
-              // Video Quality selector
-              Row(
-                children: [
-                  const Icon(Icons.high_quality, color: Color(0xFF8B5CF6), size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Video Quality', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2D2D3D),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ResolutionPreset>(
-                        value: _recordingService.currentQuality,
-                        dropdownColor: const Color(0xFF2D2D3D),
-                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF8B5CF6), size: 20),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        items: const [
-                          DropdownMenuItem(
-                            value: ResolutionPreset.low,
-                            child: Text('480p (Low)'),
-                          ),
-                          DropdownMenuItem(
-                            value: ResolutionPreset.medium,
-                            child: Text('720p (Medium)'),
-                          ),
-                          DropdownMenuItem(
-                            value: ResolutionPreset.high,
-                            child: Text('1080p (High)'),
-                          ),
-                          DropdownMenuItem(
-                            value: ResolutionPreset.veryHigh,
-                            child: Text('1440p (Very High)'),
-                          ),
-                          DropdownMenuItem(
-                            value: ResolutionPreset.ultraHigh,
-                            child: Text('4K (Ultra)'),
-                          ),
-                        ],
-                        onChanged: (value) async {
-                          if (value != null) {
-                            Navigator.pop(ctx);
-                            setState(() => _isInitializing = true);
-                            await _recordingService.setQuality(value);
-                            if (mounted) setState(() => _isInitializing = false);
-                          }
-                        },
-                      ),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (context, setSheetState) => Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1E1E2E),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.tune, color: Color(0xFFEC4899)),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Teleprompter Settings',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white54,
+                              ),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
 
-              // Save button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    context.read<SettingsBloc>().add(TeleprompterSpeedUpdated(_currentSpeed));
-                    context.read<SettingsBloc>().add(TeleprompterHeightUpdated(_currentHeight));
-                    context.read<SettingsBloc>().add(TeleprompterOpacityUpdated(_currentOpacity));
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEC4899),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                        // Speed slider
+                        _buildSliderRow(
+                          label: 'Scroll Speed',
+                          value: _currentSpeed,
+                          min: 0.1,
+                          max: 3.0,
+                          suffix: 'x',
+                          onChanged: (v) {
+                            setSheetState(() => _currentSpeed = v);
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Height slider
+                        _buildSliderRow(
+                          label: 'Height',
+                          value: _currentHeight * 100,
+                          min: 15,
+                          max: 80,
+                          suffix: '%',
+                          onChanged: (v) {
+                            setSheetState(() => _currentHeight = v / 100);
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Opacity slider
+                        _buildSliderRow(
+                          label: 'Opacity',
+                          value: _currentOpacity * 100,
+                          min: 50,
+                          max: 100,
+                          suffix: '%',
+                          onChanged: (v) {
+                            setSheetState(() => _currentOpacity = v / 100);
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Font size slider
+                        _buildSliderRow(
+                          label: 'Font Size',
+                          value: _currentFontSize,
+                          min: 12,
+                          max: 24,
+                          suffix: 'pt',
+                          onChanged: (v) {
+                            setSheetState(() => _currentFontSize = v);
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Video Quality selector
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.high_quality,
+                              color: Color(0xFF8B5CF6),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Video Quality',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D2D3D),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<ResolutionPreset>(
+                                  value: _recordingService.currentQuality,
+                                  dropdownColor: const Color(0xFF2D2D3D),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: Color(0xFF8B5CF6),
+                                    size: 20,
+                                  ),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: ResolutionPreset.low,
+                                      child: Text('480p (Low)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: ResolutionPreset.medium,
+                                      child: Text('720p (Medium)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: ResolutionPreset.high,
+                                      child: Text('1080p (High)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: ResolutionPreset.veryHigh,
+                                      child: Text('1440p (Very High)'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: ResolutionPreset.ultraHigh,
+                                      child: Text('4K (Ultra)'),
+                                    ),
+                                  ],
+                                  onChanged: (value) async {
+                                    if (value != null) {
+                                      Navigator.pop(ctx);
+                                      setState(() => _isInitializing = true);
+                                      await _recordingService.setQuality(value);
+                                      if (mounted) {
+                                        setState(() => _isInitializing = false);
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Save button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              context.read<SettingsBloc>().add(
+                                TeleprompterSpeedUpdated(_currentSpeed),
+                              );
+                              context.read<SettingsBloc>().add(
+                                TeleprompterHeightUpdated(_currentHeight),
+                              );
+                              context.read<SettingsBloc>().add(
+                                TeleprompterOpacityUpdated(_currentOpacity),
+                              );
+                              Navigator.pop(ctx);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEC4899),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text('Save Settings'),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
-                  child: const Text('Save Settings'),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
           ),
-        ),
-      ),
     );
   }
 
@@ -700,7 +950,13 @@ class _RecordTabState extends State<RecordTab> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(color: Colors.white70)),
-            Text('${value.toStringAsFixed(1)}$suffix', style: const TextStyle(color: Color(0xFFEC4899), fontWeight: FontWeight.bold)),
+            Text(
+              '${value.toStringAsFixed(1)}$suffix',
+              style: const TextStyle(
+                color: Color(0xFFEC4899),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         Slider(

@@ -55,7 +55,7 @@ class AppConfig {
       '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';
   static const String openAiModel = 'gpt-4o-mini'; // Cost-effective model
   static const String openAiBaseUrl = 'https://api.openai.com/v1';
-  static const int maxScriptTokens = 55000;
+  static const int maxScriptTokens = 16300;
 
   // Extension Settings
   static const int extensionDaysCount = 15; // Days per extension

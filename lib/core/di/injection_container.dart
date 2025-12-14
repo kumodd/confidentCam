@@ -209,9 +209,7 @@ void _initRepositories() {
 
   // Content Creator Repository (standalone - uses Supabase for storage and OpenAI for generation)
   sl.registerLazySingleton<ContentCreatorRepository>(
-    () => ContentCreatorRepositoryImpl(
-      remoteDataSource: sl(),
-    ),
+    () => ContentCreatorRepositoryImpl(remoteDataSource: sl()),
   );
 }
 
@@ -254,6 +252,8 @@ void _initBlocs() {
       scriptRepository: sl(),
       progressRepository: sl(),
       videoRepository: sl(),
+      openAiService: sl(),
+      onboardingDataSource: sl(),
     ),
   );
 

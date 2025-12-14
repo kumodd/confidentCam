@@ -13,6 +13,7 @@ class OpenAiService {
   OpenAiService({http.Client? client}) : _client = client ?? http.Client();
 
   /// Generate 30 personalized daily scripts based on user profile.
+  /// @deprecated Use generateWeeklyScripts for better performance and longer scripts.
   Future<List<Map<String, dynamic>>> generateScripts({
     required String firstName,
     required int age,
@@ -25,7 +26,9 @@ class OpenAiService {
     AudienceCulture culture = AudienceCulture.india,
   }) async {
     logger.i('Generating scripts for $firstName from $location in $language');
-    logger.i('Prompt mode: $promptMode, Human touch: $humanTouch, Culture: $culture');
+    logger.i(
+      'Prompt mode: $promptMode, Human touch: $humanTouch, Culture: $culture',
+    );
 
     final prompt = _buildScriptPrompt(
       firstName: firstName,
@@ -50,6 +53,102 @@ class OpenAiService {
     }
   }
 
+  /// Generate scripts for a specific week (7 scripts per week).
+  /// Word count scales progressively.
+  Future<List<Map<String, dynamic>>> generateWeeklyScripts({
+    required int weekNumber,
+    required String firstName,
+    required int age,
+    required String location,
+    required String goal,
+    required Map<String, dynamic> onboardingAnswers,
+    String language = 'en',
+    PromptMode promptMode = PromptMode.selfDiscovery,
+    HumanTouchLevel humanTouch = HumanTouchLevel.natural,
+    AudienceCulture culture = AudienceCulture.india,
+  }) async {
+    // Calculate day range for this week
+    final startDay = (weekNumber - 1) * 7 + 1;
+    final endDay = weekNumber * 7;
+    final clampedEndDay = endDay > 30 ? 30 : endDay;
+    final scriptCount = clampedEndDay - startDay + 1;
+
+    if (scriptCount <= 0) {
+      logger.w(
+        'Week $weekNumber has no days to generate (days $startDay-$clampedEndDay)',
+      );
+      return [];
+    }
+
+    // Get word count range for this week
+    final wordRange = _getWordRangeForWeek(weekNumber);
+
+    logger.i(
+      'Generating Week $weekNumber scripts (Day $startDay-$clampedEndDay, ${wordRange.$1}-${wordRange.$2} words each)',
+    );
+    logger.i(
+      'Prompt mode: $promptMode, Human touch: $humanTouch, Culture: $culture',
+    );
+
+    final prompt = _buildWeeklyScriptPrompt(
+      weekNumber: weekNumber,
+      startDay: startDay,
+      endDay: clampedEndDay,
+      scriptCount: scriptCount,
+      minWords: wordRange.$1,
+      maxWords: wordRange.$2,
+      firstName: firstName,
+      age: age,
+      location: location,
+      goal: goal,
+      answers: onboardingAnswers,
+      language: language,
+      promptMode: promptMode,
+      humanTouch: humanTouch,
+      culture: culture,
+    );
+
+    try {
+      final response = await _callOpenAI(prompt);
+      final scripts = _parseScriptsResponse(response);
+
+      // Post-process: ensure each script has a dayNumber
+      for (int i = 0; i < scripts.length; i++) {
+        final expectedDay = startDay + i;
+        if (scripts[i]['dayNumber'] == null) {
+          scripts[i]['dayNumber'] = expectedDay;
+        }
+        // Also add title and other fields if missing
+        scripts[i]['title'] ??= 'Day $expectedDay';
+        scripts[i]['focus'] ??= 'confidence building';
+        scripts[i]['duration'] ??= '1-2 minutes';
+      }
+
+      logger.i('Generated ${scripts.length} scripts for Week $weekNumber');
+      return scripts;
+    } catch (e) {
+      logger.e('Failed to generate Week $weekNumber scripts', e);
+      rethrow;
+    }
+  }
+
+  /// Get minimum and maximum word count for a given week.
+  (int, int) _getWordRangeForWeek(int weekNumber) {
+    switch (weekNumber) {
+      case 1:
+        return (175, 225);
+      case 2:
+        return (225, 275);
+      case 3:
+        return (275, 325);
+      case 4:
+        return (325, 375);
+      case 5:
+      default:
+        return (375, 425);
+    }
+  }
+
   /// Generate extension scripts for post-30-day content.
   Future<List<Map<String, dynamic>>> generateExtensionScripts({
     required String firstName,
@@ -63,46 +162,44 @@ class OpenAiService {
     );
 
     final prompt = '''
-You are a camera confidence coach helping $firstName continue their journey beyond the initial 30 days.
+You are an expert social media scriptwriter helping $firstName.
+Goal: $goal
 
-This is Extension $extensionNumber, covering Days $startDay to $endDay.
-Their goal: $goal
+Generate ${endDay - startDay + 1} high-retention video scripts.
 
-Generate ${endDay - startDay + 1} advanced video scripts that build on the foundational skills.
+STRICT FORMATTING (Viral Structure):
+Each script MUST have exactly 3 parts containing ONLY spoken words.
 
-Focus areas:
-- Advanced techniques
-- Niche-specific content for their goal
-- Collaboration and engagement strategies
-- Monetization tips (if relevant)
-- Building a consistent content calendar
+1. part1 (The Hook - 20-40 words): 
+   - NO "Hello" or "Welcome back". 
+   - Start immediately with a controversial statement, a question, or a strong realization.
+   - Example: "Stop doing this if you want to succeed." or "I learned this the hard way."
 
-STRICT 3-PART SCRIPT FORMAT:
-Each script MUST have exactly 3 parts containing ONLY spoken words:
-- part1: Hook/Opening (20-40 words) - Grab attention immediately
-- part2: Content/Body (80-150 words) - Deliver main value
-- part3: Close/Ending (20-40 words) - End with impact
+2. part2 (The Body - 80-150 words):
+   - Deliver the value.
+   - Use short, punchy sentences.
+   - Speak like a human, not a book. Use colloquialisms where appropriate.
+
+3. part3 (The CTA - 20-40 words):
+   - A clear closing thought.
+   - A specific call to action (e.g., "Save this for later").
 
 CRITICAL RULES:
 1. Write ONLY the exact words to speak aloud
-2. NO tips, instructions, or suggestions
+2. NO narration like "One day I went to..." (Storybook style). Use "You" and "I" in the present moment.
 3. NO labels like "Hook:", "Part 1:", "[pause]"
 4. NO meta phrases like "In this video", "Today I'll show you"
-5. Use short sentences (max 12 words each)
-6. Use "..." for natural pause points
 
 Return a JSON array with each script having:
 {
   "dayNumber": <number>,
-  "title": "<catchy title>",
-  "part1": "<hook text - spoken words only>",
-  "part2": "<content text - spoken words only>",
-  "part3": "<closing text - spoken words only>",
+  "title": "<catchy clickbait style title>",
+  "part1": "<spoken words only>",
+  "part2": "<spoken words only>",
+  "part3": "<spoken words only>",
   "focus": "<main skill focus>",
   "duration": "<recommended video duration>"
 }
-
-IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 ''';
 
     try {
@@ -134,40 +231,37 @@ Their goal: $goal
 
 $languageInstruction
 
-Create 3 short warmup scripts (30-60 seconds each) that:
-- Are encouraging and personal
-- Build confidence progressively
-- Use their name and goal naturally
+Create 3 short warmup scripts (30-60 seconds each).
+
+ANTI-ROBOTIC INSTRUCTIONS:
+- Do not write like a generic AI.
+- Write like a real person talking to a friend on FaceTime.
+- Use sentence fragments. It's okay to be casual.
 
 STRICT 3-PART SCRIPT FORMAT:
-Each script MUST have exactly 3 parts containing ONLY spoken words:
-- part1: Hook/Opening (15-25 words) - Energizing opener
-- part2: Content/Body (40-60 words) - Building confidence
-- part3: Close/Ending (15-25 words) - Ready to go statement
+- part1 (The Hook): High energy opener. No "Hi, I am..." - jump straight into the feeling.
+- part2 (The Meat): The core message about confidence.
+- part3 (The Outro): A firm commitment statement.
 
 CRITICAL RULES:
 1. Write ONLY the exact words to speak aloud
 2. NO tips, instructions, or suggestions
-3. NO labels like "Hook:", "Part 1:", "[pause]"
-4. NO meta phrases like "In this video", "Today I'll show you"
-5. Use short sentences (max 12 words each)
-6. Use "..." for natural pause points
+3. NO labels like "Hook:", "Part 1:"
+4. NO meta phrases like "In this video"
 
-Warmup 1: "First Steps" - Introduction to being on camera
-Warmup 2: "Finding Your Energy" - Building energy and presence  
-Warmup 3: "Ready to Start" - Final preparation before the 30-day challenge
+Warmup 1: "First Steps"
+Warmup 2: "Finding Your Energy"
+Warmup 3: "Ready to Start"
 
 Return a JSON array with 3 objects:
 {
   "warmupIndex": <0, 1, or 2>,
   "title": "<warmup title>",
-  "part1": "<hook text - spoken words only>",
-  "part2": "<content text - spoken words only>",
-  "part3": "<closing text - spoken words only>",
+  "part1": "<spoken words only>",
+  "part2": "<spoken words only>",
+  "part3": "<spoken words only>",
   "focus": "<main focus of this warmup>"
 }
-
-IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
 ''';
 
     try {
@@ -182,94 +276,169 @@ IMPORTANT: Return ONLY valid JSON array, no markdown or extra text.
   }
 
   String _buildScriptPrompt({
-  required String firstName,
-  required int age,
-  required String location,
-  required String goal,
-  required Map<String, dynamic> answers,
-  required PromptMode promptMode,
-  required HumanTouchLevel humanTouch,
-  required AudienceCulture culture,
-  String language = 'en',
-}) {
-  final profile = PromptConfigFactory.build(
-    mode: promptMode,
-    humanTouch: humanTouch,
-    culture: culture,
-  );
+    required String firstName,
+    required int age,
+    required String location,
+    required String goal,
+    required Map<String, dynamic> answers,
+    required PromptMode promptMode,
+    required HumanTouchLevel humanTouch,
+    required AudienceCulture culture,
+    String language = 'en',
+  }) {
+    final profile = PromptConfigFactory.build(
+      mode: promptMode,
+      humanTouch: humanTouch,
+      culture: culture,
+    );
 
-  final challenges =
-      (answers['challenges'] as List?)?.join(', ') ?? 'self-doubt';
+    final challenges =
+        (answers['challenges'] as List?)?.join(', ') ?? 'self-doubt';
 
-  return '''
+    return '''
 ${_getLanguageInstruction(language)}
 
 SYSTEM PERSONA:
 ${profile.systemPersona}
 
-CORE INTENT:
-${profile.coreIntent}
+USER CONTEXT:
+Name: $firstName
+Age: $age
+Location: $location
+Goal: $goal
+Challenges: $challenges
 
-SPEAKER MINDSET:
-${profile.speakerMindset}
+TONE & STYLE GUIDELINES (CRITICAL):
+1. NOT A STORYBOOK: Do not use narrative past tense (e.g., "Once I walked down the road...").
+2. CONVERSATIONAL: Write exactly how a human speaks. Use contractions (can't, won't, I'm).
+3. ACTIVE VOICE: Speak directly to the viewer (Use "You").
+4. RAW & AUTHENTIC: Avoid corporate or overly poetic language. Keep it grounded.
 
-EMOTIONAL ARC:
-${profile.emotionalArc}
+STRUCTURE (The 3-Part Hook-Body-Close):
+- part1: THE HOOK. 1 sentence that stops the scroll. A bold claim, a question, or a vulnerable admission.
+- part2: THE BODY. Elaborate on the hook. Share the insight. Keep it punchy.
+- part3: THE CLOSE. A final takeaway or call to action.
 
-HUMAN SPEECH RULES:
-${profile.humanSpeechRules}
+OUTPUT FORMAT (STRICT JSON):
+Return ONLY a valid JSON array of 30 objects.
 
-AUDIENCE MIRROR:
-${profile.audienceMirrorRules}
+Each object MUST have this structure:
+{
+  "dayNumber": <1-30>,
+  "title": "<catchy title>",
+  "part1": "<spoken hook text>",
+  "part2": "<spoken body text>",
+  "part3": "<spoken close text>",
+  "focus": "<emotional focus>",
+  "duration": "<estimated duration>"
+}
+''';
+  }
 
-CULTURAL CONTEXT:
-${profile.culturalRules}
+  /// Build prompt for weekly script generation with progressive word counts.
+  String _buildWeeklyScriptPrompt({
+    required int weekNumber,
+    required int startDay,
+    required int endDay,
+    required int scriptCount,
+    required int minWords,
+    required int maxWords,
+    required String firstName,
+    required int age,
+    required String location,
+    required String goal,
+    required Map<String, dynamic> answers,
+    required PromptMode promptMode,
+    required HumanTouchLevel humanTouch,
+    required AudienceCulture culture,
+    String language = 'en',
+  }) {
+    final profile = PromptConfigFactory.build(
+      mode: promptMode,
+      humanTouch: humanTouch,
+      culture: culture,
+    );
 
-FORBIDDEN:
-${profile.forbiddenPatterns}
+    final challenges =
+        (answers['challenges'] as List?)?.join(', ') ?? 'self-doubt';
 
-CLOSING STYLE:
-${profile.closingBehavior}
+    // Calculate word distribution for parts
+    final part1Words = (minWords * 0.15).round(); // ~15% for hook (punchy)
+    final part2Words = (minWords * 0.70).round(); // ~70% for body
+    final part3Words = (minWords * 0.15).round(); // ~15% for close
+
+    return '''
+${_getLanguageInstruction(language)}
+
+WEEK $weekNumber OF 30-DAY CONFIDENCE JOURNEY
+Generate $scriptCount scripts for Days $startDay to $endDay.
 
 USER CONTEXT:
 Name: $firstName
 Age: $age
 Location: $location
-Goal after 30 days: $goal
+Goal: $goal
 Challenges: $challenges
 
-STRUCTURE:
-- Exactly 3 parts
-- Spoken words only
-- Use "..." for pauses
-- Max 12 words per sentence
-- No advice, no teaching
+SYSTEM PERSONA & VIBE:
+${profile.systemPersona}
+${profile.coreIntent}
 
-OUTPUT:
-Return ONLY a valid JSON array of 30 objects.
+*** ANTI-STORYBOOK PROTOCOL ***
+The output often sounds like a diary entry or a storybook. THIS IS FORBIDDEN.
+- DO NOT start with "Today I want to talk about..."
+- DO NOT start with "Once upon a time..."
+- DO NOT use flowery, poetic adjectives.
+- DO write in specific, spoken-word sentences.
+- DO use "You" to address the audience directly.
+- DO mimic natural speech patterns (pauses, short fragments).
 
-Each object:
+SCRIPT FORMULA (Strict 3-Part Structure):
+
+1. part1 (The Hook):
+   - Length: $part1Words words.
+   - Purpose: Grab attention immediately.
+   - Style: A controversial opinion, a direct question, or a "Me too" moment.
+   - Example: "I used to think [X] was true. I was wrong."
+
+2. part2 (The Body):
+   - Length: $part2Words words.
+   - Purpose: Deliver the value/insight.
+   - Style: Conversational explanation. If telling a story, keep it in the "now". connect the user's struggle to the solution.
+
+3. part3 (The Close):
+   - Length: $part3Words words.
+   - Purpose: Sign off.
+   - Style: A punchy one-liner summary and a request for engagement.
+
+WORD COUNT REQUIREMENTS:
+- Total per script: $minWords to $maxWords words
+
+OUTPUT FORMAT (STRICT JSON):
+Return ONLY a valid JSON array of $scriptCount objects.
+
+Each object MUST have this exact structure:
 {
-  "dayNumber": <1-30>,
-  "title": "<short emotional title>",
-  "part1": "<spoken words only>",
-  "part2": "<spoken words only>",
-  "part3": "<spoken words only>",
+  "dayNumber": <integer from $startDay to $endDay>,
+  "title": "<catchy 3-5 word title>",
+  "part1": "<spoken hook text>",
+  "part2": "<spoken body text>",
+  "part3": "<spoken close text>",
   "focus": "<emotional focus>",
   "duration": "<estimated duration>"
 }
 ''';
-}
+  }
 
   String _getLanguageInstruction(String language) {
     switch (language) {
       case 'hi':
-        return 'LANGUAGE: Write all script parts in Hindi (हिन्दी). Use Devanagari script.';
+        return 'LANGUAGE: Write all script parts in Hindi (हिन्दी). Use Devanagari script. Tone: Casual conversational Hindi.';
       case 'hinglish':
-        return 'LANGUAGE: Write all script parts in Hinglish - a natural mix of Hindi and English commonly used by Indian content creators. Mix the languages naturally as young Indians speak, using Roman script.';
+        return 'LANGUAGE: Write all script parts in Hinglish - a natural mix of Hindi and English commonly used by Indian content creators (e.g., "Life mein problems toh aati rahengi"). Mix the languages naturally using Roman script.';
       case 'en':
       default:
-        return 'LANGUAGE: Write all script parts in English.';
+        return 'LANGUAGE: Write all script parts in English. Tone: Casual, Spoken-word, American/International English.';
     }
   }
 
@@ -296,7 +465,7 @@ Each object:
             {
               'role': 'system',
               'content':
-                  'You are a helpful camera confidence coach. You generate teleprompter scripts containing ONLY spoken words. Always respond with valid JSON only. Never include instructions, labels, or meta-commentary in scripts.',
+                  'You are a viral content scriptwriter. You write scripts meant to be SPOKEN, not read. You hate "storybook" narration. You love punchy, short sentences. Always respond with valid JSON.',
             },
             {'role': 'user', 'content': prompt},
           ],

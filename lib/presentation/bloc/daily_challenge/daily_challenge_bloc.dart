@@ -1,10 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/utils/logger.dart';
+import '../../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../../domain/entities/daily_script.dart';
 import '../../../domain/repositories/progress_repository.dart';
 import '../../../domain/repositories/script_repository.dart';
 import '../../../domain/repositories/video_repository.dart';
+import '../../../services/openai_service.dart';
 import 'daily_challenge_event.dart';
 import 'daily_challenge_state.dart';
 
@@ -14,6 +16,8 @@ class DailyChallengeBloc
   final ScriptRepository scriptRepository;
   final ProgressRepository progressRepository;
   final VideoRepository videoRepository;
+  final OpenAiService openAiService;
+  final SupabaseOnboardingDataSource onboardingDataSource;
 
   String? _userId;
   int? _currentDayNumber;
@@ -24,6 +28,8 @@ class DailyChallengeBloc
     required this.scriptRepository,
     required this.progressRepository,
     required this.videoRepository,
+    required this.openAiService,
+    required this.onboardingDataSource,
   }) : super(const DayChallengeInitial()) {
     on<DayLoaded>(_onDayLoaded);
     on<SegmentChanged>(_onSegmentChanged);
@@ -46,12 +52,70 @@ class DailyChallengeBloc
     _currentDayNumber = event.dayNumber;
 
     // Load script for this day
-    final scriptResult = await scriptRepository.getScriptForDay(
+    var scriptResult = await scriptRepository.getScriptForDay(
       event.userId,
       event.dayNumber,
     );
 
-    final script = scriptResult.fold((failure) => null, (script) => script);
+    var script = scriptResult.fold((failure) => null, (script) => script);
+
+    // If script not found, check if we need to generate this week
+    if (script == null) {
+      final weekNumber = ((event.dayNumber - 1) ~/ 7) + 1;
+      logger.i(
+        'Script not found for day ${event.dayNumber}, generating Week $weekNumber',
+      );
+
+      emit(DayChallengeGeneratingScripts(weekNumber: weekNumber));
+
+      // Fetch user's onboarding data
+      final userData = await onboardingDataSource.getOnboardingData(
+        event.userId,
+      );
+
+      if (userData == null) {
+        emit(
+          const DayChallengeError(
+            'User profile not found. Please complete onboarding.',
+          ),
+        );
+        return;
+      }
+
+      try {
+        // Generate this week's scripts
+        final weekScripts = await openAiService.generateWeeklyScripts(
+          weekNumber: weekNumber,
+          firstName: userData.firstName,
+          age: userData.age,
+          location: userData.location,
+          goal: userData.customGoal ?? userData.goalKey,
+          onboardingAnswers: userData.answers.map((k, v) => MapEntry(k, v)),
+          language: userData.languagePreference,
+        );
+
+        // Save the generated scripts
+        await scriptRepository.saveGeneratedScripts(
+          userId: event.userId,
+          scripts: weekScripts,
+        );
+
+        logger.i(
+          'Generated and saved ${weekScripts.length} scripts for Week $weekNumber',
+        );
+
+        // Reload the script for this day
+        scriptResult = await scriptRepository.getScriptForDay(
+          event.userId,
+          event.dayNumber,
+        );
+        script = scriptResult.fold((failure) => null, (s) => s);
+      } catch (e) {
+        logger.e('Failed to generate Week $weekNumber scripts', e);
+        emit(DayChallengeError('Failed to generate scripts: ${e.toString()}'));
+        return;
+      }
+    }
 
     if (script == null) {
       emit(DayChallengeError('Script not found for day ${event.dayNumber}'));

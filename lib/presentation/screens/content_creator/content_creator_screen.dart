@@ -11,6 +11,40 @@ import 'tabs/my_scripts_tab.dart';
 import 'tabs/record_tab.dart';
 import 'tabs/my_videos_tab.dart';
 
+/// InheritedWidget to access tab controller and recording state from child widgets
+class ContentCreatorTabController extends InheritedWidget {
+  final TabController tabController;
+  final ValueNotifier<bool> isRecordingNotifier;
+
+  const ContentCreatorTabController({
+    super.key,
+    required this.tabController,
+    required this.isRecordingNotifier,
+    required super.child,
+  });
+
+  static ContentCreatorTabController? of(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<ContentCreatorTabController>();
+  }
+
+  /// Switch to a specific tab (0=Generate, 1=Scripts, 2=Record, 3=Videos)
+  void switchToTab(int index) {
+    tabController.animateTo(index);
+  }
+
+  /// Set recording state to show/hide header and tab bar
+  void setRecording(bool value) {
+    isRecordingNotifier.value = value;
+  }
+
+  @override
+  bool updateShouldNotify(ContentCreatorTabController oldWidget) {
+    return tabController != oldWidget.tabController ||
+        isRecordingNotifier != oldWidget.isRecordingNotifier;
+  }
+}
+
 /// Main Content Creator screen with tabbed interface.
 /// Completely standalone from warmup/challenge modules.
 class ContentCreatorScreen extends StatefulWidget {
@@ -25,6 +59,7 @@ class ContentCreatorScreen extends StatefulWidget {
 class _ContentCreatorScreenState extends State<ContentCreatorScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ValueNotifier<bool> _isRecordingNotifier = ValueNotifier(false);
 
   @override
   void initState() {
@@ -35,6 +70,7 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _isRecordingNotifier.dispose();
     super.dispose();
   }
 
@@ -44,39 +80,56 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
       create: (_) => sl<ContentCreatorBloc>()..add(LoadScripts(widget.userId)),
       child: BlocProvider.value(
         value: context.read<SettingsBloc>(),
-        child: Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+        child: ContentCreatorTabController(
+          tabController: _tabController,
+          isRecordingNotifier: _isRecordingNotifier,
+          child: Scaffold(
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Header
-                  _buildHeader(context),
-                  // Tab Bar
-                  _buildTabBar(),
-                  // Tab Views
-                  Expanded(
-                    child: BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
-                      builder: (context, state) {
-                        return TabBarView(
-                          controller: _tabController,
-                          children: [
-                            ScriptGeneratorTab(userId: widget.userId),
-                            MyScriptsTab(userId: widget.userId),
-                            RecordTab(userId: widget.userId),
-                            MyVideosTab(userId: widget.userId),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              child: SafeArea(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _isRecordingNotifier,
+                  builder: (context, isRecording, child) {
+                    return Column(
+                      children: [
+                        // Header - hide when recording
+                        if (!isRecording) _buildHeader(context),
+                        // Tab Bar - hide when recording
+                        if (!isRecording) _buildTabBar(),
+                        // Tab Views
+                        Expanded(
+                          child: BlocBuilder<
+                            ContentCreatorBloc,
+                            ContentCreatorState
+                          >(
+                            builder: (context, state) {
+                              return TabBarView(
+                                controller: _tabController,
+                                // Disable swiping during recording
+                                physics:
+                                    isRecording
+                                        ? const NeverScrollableScrollPhysics()
+                                        : const ScrollPhysics(),
+                                children: [
+                                  ScriptGeneratorTab(userId: widget.userId),
+                                  MyScriptsTab(userId: widget.userId),
+                                  RecordTab(userId: widget.userId),
+                                  MyVideosTab(userId: widget.userId),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),

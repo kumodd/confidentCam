@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/config/prompt_config.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../data/datasources/remote/supabase_onboarding_datasource.dart';
@@ -241,13 +240,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         return;
       }
 
-      emit(
-        const OnboardingGeneratingScripts(
-          message: 'Creating your personalized 30-day scripts...',
-        ),
-      );
-
-      // Generate scripts using OpenAI
+      // Generate scripts using OpenAI - Week by Week
       final goal =
           current.customGoal ??
           current.selectedGoal?.text ??
@@ -257,7 +250,15 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       final languageCode = current.selectedLanguage?.code ?? 'en';
       logger.i('Generating scripts in language: $languageCode');
 
-      final scripts = await openAiService.generateScripts(
+      // Generate ONLY Week 1 scripts (on-demand generation for remaining weeks)
+      emit(
+        const OnboardingGeneratingScripts(
+          message: 'Creating your Week 1 scripts...',
+        ),
+      );
+
+      final week1Scripts = await openAiService.generateWeeklyScripts(
+        weekNumber: 1,
         firstName: personalInfo.firstName,
         age: personalInfo.age,
         location: personalInfo.location,
@@ -269,13 +270,17 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         culture: current.audienceCulture,
       );
 
-      logger.i('OpenAI generation complete: ${scripts.length} scripts');
+      logger.i('Week 1 complete: ${week1Scripts.length} scripts');
 
       // Save scripts to repository
+      emit(
+        const OnboardingGeneratingScripts(message: 'Saving your scripts...'),
+      );
+
       logger.i('Saving scripts to repository...');
       final saveResult = await scriptRepository.saveGeneratedScripts(
         userId: current.userId,
-        scripts: scripts,
+        scripts: week1Scripts,
       );
 
       // Check if save was successful
@@ -290,7 +295,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       );
 
       logger.i(
-        'Onboarding complete - ${scripts.length} scripts generated and saved',
+        'Onboarding complete - ${week1Scripts.length} scripts generated and saved',
       );
       _lastValidState = null; // Clear cache on success
       emit(const OnboardingComplete());

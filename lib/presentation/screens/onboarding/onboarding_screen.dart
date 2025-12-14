@@ -201,7 +201,7 @@ class _ScriptGenerationLoadingScreenState
                 ).animate().fadeIn(delay: 300.ms),
                 const SizedBox(height: 8),
                 Text(
-                  'This may take 2-3 minutes',
+                  'This may take 10-15 minutes beacuse \n we are generating 30 unique scripts \njust for you...',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 14,
@@ -478,19 +478,21 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
           if (widget.state.languageOptions.isNotEmpty) ...[
             Text(
               'Script Language',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Colors.white70,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: Colors.white70),
             ).animate().fadeIn(delay: 450.ms, duration: 400.ms),
             const SizedBox(height: 8),
             Text(
               'Choose the language for your daily scripts',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white38,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white38),
             ).animate().fadeIn(delay: 475.ms, duration: 400.ms),
             const SizedBox(height: 12),
-            _buildLanguageSelector(context).animate().fadeIn(delay: 500.ms, duration: 400.ms),
+            _buildLanguageSelector(
+              context,
+            ).animate().fadeIn(delay: 500.ms, duration: 400.ms),
           ],
 
           const SizedBox(height: 32),
@@ -506,12 +508,14 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
           const SizedBox(height: 8),
           Text(
             'How would you like your scripts to feel?',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white38,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
           ).animate().fadeIn(delay: 575.ms, duration: 400.ms),
           const SizedBox(height: 12),
-          _buildPromptModeSelector(context).animate().fadeIn(delay: 600.ms, duration: 400.ms),
+          _buildPromptModeSelector(
+            context,
+          ).animate().fadeIn(delay: 600.ms, duration: 400.ms),
 
           const SizedBox(height: 24),
 
@@ -526,12 +530,14 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
           const SizedBox(height: 8),
           Text(
             'How polished should your scripts sound?',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white38,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
           ).animate().fadeIn(delay: 675.ms, duration: 400.ms),
           const SizedBox(height: 12),
-          _buildHumanTouchSelector(context).animate().fadeIn(delay: 700.ms, duration: 400.ms),
+          _buildHumanTouchSelector(
+            context,
+          ).animate().fadeIn(delay: 700.ms, duration: 400.ms),
 
           const SizedBox(height: 24),
 
@@ -546,12 +552,14 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
           const SizedBox(height: 8),
           Text(
             'Who is your primary audience?',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white38,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
           ).animate().fadeIn(delay: 775.ms, duration: 400.ms),
           const SizedBox(height: 12),
-          _buildCultureSelector(context).animate().fadeIn(delay: 800.ms, duration: 400.ms),
+          _buildCultureSelector(
+            context,
+          ).animate().fadeIn(delay: 800.ms, duration: 400.ms),
 
           const SizedBox(height: 24),
         ],
@@ -562,44 +570,78 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
   Widget _buildPromptModeSelector(BuildContext context) {
     final options = [
       (PromptMode.selfDiscovery, '🌱 Self Discovery', 'Feel safe being seen'),
-      (PromptMode.clarityTraining, '💭 Clarity Training', 'Clear thinking through speaking'),
-      (PromptMode.storytelling, '📖 Storytelling', 'Connect through shared moments'),
-      (PromptMode.authorityBuild, '🎯 Authority Build', 'Calm, grounded presence'),
+      (
+        PromptMode.clarityTraining,
+        '💭 Clarity Training',
+        'Clear thinking through speaking',
+      ),
+      (
+        PromptMode.storytelling,
+        '📖 Storytelling',
+        'Connect through shared moments',
+      ),
+      (
+        PromptMode.authorityBuild,
+        '🎯 Authority Build',
+        'Calm, grounded presence',
+      ),
       (PromptMode.rawDiary, '📓 Raw Diary', 'Honest expression without polish'),
     ];
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: options.map((option) {
-        final isSelected = widget.state.promptMode == option.$1;
-        return GestureDetector(
-          onTap: () {
-            context.read<OnboardingBloc>().add(
-              PromptConfigUpdated(promptMode: option.$1),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
-                width: isSelected ? 2 : 1,
+      children:
+          options.map((option) {
+            final isSelected = widget.state.promptMode == option.$1;
+            return GestureDetector(
+              onTap: () {
+                context.read<OnboardingBloc>().add(
+                  PromptConfigUpdated(promptMode: option.$1),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.2)
+                          : const Color(0xFF252538),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                        isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.white10,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      option.$2,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      option.$3,
+                      style: TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                const SizedBox(height: 2),
-                Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 11)),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -611,80 +653,136 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
     ];
 
     return Row(
-      children: options.map((option) {
-        final isSelected = widget.state.humanTouchLevel == option.$1;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              context.read<OnboardingBloc>().add(
-                PromptConfigUpdated(humanTouchLevel: option.$1),
-              );
-            },
-            child: Container(
-              margin: EdgeInsets.only(right: option.$1 != HumanTouchLevel.composed ? 8 : 0),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
-                  width: isSelected ? 2 : 1,
+      children:
+          options.map((option) {
+            final isSelected = widget.state.humanTouchLevel == option.$1;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  context.read<OnboardingBloc>().add(
+                    PromptConfigUpdated(humanTouchLevel: option.$1),
+                  );
+                },
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: option.$1 != HumanTouchLevel.composed ? 8 : 0,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        isSelected
+                            ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.2)
+                            : const Color(0xFF252538),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color:
+                          isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white10,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        option.$2,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        option.$3,
+                        style: TextStyle(color: Colors.white38, fontSize: 10),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 10), textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
   Widget _buildCultureSelector(BuildContext context) {
     final options = [
-      (AudienceCulture.india, '🇮🇳 Indian Context', 'Quiet self-doubt, fear of judgement'),
+      (
+        AudienceCulture.india,
+        '🇮🇳 Indian Context',
+        'Quiet self-doubt, fear of judgement',
+      ),
       (AudienceCulture.global, '🌐 Global', 'Universal, no cultural specifics'),
     ];
 
     return Row(
-      children: options.map((option) {
-        final isSelected = widget.state.audienceCulture == option.$1;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              context.read<OnboardingBloc>().add(
-                PromptConfigUpdated(audienceCulture: option.$1),
-              );
-            },
-            child: Container(
-              margin: EdgeInsets.only(right: option.$1 == AudienceCulture.india ? 8 : 0),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : const Color(0xFF252538),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white10,
-                  width: isSelected ? 2 : 1,
+      children:
+          options.map((option) {
+            final isSelected = widget.state.audienceCulture == option.$1;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  context.read<OnboardingBloc>().add(
+                    PromptConfigUpdated(audienceCulture: option.$1),
+                  );
+                },
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: option.$1 == AudienceCulture.india ? 8 : 0,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        isSelected
+                            ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.2)
+                            : const Color(0xFF252538),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color:
+                          isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white10,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        option.$2,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        option.$3,
+                        style: TextStyle(color: Colors.white38, fontSize: 10),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(option.$2, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Text(option.$3, style: TextStyle(color: Colors.white38, fontSize: 10), textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -707,46 +805,47 @@ class _PersonalInfoStepState extends State<_PersonalInfoStep> {
             'Select language',
             style: TextStyle(color: Colors.white38),
           ),
-          items: widget.state.languageOptions.map((lang) {
-            return DropdownMenuItem<LanguageOption>(
-              value: lang,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.language,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          lang.nativeName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (lang.description != null)
-                          Text(
-                            lang.description!,
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
+          items:
+              widget.state.languageOptions.map((lang) {
+                return DropdownMenuItem<LanguageOption>(
+                  value: lang,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.language,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              lang.nativeName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
+                            if (lang.description != null)
+                              Text(
+                                lang.description!,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
           onChanged: (lang) {
             if (lang != null) {
               context.read<OnboardingBloc>().add(LanguageSelected(lang));

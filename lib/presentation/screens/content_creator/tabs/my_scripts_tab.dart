@@ -6,6 +6,7 @@ import '../../../../domain/entities/content_script.dart';
 import '../../../bloc/content_creator/content_creator_bloc.dart';
 import '../../../bloc/content_creator/content_creator_event.dart';
 import '../../../bloc/content_creator/content_creator_state.dart';
+import '../content_creator_screen.dart';
 
 /// Tab showing user's saved scripts with management options.
 class MyScriptsTab extends StatelessWidget {
@@ -357,23 +358,28 @@ class MyScriptsTab extends StatelessWidget {
   }
 
   void _recordWithScript(BuildContext context, ContentScript script) {
-    // Select script and switch to record tab
+    // Select script
     context.read<ContentCreatorBloc>().add(SelectScript(script));
 
-    // Navigate to record tab - for now show snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Selected "${script.title}" for recording'),
-        backgroundColor: const Color(0xFF22C55E),
-        action: SnackBarAction(
-          label: 'Go to Record',
-          textColor: Colors.white,
-          onPressed: () {
-            // In practice, this would switch tabs
-          },
+    // Switch to record tab (index 2)
+    final tabController = ContentCreatorTabController.of(context);
+    if (tabController != null) {
+      tabController.switchToTab(2);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recording "${script.title}"'),
+          backgroundColor: const Color(0xFF22C55E),
+          duration: const Duration(seconds: 1),
         ),
-      ),
-    );
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected "${script.title}" - go to Record tab'),
+          backgroundColor: const Color(0xFF22C55E),
+        ),
+      );
+    }
   }
 }
 

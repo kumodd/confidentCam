@@ -21,6 +21,16 @@ class DayChallengeLoading extends DailyChallengeState {
   const DayChallengeLoading();
 }
 
+/// Generating scripts for a week on-demand
+class DayChallengeGeneratingScripts extends DailyChallengeState {
+  final int weekNumber;
+
+  const DayChallengeGeneratingScripts({required this.weekNumber});
+
+  @override
+  List<Object?> get props => [weekNumber];
+}
+
 /// Day ready to record
 class DayChallengeReady extends DailyChallengeState {
   final int dayNumber;

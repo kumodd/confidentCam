@@ -17,6 +17,9 @@ abstract class SupabaseOnboardingDataSource {
 
   /// Save user's onboarding data to profile.
   Future<void> saveOnboardingData(String userId, UserPersonalInfo data);
+
+  /// Fetch saved onboarding data for a user (for on-demand script generation).
+  Future<UserPersonalInfo?> getOnboardingData(String userId);
 }
 
 class SupabaseOnboardingDataSourceImpl implements SupabaseOnboardingDataSource {
@@ -145,6 +148,45 @@ class SupabaseOnboardingDataSourceImpl implements SupabaseOnboardingDataSource {
         message: 'Failed to save onboarding data',
         originalError: e,
       );
+    }
+  }
+
+  @override
+  Future<UserPersonalInfo?> getOnboardingData(String userId) async {
+    try {
+      logger.i('Fetching onboarding data for user $userId');
+
+      final response =
+          await client
+              .from('user_profiles')
+              .select()
+              .eq('user_id', userId)
+              .maybeSingle();
+
+      if (response == null) {
+        logger.w('No onboarding data found for user $userId');
+        return null;
+      }
+
+      // Parse answers from JSON if stored
+      Map<String, List<String>> answers = {};
+      if (response['answers'] != null) {
+        final answersMap = response['answers'] as Map<String, dynamic>;
+        answers = answersMap.map((k, v) => MapEntry(k, List<String>.from(v)));
+      }
+
+      return UserPersonalInfo(
+        firstName: response['first_name'] as String? ?? '',
+        age: response['age'] as int? ?? 25,
+        location: response['location'] as String? ?? '',
+        goalKey: response['goal'] as String? ?? '',
+        customGoal: response['custom_goal'] as String?,
+        languagePreference: response['language_preference'] as String? ?? 'en',
+        answers: answers,
+      );
+    } catch (e) {
+      logger.e('Error fetching onboarding data', e);
+      return null;
     }
   }
 }
