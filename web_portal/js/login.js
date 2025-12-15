@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     authService.init();
     qrAuthService.init();
 
+    // Apply login method configuration
+    applyLoginConfig();
+
     // Check if already authenticated
     const redirected = await authService.redirectIfAuthenticated();
     if (redirected) return;
@@ -20,6 +23,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupForgotPassword();
     setupQRLogin();
 });
+
+// ============================================
+// LOGIN CONFIGURATION
+// ============================================
+
+function applyLoginConfig() {
+    const enableQR = APP_CONFIG.enableQRLogin ?? true;
+    const enableEmail = APP_CONFIG.enableEmailLogin ?? true;
+
+    // Hide QR tab and content if disabled
+    if (!enableQR) {
+        const qrTab = document.querySelector('[data-tab="qr"]');
+        const qrContent = document.getElementById('qr-tab');
+        if (qrTab) qrTab.style.display = 'none';
+        if (qrContent) qrContent.style.display = 'none';
+    }
+
+    // Hide Email tab and content if disabled
+    if (!enableEmail) {
+        const emailTab = document.querySelector('[data-tab="email"]');
+        const emailContent = document.getElementById('email-tab');
+        if (emailTab) emailTab.style.display = 'none';
+        if (emailContent) emailContent.style.display = 'none';
+    }
+
+    // Auto-select the first visible tab
+    const visibleTabs = document.querySelectorAll('.login-tab:not([style*="display: none"])');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    if (visibleTabs.length > 0) {
+        // Remove all active states
+        document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+
+        // Activate first visible tab
+        const firstTab = visibleTabs[0];
+        firstTab.classList.add('active');
+        const targetId = `${firstTab.dataset.tab}-tab`;
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) targetContent.classList.add('active');
+
+        // If QR tab is first and visible, init QR
+        if (firstTab.dataset.tab === 'qr' && enableQR) {
+            initQRCode();
+        }
+    }
+
+    // If neither login method is enabled, show a message
+    if (!enableQR && !enableEmail) {
+        const loginCard = document.querySelector('.login-card');
+        if (loginCard) {
+            loginCard.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <h2>Login Disabled</h2>
+                    <p style="color: var(--text-muted);">Login has been temporarily disabled. Please contact the administrator.</p>
+                </div>
+            `;
+        }
+    }
+}
 
 // ============================================
 // TAB SWITCHING
@@ -227,7 +290,7 @@ async function initQRCode() {
 
     if (!result.success) {
         console.error('Failed to create QR session:', result.error);
-        
+
         // Check if it's a table not found error
         let errorMessage = 'Failed to generate QR code';
         if (result.error && result.error.includes('relation') && result.error.includes('does not exist')) {
@@ -240,7 +303,7 @@ async function initQRCode() {
         } else {
             errorMessage = `<p style="color: #EF4444;">${result.error || 'Failed to generate QR code'}</p>`;
         }
-        
+
         loadingDiv.innerHTML = errorMessage;
         return;
     }
