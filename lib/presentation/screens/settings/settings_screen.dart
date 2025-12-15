@@ -8,6 +8,7 @@ import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../bloc/settings/settings_bloc.dart';
+import '../auth/qr_scanner_screen.dart';
 
 /// Fully functional settings screen.
 class SettingsScreen extends StatefulWidget {
@@ -274,6 +275,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: 'Support',
                         children: [
                           _SettingsTile(
+                            icon: Icons.qr_code_scanner,
+                            title: 'Web Login',
+                            subtitle: 'Scan QR to login on web portal',
+                            onTap: _openQrScanner,
+                          ),
+                          _SettingsTile(
                             icon: Icons.help_outline,
                             title: 'Help Center',
                             onTap: () {},
@@ -359,6 +366,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         backgroundColor: Color(0xFF6366F1),
         duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _openQrScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const QrScannerScreen(),
       ),
     );
   }
