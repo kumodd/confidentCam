@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection_container.dart';
 import '../../../services/video_storage_service.dart';
@@ -283,17 +284,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _SettingsTile(
                             icon: Icons.help_outline,
                             title: 'Help Center',
-                            onTap: () {},
+                            subtitle: 'Get help via email',
+                            onTap:
+                                () => _launchUrl(
+                                  'mailto:support@confidentcam.app?subject=Help%20Request',
+                                ),
                           ),
                           _SettingsTile(
                             icon: Icons.privacy_tip_outlined,
                             title: 'Privacy Policy',
-                            onTap: () {},
+                            subtitle: 'How we handle your data',
+                            onTap:
+                                () => _launchUrl(
+                                  'https://confidentcam.app/privacy-policy.html',
+                                ),
                           ),
                           _SettingsTile(
                             icon: Icons.description_outlined,
                             title: 'Terms of Service',
-                            onTap: () {},
+                            subtitle: 'Usage terms and conditions',
+                            onTap:
+                                () => _launchUrl(
+                                  'https://confidentcam.app/terms-of-service.html',
+                                ),
                           ),
                         ],
                       ),
@@ -371,11 +384,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openQrScanner() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const QrScannerScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const QrScannerScreen()));
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    final uri = Uri.parse(urlString);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open link'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _clearAllVideos() async {
