@@ -1,16 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../core/config/app_config.dart';
 import '../core/config/prompt_config.dart';
+import '../core/network/network_helper.dart';
 import '../core/utils/logger.dart';
 
 /// Service for generating personalized scripts using OpenAI.
 class OpenAiService {
-  final http.Client _client;
-
-  OpenAiService({http.Client? client}) : _client = client ?? http.Client();
+  OpenAiService();
 
   /// Generate 30 personalized daily scripts based on user profile.
   /// @deprecated Use generateWeeklyScripts for better performance and longer scripts.
@@ -448,30 +447,35 @@ Each object MUST have this exact structure:
       'OpenAI: Using model ${AppConfig.openAiModel}, max_tokens: ${AppConfig.maxScriptTokens}',
     );
 
+    final client = http.Client();
     try {
       logger.d(
         'OpenAI: Sending request to ${AppConfig.openAiBaseUrl}/chat/completions',
       );
 
-      final response = await _client.post(
-        Uri.parse('${AppConfig.openAiBaseUrl}/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': AppConfig.openAiModel,
-          'messages': [
-            {
-              'role': 'system',
-              'content':
-                  'You are a viral content scriptwriter. You write scripts meant to be SPOKEN, not read. You hate "storybook" narration. You love punchy, short sentences. Always respond with valid JSON.',
-            },
-            {'role': 'user', 'content': prompt},
-          ],
-          'max_completion_tokens': AppConfig.maxScriptTokens,
-          'temperature': 1,
-        }),
+      final response = await NetworkHelper.withRetryAndTimeout(
+        () => client.post(
+          Uri.parse('${AppConfig.openAiBaseUrl}/chat/completions'),
+          headers: {
+            'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'model': AppConfig.openAiModel,
+            'messages': [
+              {
+                'role': 'system',
+                'content':
+                    'You are a viral content scriptwriter. You write scripts meant to be SPOKEN, not read. You hate "storybook" narration. You love punchy, short sentences. Always respond with valid JSON.',
+              },
+              {'role': 'user', 'content': prompt},
+            ],
+            'max_completion_tokens': AppConfig.maxScriptTokens,
+            'temperature': 1,
+          }),
+        ),
+        timeout: AppConfig.apiTimeout,
+        maxAttempts: 2, // OpenAI queries can be expensive, retry only once
       );
 
       logger.d('OpenAI: Received response with status ${response.statusCode}');
@@ -511,10 +515,15 @@ Each object MUST have this exact structure:
       );
 
       return content;
+    } on TimeoutException {
+      logger.e('OpenAI: Request timed out');
+      throw Exception('Request timed out. Please check your internet connection.');
     } catch (e) {
       logger.e('OpenAI: Exception occurred: ${e.runtimeType} - $e');
       if (e is Exception) rethrow;
       throw Exception('Network error: ${e.toString()}');
+    } finally {
+      client.close();
     }
   }
 
@@ -585,9 +594,5 @@ Each object MUST have this exact structure:
       script['part2'].toString(),
       script['part3'].toString(),
     ].where((part) => part.isNotEmpty).toList();
-  }
-
-  void dispose() {
-    _client.close();
   }
 }

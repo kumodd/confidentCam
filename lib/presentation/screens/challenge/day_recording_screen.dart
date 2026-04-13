@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/di/injection_container.dart';
 import '../../../domain/entities/daily_script.dart';
@@ -73,9 +74,41 @@ class _DayRecordingScreenState extends State<DayRecordingScreen> {
         setState(() => _isInitializing = false);
       }
     } catch (e) {
-      EasyLoading.showError('Failed to initialize camera');
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        EasyLoading.dismiss();
+        _showPermissionDialog();
+      }
     }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Permissions Required'),
+        content: const Text(
+          'Camera and Microphone access are required to record videos. Please enable them in your device settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop(); // close screen
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAppSettings();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

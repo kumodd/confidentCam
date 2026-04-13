@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/error/exceptions.dart' as app;
 import '../../../core/utils/logger.dart';
 
@@ -47,7 +48,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   Future<void> sendOtp(String phone) async {
     try {
       logger.i('Sending OTP to $phone');
-      await client.auth.signInWithOtp(phone: phone);
+      await client.auth.signInWithOtp(phone: phone).timeout(AppConfig.apiTimeout);
       logger.i('OTP sent successfully');
     } on AuthException catch (e) {
       logger.e('Auth error sending OTP', e);
@@ -76,7 +77,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         phone: phone,
         token: otp,
         type: OtpType.sms,
-      );
+      ).timeout(AppConfig.apiTimeout);
 
       if (response.user == null) {
         throw const app.AuthException(
@@ -91,8 +92,12 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       logger.i('OTP verified. New user: $isNewUser');
 
       // Check if user exists in users table
-      final existingUser =
-          await client.from('users').select().eq('id', user.id).maybeSingle();
+      final existingUser = await client
+          .from('users')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle()
+          .timeout(AppConfig.apiTimeout);
 
       if (existingUser == null) {
         // Create user record
@@ -102,10 +107,10 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
           'phone': phone,
           'created_at': DateTime.now().toIso8601String(),
         };
-        await client.from('users').insert(userData);
+        await client.from('users').insert(userData).timeout(AppConfig.apiTimeout);
 
         // Create initial progress record
-        await client.from('user_progress').insert({'user_id': user.id});
+        await client.from('user_progress').insert({'user_id': user.id}).timeout(AppConfig.apiTimeout);
 
         return (userData, true);
       }
@@ -341,7 +346,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       final response = await client.auth.signInWithPassword(
         email: email,
         password: password,
-      );
+      ).timeout(AppConfig.apiTimeout);
 
       logger.d('Supabase auth.signInWithPassword response received');
 
@@ -361,8 +366,12 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
 
       // Get user from database
       logger.d('Fetching user record from database...');
-      final existingUser =
-          await client.from('users').select().eq('id', user.id).maybeSingle();
+      final existingUser = await client
+          .from('users')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle()
+          .timeout(AppConfig.apiTimeout);
 
       if (existingUser != null) {
         logger.i('✅ User record found in database');

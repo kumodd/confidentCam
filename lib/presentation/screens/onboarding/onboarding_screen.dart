@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -114,6 +116,7 @@ class _ScriptGenerationLoadingScreen extends StatefulWidget {
 class _ScriptGenerationLoadingScreenState
     extends State<_ScriptGenerationLoadingScreen> {
   int _currentQuoteIndex = 0;
+  Timer? _quoteTimer;
 
   static const _motivationalQuotes = [
     "Your voice matters. The world needs to hear it.",
@@ -136,19 +139,20 @@ class _ScriptGenerationLoadingScreenState
   @override
   void initState() {
     super.initState();
-    _startQuoteRotation();
-  }
-
-  void _startQuoteRotation() {
-    Future.delayed(const Duration(seconds: 4), () {
+    _quoteTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) {
         setState(() {
           _currentQuoteIndex =
               (_currentQuoteIndex + 1) % _motivationalQuotes.length;
         });
-        _startQuoteRotation();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _quoteTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -201,7 +205,7 @@ class _ScriptGenerationLoadingScreenState
                 ).animate().fadeIn(delay: 300.ms),
                 const SizedBox(height: 8),
                 Text(
-                  'This may take 10-15 minutes beacuse \n we are generating 30 unique scripts \njust for you...',
+                  'This may take 10-15 minutes because\nwe are generating 30 unique scripts just for you.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 14,

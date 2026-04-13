@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../domain/entities/content_script.dart';
@@ -92,14 +93,38 @@ class _RecordTabState extends State<RecordTab> {
       if (mounted) setState(() => _isInitializing = false);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to initialize camera'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showPermissionDialog();
       }
     }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Permissions Required'),
+            content: const Text(
+              'Camera and Microphone access are required to record videos. Please enable them in your device settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // close dialog
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -248,8 +273,9 @@ class _RecordTabState extends State<RecordTab> {
     return BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
       builder: (context, state) {
         ContentScript? selectedScript;
-        if (state is ContentCreatorLoaded)
+        if (state is ContentCreatorLoaded) {
           selectedScript = state.selectedScript;
+        }
 
         return Stack(
           fit: StackFit.expand,
@@ -801,7 +827,7 @@ class _RecordTabState extends State<RecordTab> {
                         _buildSliderRow(
                           label: 'Opacity',
                           value: _currentOpacity * 100,
-                          min: 50,
+                          min: 20,
                           max: 100,
                           suffix: '%',
                           onChanged: (v) {

@@ -47,7 +47,9 @@ class _AuthWrapper extends StatelessWidget {
             }
 
             if (state is AuthSuccess) {
+              // Key forces full rebuild when user switches (prevents stale state)
               return DashboardScreen(
+                key: ValueKey(state.user.id),
                 user: state.user,
                 isNewUser: state.isNewUser,
               );

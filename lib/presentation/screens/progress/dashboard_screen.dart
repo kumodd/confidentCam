@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/di/injection_container.dart';
 import '../../../domain/entities/user.dart';
-import '../../../domain/repositories/script_repository.dart';
+import '../../../domain/entities/user_progress.dart';
 import '../../bloc/progress/progress_bloc.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import '../../bloc/warmup/warmup_event.dart';
@@ -35,7 +34,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  bool _hasScripts = false;
 
   @override
   void initState() {
@@ -45,27 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
       context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
-
-      // Check if scripts exist (for conditional UI)
-      _checkScriptsExist();
-    });
-  }
-
-  Future<void> _checkScriptsExist() async {
-    final scriptRepository = sl<ScriptRepository>();
-
-    // Check if scripts exist in local cache OR remote database
-    final hasLocalScripts = await scriptRepository.hasLocalScripts(
-      widget.user.id,
-    );
-    final hasRemoteScripts = await scriptRepository.hasRemoteScripts(
-      widget.user.id,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _hasScripts = hasLocalScripts || hasRemoteScripts;
     });
   }
 
@@ -73,7 +50,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Reload data after onboarding completes
     context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
     context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
-    _checkScriptsExist();
   }
 
   @override
@@ -82,18 +58,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 1:
-        return DayListScreen(userId: widget.user.id);
-      case 2:
-        return const MyVideosScreen();
-      case 3:
-        return const SettingsScreen();
-      default:
-        return _buildHomeTab();
-    }
+    // IndexedStack preserves widget state across tab switches,
+    // preventing unnecessary data reloads and scroll position loss.
+    return IndexedStack(
+      index: _currentIndex,
+      children: [
+        _buildHomeTab(),
+        DayListScreen(userId: widget.user.id),
+        const MyVideosScreen(),
+        const SettingsScreen(),
+      ],
+    );
   }
 
   Widget _buildHomeTab() {
@@ -133,7 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       radius: 24,
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       child: Text(
-                        (widget.user.displayName ?? 'C'),
+                        (widget.user.displayName ?? 'C').characters.first.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -158,20 +133,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Warmup or Today's challenge (only show if scripts exist)
-            if (_hasScripts)
-              SliverToBoxAdapter(
-                child: BlocBuilder<WarmupBloc, WarmupState>(
-                  builder: (context, state) {
-                    if (state is WarmupOverview && !state.allWarmupsComplete) {
-                      return _buildWarmupCard(state);
-                    } else if (state is AllWarmupsComplete) {
-                      return _buildTodaysChallengeCard();
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
+            // Warmup or Today's challenge (reactive — only shows if scripts exist)
+            SliverToBoxAdapter(
+              child: BlocBuilder<ProgressBloc, ProgressState>(
+                buildWhen: (prev, curr) {
+                  if (prev is ProgressLoadSuccess && curr is ProgressLoadSuccess) {
+                    return prev.hasScripts != curr.hasScripts;
+                  }
+                  return true;
+                },
+                builder: (context, progressState) {
+                  final hasScripts = progressState is ProgressLoadSuccess &&
+                      progressState.hasScripts;
+                  if (!hasScripts) return const SizedBox.shrink();
+
+                  return BlocBuilder<WarmupBloc, WarmupState>(
+                    builder: (context, state) {
+                      if (state is WarmupOverview && !state.allWarmupsComplete) {
+                        return _buildWarmupCard(state);
+                      } else if (state is AllWarmupsComplete) {
+                        return _buildTodaysChallengeCard();
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  );
+                },
               ),
+            ),
 
             // Quick actions
             SliverToBoxAdapter(child: _buildQuickActions()),
@@ -201,7 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildProgressCard(dynamic progress) {
+  Widget _buildProgressCard(UserProgress progress) {
     return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Container(
@@ -330,17 +318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .slideY(begin: 0.2, end: 0);
   }
 
-  int get warmupsCompleted {
-    final state = context.read<WarmupBloc>().state;
-    if (state is WarmupOverview) {
-      int count = 0;
-      if (state.warmup0Done) count++;
-      if (state.warmup1Done) count++;
-      if (state.warmup2Done) count++;
-      return count;
-    }
-    return 0;
-  }
+  // warmupsCompleted is provided by the WarmupOverview extension at bottom of file
 
   Widget _buildTodaysChallengeCard() {
     return BlocBuilder<ProgressBloc, ProgressState>(
@@ -677,25 +655,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String label,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+    // TODO: Wire up to navigation when screens are implemented
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$label coming soon!'),
+            backgroundColor: const Color(0xFF6366F1),
+            duration: const Duration(seconds: 1),
           ),
-        ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

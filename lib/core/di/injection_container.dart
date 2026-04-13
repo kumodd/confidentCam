@@ -228,8 +228,8 @@ void _initBlocs() {
   // Network BLoC (singleton - monitors connectivity app-wide)
   sl.registerLazySingleton<NetworkBloc>(() => NetworkBloc(networkInfo: sl()));
 
-  // Auth BLoC (factory - new instance per use)
-  sl.registerFactory<AuthBloc>(() => AuthBloc(authRepository: sl()));
+  // Auth BLoC (singleton - shared app-wide for consistent auth state)
+  sl.registerLazySingleton<AuthBloc>(() => AuthBloc(authRepository: sl()));
 
   // Onboarding BLoC
   sl.registerFactory<OnboardingBloc>(
@@ -257,13 +257,16 @@ void _initBlocs() {
     ),
   );
 
-  // Progress BLoC
-  sl.registerFactory<ProgressBloc>(
-    () => ProgressBloc(progressRepository: sl()),
+  // Progress BLoC (singleton - shared across dashboard tabs)
+  sl.registerLazySingleton<ProgressBloc>(
+    () => ProgressBloc(
+      progressRepository: sl(),
+      scriptRepository: sl(),
+    ),
   );
 
-  // Settings BLoC
-  sl.registerFactory<SettingsBloc>(
+  // Settings BLoC (singleton - settings shared app-wide)
+  sl.registerLazySingleton<SettingsBloc>(
     () => SettingsBloc(settingsDataSource: sl()),
   );
 

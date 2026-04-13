@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 
 import '../core/config/app_config.dart';
@@ -42,6 +44,7 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
   bool _useFrontCamera = true;
   bool _isRecording = false;
   ResolutionPreset _currentQuality = ResolutionPreset.high;
+  Timer? _autoStopTimer;
 
   @override
   CameraController? get controller => _controller;
@@ -138,8 +141,9 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
       _isRecording = true;
       logger.i('Recording started');
 
-      // Auto-stop after max duration
-      Future.delayed(
+      // Auto-stop after max duration using cancellable timer
+      _autoStopTimer?.cancel();
+      _autoStopTimer = Timer(
         Duration(seconds: AppConfig.maxRecordingDurationSeconds),
         () {
           if (_isRecording) {
@@ -162,6 +166,7 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
     }
 
     try {
+      _autoStopTimer?.cancel();
       final file = await _controller!.stopVideoRecording();
       _isRecording = false;
       logger.i('Recording stopped: ${file.path}');
@@ -188,6 +193,7 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
 
   @override
   Future<void> dispose() async {
+    _autoStopTimer?.cancel();
     if (_isRecording) {
       await stopRecording();
     }

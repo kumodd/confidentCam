@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/user_progress.dart';
 import '../../../domain/repositories/progress_repository.dart';
+import '../../../domain/repositories/script_repository.dart';
 
 // Events
 abstract class ProgressEvent extends Equatable {
@@ -39,9 +40,10 @@ class ProgressLoadInProgress extends ProgressState {
 
 class ProgressLoadSuccess extends ProgressState {
   final UserProgress progress;
-  const ProgressLoadSuccess(this.progress);
+  final bool hasScripts;
+  const ProgressLoadSuccess(this.progress, {this.hasScripts = false});
   @override
-  List<Object?> get props => [progress];
+  List<Object?> get props => [progress, hasScripts];
 }
 
 class ProgressLoadFailure extends ProgressState {
@@ -54,10 +56,13 @@ class ProgressLoadFailure extends ProgressState {
 // BLoC
 class ProgressBloc extends Bloc<ProgressEvent, ProgressState> {
   final ProgressRepository progressRepository;
+  final ScriptRepository scriptRepository;
   String? _userId;
 
-  ProgressBloc({required this.progressRepository})
-    : super(const ProgressInitial()) {
+  ProgressBloc({
+    required this.progressRepository,
+    required this.scriptRepository,
+  }) : super(const ProgressInitial()) {
     on<ProgressLoaded>(_onLoaded);
     on<ProgressRefreshed>(_onRefreshed);
   }
@@ -71,9 +76,12 @@ class ProgressBloc extends Bloc<ProgressEvent, ProgressState> {
 
     final result = await progressRepository.getProgress(event.userId);
 
+    // Check if scripts exist (moved from dashboard UI layer)
+    final hasScripts = await _checkScriptsExist(event.userId);
+
     result.fold(
       (failure) => emit(ProgressLoadFailure(failure.message)),
-      (progress) => emit(ProgressLoadSuccess(progress)),
+      (progress) => emit(ProgressLoadSuccess(progress, hasScripts: hasScripts)),
     );
   }
 
@@ -84,10 +92,24 @@ class ProgressBloc extends Bloc<ProgressEvent, ProgressState> {
     if (_userId == null) return;
 
     final result = await progressRepository.getProgress(_userId!);
+    final hasScripts = await _checkScriptsExist(_userId!);
 
     result.fold(
       (failure) => emit(ProgressLoadFailure(failure.message)),
-      (progress) => emit(ProgressLoadSuccess(progress)),
+      (progress) => emit(ProgressLoadSuccess(progress, hasScripts: hasScripts)),
     );
+  }
+
+  /// Check if scripts exist in local cache or remote database.
+  /// This was previously done directly in the UI (dashboard_screen.dart).
+  Future<bool> _checkScriptsExist(String userId) async {
+    try {
+      final hasLocal = await scriptRepository.hasLocalScripts(userId);
+      if (hasLocal) return true;
+      final hasRemote = await scriptRepository.hasRemoteScripts(userId);
+      return hasRemote;
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../services/video_storage_service.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
@@ -42,13 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
+  String _formatBytes(int bytes) => formatBytes(bytes);
 
   @override
   Widget build(BuildContext context) {
@@ -62,295 +58,321 @@ class _SettingsScreenState extends State<SettingsScreen> {
           EasyLoading.showError(state.message);
         }
       },
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+      child: BlocListener<SettingsBloc, SettingsState>(
+        listener: (context, state) {
+          if (state is SettingsNotificationError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Reminder saved, but you must enable notifications for ConfidantCam in your phone settings to receive them.',
+                  style: TextStyle(color: Colors.white),
+                ),
+                backgroundColor: Colors.orange.shade800,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Settings',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    openAppSettings();
+                  },
+                ),
+              ),
+            );
+          }
+        },
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: BlocBuilder<SettingsBloc, SettingsState>(
-            builder: (context, state) {
-              final settings =
-                  state is SettingsLoadSuccess
-                      ? state.settings
-                      : Settings.defaults();
+          child: SafeArea(
+            child: BlocBuilder<SettingsBloc, SettingsState>(
+              builder: (context, state) {
+                final settings =
+                    (state is SettingsLoadSuccess)
+                        ? state.settings
+                        : (state is SettingsNotificationError)
+                        ? state.settings
+                        : Settings.defaults();
 
-              return CustomScrollView(
-                slivers: [
-                  const SliverAppBar(
-                    floating: true,
-                    backgroundColor: Colors.transparent,
-                    title: Text('Settings'),
-                  ),
-                  SliverList(
-                    delegate: SliverChildListDelegate([
-                      // Teleprompter Section
-                      _SettingsSection(
-                        title: 'Teleprompter',
-                        children: [
-                          // Auto-scroll toggle
-                          SwitchListTile(
-                            secondary: const Icon(
-                              Icons.play_arrow_outlined,
-                              color: Colors.white54,
-                            ),
-                            title: const Text(
-                              'Auto-Scroll',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            subtitle: const Text(
-                              'Automatically scroll teleprompter during recording',
-                              style: TextStyle(
+                return CustomScrollView(
+                  slivers: [
+                    const SliverAppBar(
+                      floating: true,
+                      backgroundColor: Colors.transparent,
+                      title: Text('Settings'),
+                    ),
+                    SliverList(
+                      delegate: SliverChildListDelegate([
+                        // Teleprompter Section
+                        _SettingsSection(
+                          title: 'Teleprompter',
+                          children: [
+                            // Auto-scroll toggle
+                            SwitchListTile(
+                              secondary: const Icon(
+                                Icons.play_arrow_outlined,
                                 color: Colors.white54,
-                                fontSize: 12,
                               ),
+                              title: const Text(
+                                'Auto-Scroll',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              subtitle: const Text(
+                                'Automatically scroll teleprompter during recording',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              value: settings.autoScrollEnabled,
+                              activeThumbColor: const Color(0xFF22D3EE),
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  AutoScrollToggled(v),
+                                );
+                              },
                             ),
-                            value: settings.autoScrollEnabled,
-                            activeColor: const Color(0xFF22D3EE),
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                AutoScrollToggled(v),
-                              );
-                            },
-                          ),
-                          _SliderTile(
-                            icon: Icons.speed_outlined,
-                            title: 'Scroll Speed',
-                            value: settings.teleprompterSpeed,
-                            min: 0.5,
-                            max: 3.0,
-                            suffix: 'x',
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterSpeedUpdated(v),
-                              );
-                            },
-                          ),
-                          _SliderTile(
-                            icon: Icons.height_outlined,
-                            title: 'Display Height',
-                            value: settings.teleprompterHeight * 100,
-                            min: 15,
-                            max: 80,
-                            suffix: '%',
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterHeightUpdated(v / 100),
-                              );
-                            },
-                          ),
-                          _SliderTile(
-                            icon: Icons.opacity_outlined,
-                            title: 'Background Opacity',
-                            value: settings.teleprompterOpacity * 100,
-                            min: 30,
-                            max: 100,
-                            suffix: '%',
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterOpacityUpdated(v / 100),
-                              );
-                            },
-                          ),
-                          _DropdownTile(
-                            icon: Icons.text_fields_outlined,
-                            title: 'Font Size',
-                            value: settings.teleprompterFontSize,
-                            options: const {
-                              'small': 'Small',
-                              'medium': 'Medium',
-                              'large': 'Large',
-                              'extra_large': 'Extra Large',
-                            },
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterFontSizeUpdated(v),
-                              );
-                            },
-                          ),
-                          _DropdownTile(
-                            icon: Icons.palette_outlined,
-                            title: 'Text Color',
-                            value: settings.teleprompterTextColor,
-                            options: const {
-                              'white': 'White',
-                              'yellow': 'Yellow',
-                              'cyan': 'Cyan',
-                              'green': 'Green',
-                              'pink': 'Pink',
-                            },
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterTextColorUpdated(v),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-
-                      // Storage Section
-                      _SettingsSection(
-                        title: 'Storage',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.folder_outlined,
-                            title: 'Storage Used',
-                            subtitle:
-                                _loadingStorage
-                                    ? 'Calculating...'
-                                    : _formatBytes(_storageBytes),
-                            onTap: () {},
-                          ),
-                          _SettingsTile(
-                            icon: Icons.delete_sweep_outlined,
-                            title: 'Clear All Videos',
-                            subtitle: 'Delete all warmups and daily videos',
-                            onTap: _clearAllVideos,
-                          ),
-                        ],
-                      ),
-
-                      // Camera Section
-                      _SettingsSection(
-                        title: 'Camera',
-                        children: [
-                          _DropdownTile(
-                            icon: Icons.videocam_outlined,
-                            title: 'Default Camera',
-                            value: settings.defaultCamera,
-                            options: const {
-                              'front': 'Front Camera',
-                              'back': 'Back Camera',
-                            },
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                DefaultCameraUpdated(v),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-
-                      // Language Section
-                      _SettingsSection(
-                        title: 'Language',
-                        children: [
-                          _DropdownTile(
-                            icon: Icons.language_outlined,
-                            title: 'Script Language',
-                            value: settings.languagePreference,
-                            options: const {
-                              'en': 'English',
-                              'hi': 'Hindi (हिन्दी)',
-                              'hinglish': 'Hinglish',
-                            },
-                            onChanged: (v) {
-                              context.read<SettingsBloc>().add(
-                                LanguagePreferenceUpdated(v),
-                              );
-                              _showLanguageChangeWarning(context);
-                            },
-                          ),
-                        ],
-                      ),
-
-                      // Notifications Section
-                      _SettingsSection(
-                        title: 'Notifications',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.alarm_outlined,
-                            title: 'Daily Reminder',
-                            subtitle: _formatTime(settings.reminderTime),
-                            onTap:
-                                () => _pickReminderTime(settings.reminderTime),
-                          ),
-                        ],
-                      ),
-
-                      // Support Section
-                      _SettingsSection(
-                        title: 'Support',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.qr_code_scanner,
-                            title: 'Web Login',
-                            subtitle: 'Scan QR to login on web portal',
-                            onTap: _openQrScanner,
-                          ),
-                          _SettingsTile(
-                            icon: Icons.help_outline,
-                            title: 'Help Center',
-                            subtitle: 'Get help via email',
-                            onTap:
-                                () => _launchUrl(
-                                  'mailto:support@confidentcam.app?subject=Help%20Request',
-                                ),
-                          ),
-                          _SettingsTile(
-                            icon: Icons.privacy_tip_outlined,
-                            title: 'Privacy Policy',
-                            subtitle: 'How we handle your data',
-                            onTap:
-                                () => _launchUrl(
-                                  'https://confidentcam.app/privacy-policy.html',
-                                ),
-                          ),
-                          _SettingsTile(
-                            icon: Icons.description_outlined,
-                            title: 'Terms of Service',
-                            subtitle: 'Usage terms and conditions',
-                            onTap:
-                                () => _launchUrl(
-                                  'https://confidentcam.app/terms-of-service.html',
-                                ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: OutlinedButton(
-                          onPressed: _logout,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                          ),
-                          child: const Text('Logout'),
+                            _SliderTile(
+                              icon: Icons.speed_outlined,
+                              title: 'Scroll Speed',
+                              value: settings.teleprompterSpeed,
+                              min: 0.5,
+                              max: 3.0,
+                              suffix: 'x',
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterSpeedUpdated(v),
+                                );
+                              },
+                            ),
+                            _SliderTile(
+                              icon: Icons.height_outlined,
+                              title: 'Display Height',
+                              value: settings.teleprompterHeight * 100,
+                              min: 15,
+                              max: 80,
+                              suffix: '%',
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterHeightUpdated(v / 100),
+                                );
+                              },
+                            ),
+                            _SliderTile(
+                              icon: Icons.opacity_outlined,
+                              title: 'Background Opacity',
+                              value: settings.teleprompterOpacity * 100,
+                              min: 20,
+                              max: 100,
+                              suffix: '%',
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterOpacityUpdated(v / 100),
+                                );
+                              },
+                            ),
+                            _DropdownTile(
+                              icon: Icons.text_fields_outlined,
+                              title: 'Font Size',
+                              value: settings.teleprompterFontSize,
+                              options: const {
+                                'small': 'Small',
+                                'medium': 'Medium',
+                                'large': 'Large',
+                                'extra_large': 'Extra Large',
+                              },
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterFontSizeUpdated(v),
+                                );
+                              },
+                            ),
+                            _DropdownTile(
+                              icon: Icons.palette_outlined,
+                              title: 'Text Color',
+                              value: settings.teleprompterTextColor,
+                              options: const {
+                                'white': 'White',
+                                'yellow': 'Yellow',
+                                'cyan': 'Cyan',
+                                'green': 'Green',
+                                'pink': 'Pink',
+                              },
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterTextColorUpdated(v),
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ),
 
-                      // Danger Zone
-                      _SettingsSection(
-                        title: 'Danger Zone',
-                        children: [
-                          _SettingsTile(
-                            icon: Icons.delete_forever,
-                            title: 'Delete Account',
-                            subtitle: 'Permanently delete all your data',
-                            onTap: _deleteAccount,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-                      Center(
-                        child: Text(
-                          'ConfidentCam v1.0.0',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.white38),
+                        // Storage Section
+                        _SettingsSection(
+                          title: 'Storage',
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.folder_outlined,
+                              title: 'Storage Used',
+                              subtitle:
+                                  _loadingStorage
+                                      ? 'Calculating...'
+                                      : _formatBytes(_storageBytes),
+                              onTap: () {},
+                            ),
+                            _SettingsTile(
+                              icon: Icons.delete_sweep_outlined,
+                              title: 'Clear All Videos',
+                              subtitle: 'Delete all warmups and daily videos',
+                              onTap: _clearAllVideos,
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                    ]),
-                  ),
-                ],
-              );
-            },
+
+                        // Camera Section
+                        _SettingsSection(
+                          title: 'Camera',
+                          children: [
+                            _DropdownTile(
+                              icon: Icons.videocam_outlined,
+                              title: 'Default Camera',
+                              value: settings.defaultCamera,
+                              options: const {
+                                'front': 'Front Camera',
+                                'back': 'Back Camera',
+                              },
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  DefaultCameraUpdated(v),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+
+                        // Language Section
+                        _SettingsSection(
+                          title: 'Language',
+                          children: [
+                            _DropdownTile(
+                              icon: Icons.language_outlined,
+                              title: 'Script Language',
+                              value: settings.languagePreference,
+                              options: const {
+                                'en': 'English',
+                                'hi': 'Hindi (हिन्दी)',
+                                'hinglish': 'Hinglish',
+                              },
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  LanguagePreferenceUpdated(v),
+                                );
+                                _showLanguageChangeWarning(context);
+                              },
+                            ),
+                          ],
+                        ),
+
+                        // Notifications Section
+                        _SettingsSection(
+                          title: 'Notifications',
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.alarm_outlined,
+                              title: 'Daily Reminder',
+                              subtitle: _formatTime(settings.reminderTime),
+                              onTap:
+                                  () =>
+                                      _pickReminderTime(settings.reminderTime),
+                            ),
+                          ],
+                        ),
+
+                        // Support Section
+                        _SettingsSection(
+                          title: 'Support',
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.qr_code_scanner,
+                              title: 'Web Login',
+                              subtitle: 'Scan QR to login on web portal',
+                              onTap: _openQrScanner,
+                            ),
+                            _SettingsTile(
+                              icon: Icons.help_outline,
+                              title: 'Help Center',
+                              subtitle: 'Get help via email',
+                              onTap:
+                                  () => _launchUrl(
+                                    'mailto:support@confidentcam.app?subject=Help%20Request',
+                                  ),
+                            ),
+                            _SettingsTile(
+                              icon: Icons.privacy_tip_outlined,
+                              title: 'Privacy Policy',
+                              subtitle: 'How we handle your data',
+                              onTap:
+                                  () => _launchUrl(
+                                    'https://confidentcam.app/privacy-policy.html',
+                                  ),
+                            ),
+                            _SettingsTile(
+                              icon: Icons.description_outlined,
+                              title: 'Terms of Service',
+                              subtitle: 'Usage terms and conditions',
+                              onTap:
+                                  () => _launchUrl(
+                                    'https://confidentcam.app/terms-of-service.html',
+                                  ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: OutlinedButton(
+                            onPressed: _logout,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                            child: const Text('Logout'),
+                          ),
+                        ),
+
+                        // Danger Zone
+                        _SettingsSection(
+                          title: 'Danger Zone',
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.delete_forever,
+                              title: 'Delete Account',
+                              subtitle: 'Permanently delete all your data',
+                              onTap: _deleteAccount,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+                        Center(
+                          child: Text(
+                            'ConfidentCam v1.0.0',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white38),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ]),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/logger.dart';
 import '../../../domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
@@ -106,7 +108,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     await authRepository.logout();
 
-    logger.i('User logged out');
+    // Clear ALL local data to prevent stale data for next user
+    await _clearAllLocalData();
+
+    logger.i('User logged out, local data cleared');
     emit(const AuthLoggedOut());
   }
 
@@ -123,8 +128,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         logger.e('Account deletion failed: ${failure.message}');
         emit(AuthFailure(message: failure.message));
       },
-      (_) {
-        logger.i('Account deleted');
+      (_) async {
+        await _clearAllLocalData();
+        logger.i('Account deleted, local data cleared');
         emit(const AuthLoggedOut());
       },
     );
@@ -181,5 +187,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AuthSuccess(user: user, isNewUser: isNewUser));
       },
     );
+  }
+
+  /// Clear all local Hive data to ensure no stale data persists
+  /// between different user sessions.
+  Future<void> _clearAllLocalData() async {
+    try {
+      final progressBox = Hive.box(AppConstants.progressBox);
+      final scriptsBox = Hive.box(AppConstants.scriptsBox);
+      final settingsBox = Hive.box(AppConstants.settingsBox);
+
+      await progressBox.clear();
+      await scriptsBox.clear();
+      await settingsBox.clear();
+
+      logger.i('All local Hive boxes cleared');
+    } catch (e) {
+      logger.e('Error clearing local data: $e');
+      // Non-fatal: auth session is already cleared by repository
+    }
   }
 }

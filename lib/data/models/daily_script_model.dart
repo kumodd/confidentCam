@@ -135,12 +135,15 @@ class DailyScriptModel extends DailyScript {
     if (fullScript == null || fullScript.isEmpty) {
       // Fallback: combine part1, part2, part3 for full scripts
       final parts = <String>[];
-      if (scriptData['part1'] != null)
+      if (scriptData['part1'] != null) {
         parts.add(scriptData['part1'].toString());
-      if (scriptData['part2'] != null)
+      }
+      if (scriptData['part2'] != null) {
         parts.add(scriptData['part2'].toString());
-      if (scriptData['part3'] != null)
+      }
+      if (scriptData['part3'] != null) {
         parts.add(scriptData['part3'].toString());
+      }
       if (parts.isNotEmpty) {
         fullScript = parts.join(' ');
       }

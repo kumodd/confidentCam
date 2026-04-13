@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/error/exceptions.dart';
 import '../../../core/utils/logger.dart';
 
@@ -32,7 +33,8 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
           .from(AppConstants.dailyScriptsTable)
           .select()
           .eq('user_id', userId)
-          .order('day_number');
+          .order('day_number')
+          .timeout(AppConfig.apiTimeout);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -51,13 +53,13 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
   ) async {
     try {
       logger.d('Fetching script for day $dayNumber');
-      final response =
-          await client
-              .from(AppConstants.dailyScriptsTable)
-              .select()
-              .eq('user_id', userId)
-              .eq('day_number', dayNumber)
-              .maybeSingle();
+      final response = await client
+          .from(AppConstants.dailyScriptsTable)
+          .select()
+          .eq('user_id', userId)
+          .eq('day_number', dayNumber)
+          .maybeSingle()
+          .timeout(AppConfig.apiTimeout);
 
       return response;
     } catch (e) {
@@ -88,7 +90,8 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
 
       await client
           .from(AppConstants.dailyScriptsTable)
-          .upsert(scripts, onConflict: 'user_id,day_number');
+          .upsert(scripts, onConflict: 'user_id,day_number')
+          .timeout(AppConfig.apiTimeout);
 
       logger.i('=== SCRIPTS SAVED TO SUPABASE SUCCESSFULLY ===');
     } catch (e) {
@@ -108,7 +111,8 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
       await client
           .from(AppConstants.dailyScriptsTable)
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .timeout(AppConfig.apiTimeout);
 
       logger.i('Scripts deleted successfully');
     } catch (e) {

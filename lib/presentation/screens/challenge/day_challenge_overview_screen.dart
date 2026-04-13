@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/di/injection_container.dart';
 import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_event.dart';
 import '../../bloc/daily_challenge/daily_challenge_state.dart';
@@ -27,50 +28,46 @@ class DayChallengeOverviewScreen extends StatefulWidget {
 class _DayChallengeOverviewScreenState
     extends State<DayChallengeOverviewScreen> {
   @override
-  void initState() {
-    super.initState();
-    // Load script for this day
-    context.read<DailyChallengeBloc>().add(
-      DayLoaded(userId: widget.userId, dayNumber: widget.dayNumber),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Day ${widget.dayNumber}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+    return BlocProvider<DailyChallengeBloc>(
+      create: (context) => sl<DailyChallengeBloc>()..add(
+        DayLoaded(userId: widget.userId, dayNumber: widget.dayNumber),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Day ${widget.dayNumber}'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios),
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        child: SafeArea(
-          child: BlocBuilder<DailyChallengeBloc, DailyChallengeState>(
-            builder: (context, state) {
-              if (state is DayChallengeLoading) {
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
+            ),
+          ),
+          child: SafeArea(
+            child: BlocBuilder<DailyChallengeBloc, DailyChallengeState>(
+              builder: (context, state) {
+                if (state is DayChallengeLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state is DayChallengeReady) {
+                  return _buildContent(state);
+                }
+
+                if (state is DayChallengeError) {
+                  return _buildError(state.message);
+                }
+
+                // Show loading for initial state
                 return const Center(child: CircularProgressIndicator());
-              }
-
-              if (state is DayChallengeReady) {
-                return _buildContent(state);
-              }
-
-              if (state is DayChallengeError) {
-                return _buildError(state.message);
-              }
-
-              // Show loading for initial state
-              return const Center(child: CircularProgressIndicator());
-            },
+              },
+            ),
           ),
         ),
       ),
@@ -109,7 +106,7 @@ class _DayChallengeOverviewScreenState
 
           // Start Recording Button
           ElevatedButton(
-            onPressed: _startRecording,
+            onPressed: () => _startRecording(state),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               minimumSize: const Size(double.infinity, 56),
@@ -371,10 +368,7 @@ class _DayChallengeOverviewScreenState
     );
   }
 
-  void _startRecording() {
-    final state = context.read<DailyChallengeBloc>().state;
-    if (state is! DayChallengeReady) return;
-
+  void _startRecording(DayChallengeReady state) {
     // Show warning if user already has recordings for this day
     if (state.takes.isNotEmpty) {
       _showReRecordWarning(state);
@@ -554,14 +548,11 @@ class _DayChallengeOverviewScreenState
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _startRecording();
-                    },
+                    onPressed: () => Navigator.pop(ctx),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 56),
                     ),
-                    child: const Text('Start Recording'),
+                    child: const Text('Close'),
                   ),
                 ),
               ],

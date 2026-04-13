@@ -101,9 +101,6 @@ class ConfidentCamApp extends StatelessWidget {
         // Feature BLoCs - lazy created but available everywhere
         BlocProvider<WarmupBloc>(create: (_) => sl<WarmupBloc>()),
         BlocProvider<ProgressBloc>(create: (_) => sl<ProgressBloc>()),
-        BlocProvider<DailyChallengeBloc>(
-          create: (_) => sl<DailyChallengeBloc>(),
-        ),
         BlocProvider<SettingsBloc>(create: (_) => sl<SettingsBloc>()),
       ],
       child: const App(),

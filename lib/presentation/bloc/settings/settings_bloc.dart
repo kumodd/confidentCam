@@ -1,174 +1,23 @@
-import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../data/datasources/local/hive_settings_datasource.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/di/injection_container.dart';
+import '../../../data/datasources/local/hive_settings_datasource.dart';
+import '../../../domain/entities/settings.dart';
 import '../../../services/notification_service.dart';
+import 'settings_event.dart';
+import 'settings_state.dart';
 
-// Settings entity
-class Settings extends Equatable {
-  final TimeOfDay reminderTime;
-  final double teleprompterSpeed;
-  final String teleprompterFontSize;
-  final String teleprompterTextColor;
-  final double teleprompterHeight;
-  final double teleprompterOpacity;
-  final bool autoScrollEnabled;
-  final String defaultCamera;
-  final String videoQuality;
-  final String languagePreference;
+// Re-export for consumers that import settings_bloc.dart
+export '../../../domain/entities/settings.dart';
+export 'settings_event.dart';
+export 'settings_state.dart';
 
-  const Settings({
-    required this.reminderTime,
-    required this.teleprompterSpeed,
-    required this.teleprompterFontSize,
-    required this.teleprompterTextColor,
-    required this.teleprompterHeight,
-    required this.teleprompterOpacity,
-    required this.autoScrollEnabled,
-    required this.defaultCamera,
-    required this.videoQuality,
-    required this.languagePreference,
-  });
-
-  factory Settings.defaults() => const Settings(
-    reminderTime: TimeOfDay(hour: 9, minute: 0),
-    teleprompterSpeed: 1.0,
-    teleprompterFontSize: 'medium',
-    teleprompterTextColor: 'white',
-    teleprompterHeight: 0.25,
-    teleprompterOpacity: 0.85,
-    autoScrollEnabled: true,
-    defaultCamera: 'front',
-    videoQuality: '1080p',
-    languagePreference: 'en',
-  );
-
-  /// Get font size in pixels
-  double get fontSizePixels =>
-      AppConstants.fontSizeMap[teleprompterFontSize] ?? 16.0;
-
-  @override
-  List<Object?> get props => [
-    reminderTime,
-    teleprompterSpeed,
-    teleprompterFontSize,
-    teleprompterTextColor,
-    teleprompterHeight,
-    teleprompterOpacity,
-    autoScrollEnabled,
-    defaultCamera,
-    videoQuality,
-    languagePreference,
-  ];
-}
-
-// Events
-abstract class SettingsEvent extends Equatable {
-  const SettingsEvent();
-  @override
-  List<Object?> get props => [];
-}
-
-class SettingsLoaded extends SettingsEvent {
-  const SettingsLoaded();
-}
-
-class ReminderTimeUpdated extends SettingsEvent {
-  final TimeOfDay time;
-  const ReminderTimeUpdated(this.time);
-  @override
-  List<Object?> get props => [time];
-}
-
-class TeleprompterSpeedUpdated extends SettingsEvent {
-  final double speed;
-  const TeleprompterSpeedUpdated(this.speed);
-  @override
-  List<Object?> get props => [speed];
-}
-
-class TeleprompterFontSizeUpdated extends SettingsEvent {
-  final String fontSize;
-  const TeleprompterFontSizeUpdated(this.fontSize);
-  @override
-  List<Object?> get props => [fontSize];
-}
-
-class TeleprompterTextColorUpdated extends SettingsEvent {
-  final String color;
-  const TeleprompterTextColorUpdated(this.color);
-  @override
-  List<Object?> get props => [color];
-}
-
-class TeleprompterHeightUpdated extends SettingsEvent {
-  final double height;
-  const TeleprompterHeightUpdated(this.height);
-  @override
-  List<Object?> get props => [height];
-}
-
-class TeleprompterOpacityUpdated extends SettingsEvent {
-  final double opacity;
-  const TeleprompterOpacityUpdated(this.opacity);
-  @override
-  List<Object?> get props => [opacity];
-}
-
-class AutoScrollToggled extends SettingsEvent {
-  final bool enabled;
-  const AutoScrollToggled(this.enabled);
-  @override
-  List<Object?> get props => [enabled];
-}
-
-class DefaultCameraUpdated extends SettingsEvent {
-  final String camera;
-  const DefaultCameraUpdated(this.camera);
-  @override
-  List<Object?> get props => [camera];
-}
-
-class LanguagePreferenceUpdated extends SettingsEvent {
-  final String language;
-  const LanguagePreferenceUpdated(this.language);
-  @override
-  List<Object?> get props => [language];
-}
-
-// States
-abstract class SettingsState extends Equatable {
-  const SettingsState();
-  @override
-  List<Object?> get props => [];
-}
-
-class SettingsInitial extends SettingsState {
-  const SettingsInitial();
-}
-
-class SettingsLoadSuccess extends SettingsState {
-  final Settings settings;
-  const SettingsLoadSuccess(this.settings);
-  @override
-  List<Object?> get props => [settings];
-}
-
-class SettingsUpdating extends SettingsState {
-  const SettingsUpdating();
-}
-
-class SettingsError extends SettingsState {
-  final String message;
-  const SettingsError(this.message);
-  @override
-  List<Object?> get props => [message];
-}
-
-// BLoC
+/// BLoC for managing user settings.
+///
+/// Uses [Settings.copyWith] to emit updated state directly
+/// instead of re-reading all values from Hive on every change.
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final HiveSettingsDataSource settingsDataSource;
 
@@ -184,6 +33,25 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<AutoScrollToggled>(_onAutoScrollToggled);
     on<DefaultCameraUpdated>(_onCameraUpdated);
     on<LanguagePreferenceUpdated>(_onLanguageUpdated);
+  }
+
+  /// Helper: get current settings or defaults
+  Settings get _currentSettings {
+    if (state is SettingsLoadSuccess) {
+      return (state as SettingsLoadSuccess).settings;
+    }
+    return Settings.defaults();
+  }
+
+  /// Helper: save a setting and emit updated state without re-reading Hive
+  Future<void> _updateAndEmit(
+    String key,
+    dynamic value,
+    Settings Function(Settings current) updater,
+    Emitter<SettingsState> emit,
+  ) async {
+    await settingsDataSource.saveSetting(key, value);
+    emit(SettingsLoadSuccess(updater(_currentSettings)));
   }
 
   Future<void> _onLoaded(
@@ -241,96 +109,112 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     // Schedule the daily notification
     try {
       final notificationService = sl<NotificationService>();
-      await notificationService.scheduleDailyReminder(event.time);
+      final hasPermission = await notificationService.requestPermissions();
+      if (!hasPermission) {
+        emit(SettingsNotificationError(_currentSettings.copyWith(reminderTime: event.time)));
+      } else {
+        await notificationService.scheduleDailyReminder(event.time);
+      }
     } catch (e) {
-      // Notification scheduling failed, but we still save the setting
+      emit(SettingsNotificationError(_currentSettings.copyWith(reminderTime: event.time)));
     }
     
-    add(const SettingsLoaded());
+    emit(SettingsLoadSuccess(_currentSettings.copyWith(reminderTime: event.time)));
   }
 
   Future<void> _onSpeedUpdated(
     TeleprompterSpeedUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.teleprompterSpeedKey,
       event.speed,
+      (s) => s.copyWith(teleprompterSpeed: event.speed),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onFontSizeUpdated(
     TeleprompterFontSizeUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.teleprompterFontSizeKey,
       event.fontSize,
+      (s) => s.copyWith(teleprompterFontSize: event.fontSize),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onTextColorUpdated(
     TeleprompterTextColorUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.teleprompterTextColorKey,
       event.color,
+      (s) => s.copyWith(teleprompterTextColor: event.color),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onHeightUpdated(
     TeleprompterHeightUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.teleprompterHeightKey,
       event.height,
+      (s) => s.copyWith(teleprompterHeight: event.height),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onOpacityUpdated(
     TeleprompterOpacityUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.teleprompterOpacityKey,
       event.opacity,
+      (s) => s.copyWith(teleprompterOpacity: event.opacity),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onAutoScrollToggled(
     AutoScrollToggled event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting('auto_scroll_enabled', event.enabled);
-    add(const SettingsLoaded());
+    await _updateAndEmit(
+      'auto_scroll_enabled',
+      event.enabled,
+      (s) => s.copyWith(autoScrollEnabled: event.enabled),
+      emit,
+    );
   }
 
   Future<void> _onCameraUpdated(
     DefaultCameraUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.defaultCameraKey,
       event.camera,
+      (s) => s.copyWith(defaultCamera: event.camera),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 
   Future<void> _onLanguageUpdated(
     LanguagePreferenceUpdated event,
     Emitter<SettingsState> emit,
   ) async {
-    await settingsDataSource.saveSetting(
+    await _updateAndEmit(
       AppConstants.languagePreferenceKey,
       event.language,
+      (s) => s.copyWith(languagePreference: event.language),
+      emit,
     );
-    add(const SettingsLoaded());
   }
 }

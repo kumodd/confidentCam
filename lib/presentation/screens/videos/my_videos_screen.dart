@@ -6,6 +6,7 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../services/video_storage_service.dart';
 
 /// My Videos screen showing all recorded videos.
@@ -80,7 +81,7 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
                           onDelete: () => _deleteVideo(_videos[index]),
                           onExport: () => _exportVideo(_videos[index]),
                         )
-                        .animate(delay: Duration(milliseconds: index * 50))
+                        .animate(delay: Duration(milliseconds: (index.clamp(0, 10)) * 50))
                         .fadeIn()
                         .scale(begin: const Offset(0.95, 0.95)),
                     childCount: _videos.length,
@@ -321,11 +322,7 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
     EasyLoading.dismiss();
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
+  String _formatBytes(int bytes) => formatBytes(bytes);
 }
 
 class _VideoCard extends StatelessWidget {
@@ -511,11 +508,7 @@ class _VideoCard extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
+  String _formatSize(int bytes) => formatBytes(bytes);
 }
 
 /// Full-screen video player
@@ -549,7 +542,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
       _controller = VideoPlayerController.file(file);
       await _controller!.initialize();
-      _controller!.addListener(_onPlayerUpdate);
       if (mounted) {
         setState(() => _isInitialized = true);
       }
@@ -568,13 +560,8 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
     }
   }
 
-  void _onPlayerUpdate() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
-    _controller?.removeListener(_onPlayerUpdate);
     _controller?.dispose();
     super.dispose();
   }
@@ -592,7 +579,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Video
+            // Video — stable widget, does NOT rebuild on play state changes
             if (_isInitialized && _controller != null)
               Center(
                 child: AspectRatio(
@@ -603,9 +590,11 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
             else
               const Center(child: CircularProgressIndicator()),
 
-            // Controls overlay
-            if (_showControls) ...[
-              // Top bar
+            // Controls overlay — uses ValueListenableBuilder
+            // to rebuild ONLY the controls when play state changes,
+            // instead of the entire widget tree via setState.
+            if (_showControls && _isInitialized && _controller != null) ...[
+              // Top bar (static — doesn't depend on play state)
               Positioned(
                 top: 0,
                 left: 0,
@@ -647,7 +636,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                 ),
               ),
 
-              // Bottom controls
+              // Bottom controls — scoped rebuild via ValueListenableBuilder
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -668,76 +657,76 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                       ],
                     ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Progress bar
-                      if (_isInitialized && _controller != null)
-                        VideoProgressIndicator(
-                          _controller!,
-                          allowScrubbing: true,
-                          colors: const VideoProgressColors(
-                            playedColor: Color(0xFF6366F1),
-                            bufferedColor: Colors.white24,
-                            backgroundColor: Colors.white12,
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                      // Play controls
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                  child: ValueListenableBuilder<VideoPlayerValue>(
+                    valueListenable: _controller!,
+                    builder: (context, value, child) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.replay_10,
-                              color: Colors.white,
-                              size: 32,
+                          // Progress bar
+                          VideoProgressIndicator(
+                            _controller!,
+                            allowScrubbing: true,
+                            colors: const VideoProgressColors(
+                              playedColor: Color(0xFF6366F1),
+                              bufferedColor: Colors.white24,
+                              backgroundColor: Colors.white12,
                             ),
-                            onPressed: () {
-                              final pos = _controller?.value.position;
-                              if (pos != null) {
-                                _controller?.seekTo(
-                                  pos - const Duration(seconds: 10),
-                                );
-                              }
-                            },
                           ),
-                          const SizedBox(width: 24),
-                          IconButton(
-                            icon: Icon(
-                              _controller?.value.isPlaying == true
-                                  ? Icons.pause_circle_filled
-                                  : Icons.play_circle_filled,
-                              color: Colors.white,
-                              size: 56,
-                            ),
-                            onPressed: () {
-                              if (_controller?.value.isPlaying == true) {
-                                _controller?.pause();
-                              } else {
-                                _controller?.play();
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 24),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.forward_10,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                            onPressed: () {
-                              final pos = _controller?.value.position;
-                              if (pos != null) {
-                                _controller?.seekTo(
-                                  pos + const Duration(seconds: 10),
-                                );
-                              }
-                            },
+                          const SizedBox(height: 8),
+                          // Play controls
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.replay_10,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                                onPressed: () {
+                                  final pos = value.position;
+                                  _controller?.seekTo(
+                                    pos - const Duration(seconds: 10),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 24),
+                              IconButton(
+                                icon: Icon(
+                                  value.isPlaying
+                                      ? Icons.pause_circle_filled
+                                      : Icons.play_circle_filled,
+                                  color: Colors.white,
+                                  size: 56,
+                                ),
+                                onPressed: () {
+                                  if (value.isPlaying) {
+                                    _controller?.pause();
+                                  } else {
+                                    _controller?.play();
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 24),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.forward_10,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                                onPressed: () {
+                                  final pos = value.position;
+                                  _controller?.seekTo(
+                                    pos + const Duration(seconds: 10),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
