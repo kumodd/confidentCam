@@ -18,6 +18,7 @@ import '../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../data/datasources/remote/supabase_progress_datasource.dart';
 import '../../data/datasources/remote/supabase_script_datasource.dart';
 import '../../data/datasources/remote/supabase_user_datasource.dart';
+import '../../data/datasources/remote/supabase_guide_datasource.dart';
 import '../../services/openai_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/content_creator_repository_impl.dart';
@@ -25,15 +26,18 @@ import '../../data/repositories/progress_repository_impl.dart';
 import '../../data/repositories/script_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/repositories/video_repository_impl.dart';
+import '../../data/repositories/guide_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/content_creator_repository.dart';
 import '../../domain/repositories/progress_repository.dart';
 import '../../domain/repositories/script_repository.dart';
 import '../../domain/repositories/user_repository.dart';
 import '../../domain/repositories/video_repository.dart';
+import '../../domain/repositories/guide_repository.dart';
 import '../../presentation/bloc/auth/auth_bloc.dart';
 import '../../presentation/bloc/content_creator/content_creator_bloc.dart';
 import '../../presentation/bloc/daily_challenge/daily_challenge_bloc.dart';
+import '../../presentation/bloc/guide/guide_bloc.dart';
 import '../../presentation/bloc/network/network_bloc.dart';
 import '../../presentation/bloc/onboarding/onboarding_bloc.dart';
 import '../../presentation/bloc/progress/progress_bloc.dart';
@@ -148,6 +152,9 @@ void _initDataSources() {
   sl.registerLazySingleton<SupabaseContentScriptsDataSource>(
     () => SupabaseContentScriptsDataSource(client: sl()),
   );
+  sl.registerLazySingleton<SupabaseGuideDatasource>(
+    () => SupabaseGuideDatasource(sl()),
+  );
 
   // Local Data Sources
   sl.registerLazySingleton<HiveAuthDataSource>(
@@ -205,6 +212,9 @@ void _initRepositories() {
   );
   sl.registerLazySingleton<VideoRepository>(
     () => VideoRepositoryImpl(videoStorageService: sl()),
+  );
+  sl.registerLazySingleton<GuideRepository>(
+    () => GuideRepositoryImpl(sl()),
   );
 
   // Content Creator Repository (standalone - uses Supabase for storage and OpenAI for generation)
@@ -273,5 +283,10 @@ void _initBlocs() {
   // Content Creator BLoC (standalone)
   sl.registerFactory<ContentCreatorBloc>(
     () => ContentCreatorBloc(repository: sl(), videoStorageService: sl()),
+  );
+
+  // Guide BLoC
+  sl.registerFactory<GuideBloc>(
+    () => GuideBloc(repository: sl()),
   );
 }

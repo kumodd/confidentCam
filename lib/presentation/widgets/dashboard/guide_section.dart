@@ -1,108 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Guide chapters for motivation and social media tips.
-class GuideChapter {
-  final String title;
-  final String emoji;
-  final String summary;
-  final List<String> content;
-  final String? youtubeUrl;
-  final String? youtubeTitle;
-
-  const GuideChapter({
-    required this.title,
-    required this.emoji,
-    required this.summary,
-    required this.content,
-    this.youtubeUrl,
-    this.youtubeTitle,
-  });
-}
-
-/// Predefined guide chapters
-const guideChapters = [
-  GuideChapter(
-    title: 'Overcoming Fear',
-    emoji: '💪',
-    summary: 'Why you feel afraid and how to push through',
-    content: [
-      'Fear of judgment is completely normal. Every successful creator has felt this.',
-      'Your first 10 videos will feel awkward - that\'s the learning curve, not failure.',
-      'Focus on progress, not perfection. Each video makes you 1% better.',
-      'Remember: Most people are too busy with their own lives to judge yours.',
-      'The discomfort you feel means you\'re growing. Embrace it!',
-    ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=ZQUxL4Jm1Lo',
-    youtubeTitle: 'How to Overcome Fear of Recording',
-  ),
-  GuideChapter(
-    title: 'No One Is Watching',
-    emoji: '👀',
-    summary: 'The truth about engagement and visibility',
-    content: [
-      'Statistically, only 10% of your followers see your posts.',
-      'Your first videos will get minimal views - this is normal and good!',
-      'Low initial engagement = safe space to practice without pressure.',
-      'The algorithm shows your content to strangers first, not friends.',
-      'By the time people notice you, you\'ll already be confident!',
-    ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=Ks-_Mh1QhMc',
-    youtubeTitle: 'Why No One Sees Your First Posts',
-  ),
-  GuideChapter(
-    title: 'Block The Haters',
-    emoji: '🛡️',
-    summary: 'How to protect yourself online',
-    content: [
-      'You can hide your content from specific people before posting.',
-      'On Instagram: Settings → Close Friends (reverse it - add people to NOT show).',
-      'Consider creating a separate account for content creation.',
-      'Block anyone who makes you uncomfortable - it\'s your space.',
-      'Pro tip: Most "haters" are just projecting their own insecurities.',
-      'The loudest critics are usually those who never try anything themselves.',
-    ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=qzR62JJCMBQ',
-    youtubeTitle: 'How to Handle Negative Comments',
-  ),
-  GuideChapter(
-    title: 'Consistency > Perfection',
-    emoji: '📅',
-    summary: 'Why showing up daily beats being perfect',
-    content: [
-      'Posting consistently builds trust with the algorithm and audience.',
-      'A "good enough" video today beats a "perfect" video never posted.',
-      '30 days of daily practice = more growth than 1 year of occasional perfection.',
-      'Your audience connects with authenticity, not polish.',
-      'Set a specific time each day for recording - make it a habit.',
-      'Track your streak and celebrate small wins!',
-    ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=sYMqVwsewSg',
-    youtubeTitle: 'The Power of Consistency',
-  ),
-  GuideChapter(
-    title: 'Social Media Tips',
-    emoji: '📱',
-    summary: 'Practical tips for posting and growing',
-    content: [
-      '🕐 Best times to post: 7-9 AM, 12-1 PM, 7-9 PM (local time)',
-      '📝 Hook viewers in 3 seconds or they scroll away',
-      '#️⃣ Use 5-10 relevant hashtags, not 30 random ones',
-      '🎵 Trending audio boosts visibility',
-      '💬 Reply to every comment in the first hour',
-      '📊 Study your analytics weekly - double down on what works',
-      '🤝 Engage with others in your niche before posting',
-      '📍 Tag your location for local discoverability',
-    ],
-    youtubeUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc',
-    youtubeTitle: 'Instagram Algorithm Tips 2024',
-  ),
-];
+import '../../../domain/entities/guide_chapter.dart';
+import '../../bloc/guide/guide_bloc.dart';
+import '../../bloc/guide/guide_event.dart';
+import '../../bloc/guide/guide_state.dart';
+import '../../screens/warmup/warmup_overview_screen.dart';
+import '../../bloc/warmup/warmup_bloc.dart';
 
 /// Guide section widget for dashboard
-class GuideSection extends StatelessWidget {
+class GuideSection extends StatefulWidget {
   const GuideSection({super.key});
+
+  @override
+  State<GuideSection> createState() => _GuideSectionState();
+}
+
+class _GuideSectionState extends State<GuideSection> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<GuideBloc>().add(LoadGuides());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,14 +53,37 @@ class GuideSection extends StatelessWidget {
             ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
           ),
           const SizedBox(height: 16),
-          ...guideChapters.asMap().entries.map((entry) {
-            final index = entry.key;
-            final chapter = entry.value;
-            return _ChapterCard(chapter: chapter, index: index + 1)
-                .animate(delay: Duration(milliseconds: index * 100))
-                .fadeIn()
-                .slideX(begin: 0.1, end: 0);
-          }),
+          BlocBuilder<GuideBloc, GuideState>(
+            builder: (context, state) {
+              if (state is GuideLoading) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(color: Color(0xFFFBBF24)),
+                  ),
+                );
+              } else if (state is GuideLoaded) {
+                return Column(
+                  children: state.chapters.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final chapter = entry.value;
+                    return _ChapterCard(chapter: chapter, index: index + 1)
+                        .animate(delay: Duration(milliseconds: index * 100))
+                        .fadeIn()
+                        .slideX(begin: 0.1, end: 0);
+                  }).toList(),
+                );
+              } else if (state is GuideError) {
+                return Center(
+                  child: Text(
+                    'Failed to load guides.',
+                    style: TextStyle(color: Colors.red[300]),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ],
       ),
     );
@@ -158,6 +102,30 @@ class _ChapterCard extends StatefulWidget {
 
 class _ChapterCardState extends State<_ChapterCard> {
   bool _isExpanded = false;
+
+  void _handleActionRoute(String route) {
+    if (route == '/warmup') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: context.read<WarmupBloc>(),
+            child: const WarmupOverviewScreen(),
+          ),
+        ),
+      );
+    } else if (route == '/challenge') {
+      // Challenge deep link via Dashboard or direct route routing
+      // If we are already on Dashboard, ideally we should switch tabs or push day list.
+      // For simplicity, we can pop until dashboard or dispatch an event, but here a simple snackbar or basic routing can serve as demo.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Navigating to Challenges...'),
+          backgroundColor: Color(0xFF6366F1),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -271,59 +239,93 @@ class _ChapterCardState extends State<_ChapterCard> {
                       ),
                     ),
                   ),
-                  if (widget.chapter.youtubeUrl != null) ...[
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () => _openYouTube(widget.chapter.youtubeUrl!),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.red.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.play_circle_fill,
-                              color: Colors.red,
-                              size: 32,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Watch Video',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 11,
-                                    ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Action buttons container
+                  if (widget.chapter.youtubeUrl != null || widget.chapter.actionRoute != null)
+                    Row(
+                      children: [
+                        if (widget.chapter.youtubeUrl != null)
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _openYouTube(widget.chapter.youtubeUrl!),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.3),
                                   ),
-                                  Text(
-                                    widget.chapter.youtubeTitle ??
-                                        'YouTube Video',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.play_circle_fill,
+                                      color: Colors.red,
+                                      size: 20,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Watch Video',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            const Icon(
-                              Icons.open_in_new,
-                              color: Colors.white54,
-                              size: 18,
+                          ),
+                        if (widget.chapter.youtubeUrl != null && widget.chapter.actionRoute != null)
+                          const SizedBox(width: 12),
+                        if (widget.chapter.actionRoute != null)
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _handleActionRoute(widget.chapter.actionRoute!),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF6366F1).withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.flash_on_rounded,
+                                      color: Color(0xFF818CF8),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        widget.chapter.actionTitle ?? 'Take Action',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
-                  ],
                 ],
               ),
             ),

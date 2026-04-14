@@ -11,6 +11,8 @@ abstract class HiveAuthDataSource {
     required String userId,
     required String phone,
     String? displayName,
+    String? email,
+    DateTime? createdAt,
   });
 
   /// Get cached session data.
@@ -33,6 +35,8 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
     required String userId,
     required String phone,
     String? displayName,
+    String? email,
+    DateTime? createdAt,
   }) async {
     try {
       logger.d('Saving session for user $userId');
@@ -40,6 +44,12 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
       await authBox.put(AppConstants.phoneKey, phone);
       if (displayName != null) {
         await authBox.put(AppConstants.displayNameKey, displayName);
+      }
+      if (email != null) {
+        await authBox.put('email', email);
+      }
+      if (createdAt != null) {
+        await authBox.put('created_at', createdAt.toIso8601String());
       }
     } catch (e) {
       logger.e('Error saving session', e);
@@ -57,6 +67,8 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
         'user_id': userId,
         'phone': authBox.get(AppConstants.phoneKey),
         'display_name': authBox.get(AppConstants.displayNameKey),
+        'email': authBox.get('email'),
+        'created_at': authBox.get('created_at'),
       };
     } catch (e) {
       logger.e('Error getting session', e);

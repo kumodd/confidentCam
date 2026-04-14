@@ -64,8 +64,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // Cache session locally
       await localDataSource.saveSession(
         userId: user.id,
-        phone: user.phone??"",
+        phone: user.phone ?? "",
         displayName: user.displayName,
+        email: user.email,
+        createdAt: user.createdAt,
       );
 
       return Right((user, isNewUser));
@@ -98,8 +100,10 @@ class AuthRepositoryImpl implements AuthRepository {
           // Update local cache
           await localDataSource.saveSession(
             userId: user.id,
-            phone: user.phone??"",
+            phone: user.phone ?? "",
             displayName: user.displayName,
+            email: user.email,
+            createdAt: user.createdAt,
           );
 
           return Right(user);
@@ -109,12 +113,18 @@ class AuthRepositoryImpl implements AuthRepository {
       // Fallback to local cache for offline support
       final cachedSession = await localDataSource.getSession();
       if (cachedSession != null && cachedSession['user_id'] != null) {
+        // Restore createdAt from cache, fall back to epoch if missing
+        final createdAtStr = cachedSession['created_at'] as String?;
+        final createdAt = createdAtStr != null
+            ? DateTime.tryParse(createdAtStr) ?? DateTime(2024)
+            : DateTime(2024);
         return Right(
           User(
             id: cachedSession['user_id'] as String,
             phone: cachedSession['phone'] as String? ?? '',
+            email: cachedSession['email'] as String?,
             displayName: cachedSession['display_name'] as String?,
-            createdAt: DateTime.now(), // Approximate
+            createdAt: createdAt,
           ),
         );
       }
@@ -190,8 +200,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // Cache session locally
       await localDataSource.saveSession(
         userId: user.id,
-        phone: user.phone??"",
-        displayName: user.displayName??"",
+        phone: user.phone ?? "",
+        displayName: user.displayName ?? "",
+        email: user.email,
+        createdAt: user.createdAt,
       );
 
       return Right((user, isNewUser));
@@ -226,8 +238,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // Cache session locally
       await localDataSource.saveSession(
         userId: user.id,
-        phone: user.phone??"",
-        displayName: user.displayName??"",
+        phone: user.phone ?? "",
+        displayName: user.displayName ?? "",
+        email: user.email,
+        createdAt: user.createdAt,
       );
 
       return Right((user, isNewUser));

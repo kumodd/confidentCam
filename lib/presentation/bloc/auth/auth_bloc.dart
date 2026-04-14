@@ -155,12 +155,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       },
       (data) {
         final (user, isNewUser) = data;
-        logger.i('Email sign up successful. New user: $isNewUser');
+        logger.i('Email sign up result. New user: $isNewUser, id: ${user.id}');
 
-        // Always show confirmation screen for email signup
-        // Supabase requires email confirmation by default
-        logger.i('Email confirmation required for: ${event.email}');
-        emit(EmailConfirmationRequired(email: event.email));
+        // If the user entity has a valid createdAt that isn't just DateTime.now()
+        // and we got a proper user id, it means Supabase gave us a live session
+        // (email confirmation is disabled in Supabase project settings).
+        // In that case, skip the confirmation screen and go straight to the app.
+        final hasLiveSession = user.id.isNotEmpty && user.email != null;
+
+        if (hasLiveSession && !isNewUser) {
+          // Returning user or session without confirmation requirement
+          logger.i('Live session after signup — going to dashboard');
+          emit(AuthSuccess(user: user, isNewUser: isNewUser));
+        } else if (hasLiveSession && isNewUser) {
+          // New user with live session (confirmation disabled)
+          logger.i('Email confirmation not required — going to dashboard as new user');
+          emit(AuthSuccess(user: user, isNewUser: true));
+        } else {
+          // Needs email confirmation
+          logger.i('Email confirmation required for: ${event.email}');
+          emit(EmailConfirmationRequired(email: event.email));
+        }
       },
     );
   }
@@ -191,6 +206,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   /// Clear all local Hive data to ensure no stale data persists
   /// between different user sessions.
+  ///
+  /// NOTE: Recorded videos are intentionally NOT deleted here.
+  /// Videos are stored in the device filesystem (getApplicationDocumentsDirectory)
+  /// and belong to the user's device — they are preserved across logouts and
+  /// account switches by design.
   Future<void> _clearAllLocalData() async {
     try {
       final progressBox = Hive.box(AppConstants.progressBox);

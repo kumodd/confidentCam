@@ -6,12 +6,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection_container.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/entities/user_profile.dart';
+import '../../../domain/repositories/user_repository.dart';
 import '../../../services/video_storage_service.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../bloc/settings/settings_bloc.dart';
 import '../auth/qr_scanner_screen.dart';
+import 'edit_profile_screen.dart';
 
 /// Fully functional settings screen.
 class SettingsScreen extends StatefulWidget {
@@ -24,11 +27,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int _storageBytes = 0;
   bool _loadingStorage = true;
+  UserProfile? _currentProfile;
+  String? _currentUserId;
+  String? _currentDisplayName;
 
   @override
   void initState() {
     super.initState();
     _loadStorage();
+    _loadProfile();
     // Ensure settings are loaded
     context.read<SettingsBloc>().add(const SettingsLoaded());
   }
@@ -42,6 +49,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _loadingStorage = false;
       });
     }
+  }
+
+  /// Fetches the user profile so it can be passed to EditProfileScreen.
+  Future<void> _loadProfile() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthSuccess) {
+      _currentUserId = authState.user.id;
+      _currentDisplayName = authState.user.displayName;
+
+      final result = await sl<UserRepository>().getProfile(authState.user.id);
+      result.fold(
+        (_) {}, // Silently ignore; profile may not exist yet
+        (profile) {
+          if (mounted) setState(() => _currentProfile = profile);
+        },
+      );
+    }
+  }
+
+  /// Opens the Edit Profile screen and refreshes local profile data on return.
+  Future<void> _openEditProfile() async {
+    if (_currentUserId == null) return;
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          userId: _currentUserId!,
+          currentDisplayName: _currentDisplayName,
+          currentProfile: _currentProfile,
+        ),
+      ),
+    );
+    if (updated == true) _loadProfile(); // Refresh cached profile
   }
 
   String _formatBytes(int bytes) => formatBytes(bytes);
@@ -107,6 +146,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     SliverList(
                       delegate: SliverChildListDelegate([
+                        // ── Profile Section ──────────────────────────────
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1E2E),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Row(
+                              children: [
+                                // Avatar circle
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF6366F1), Color(0xFF22D3EE)],
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      (_currentDisplayName?.isNotEmpty == true
+                                              ? _currentDisplayName!
+                                              : 'C')
+                                          .characters
+                                          .first
+                                          .toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Name + contact
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _currentDisplayName ?? 'Confident Creator',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (_currentProfile?.goal != null) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _currentProfile!.goal!,
+                                          style: const TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                // Edit button
+                                TextButton.icon(
+                                  onPressed: _openEditProfile,
+                                  icon: const Icon(Icons.edit_outlined, size: 16),
+                                  label: const Text('Edit'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF6366F1),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
                         // Teleprompter Section
                         _SettingsSection(
                           title: 'Teleprompter',
@@ -493,14 +619,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       barrierDismissible: false,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Delete Account'),
-            content: const Text(
-              'This will permanently delete:\n\n'
-              '• Your account\n'
-              '• All your videos\n'
-              '• All your progress\n'
-              '• All your settings\n\n'
-              'This action cannot be undone.',
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+                SizedBox(width: 12),
+                Text('Delete Account', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This will permanently delete:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('• Your Supabase account & authentication'),
+                Text('• All your scripts (30-day challenge scripts)'),
+                Text('• All your progress & streaks'),
+                Text('• All settings and preferences'),
+                Text('• Your user profile and personalization'),
+                SizedBox(height: 12),
+                Text(
+                  'What will NOT be deleted:',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+                SizedBox(height: 8),
+                Text('• Recorded videos (saved on your device)'),
+                SizedBox(height: 12),
+                Text(
+                  'This action CANNOT be undone.',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
             actions: [
               TextButton(

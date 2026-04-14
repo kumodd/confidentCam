@@ -7,6 +7,8 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:pinput/pinput.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/di/injection_container.dart';
+import '../../../domain/repositories/user_repository.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
@@ -26,6 +28,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final _focusNode = FocusNode();
   int _resendTimer = AppConfig.otpResendDelaySeconds;
   Timer? _timer;
+  int _attemptCount = 0;
+  bool _isLocked = false;
+  int _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
 
   @override
   void initState() {
@@ -58,9 +63,154 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _verifyOtp(String otp) {
+    if (_isLocked) return;
     if (otp.length == AppConfig.otpLength) {
       context.read<AuthBloc>().add(OtpSubmitted(phone: widget.phone, otp: otp));
     }
+  }
+
+  void _startLockout() {
+    setState(() {
+      _isLocked = true;
+      _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_lockoutTimer > 0) {
+        setState(() => _lockoutTimer--);
+      } else {
+        t.cancel();
+        setState(() {
+          _isLocked = false;
+          _attemptCount = 0;
+        });
+      }
+    });
+  }
+
+  /// Shows a bottom sheet to collect the user's display name after OTP success.
+  /// Runs for new users only. The user can skip by tapping "Skip".
+  void _showNameCollectionSheet(BuildContext context, String userId) {
+    final nameController = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Greeting
+              Text(
+                '👋  Welcome! What should we call you?',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your name will appear on your dashboard. You can change it later in Settings.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white54,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Name field
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Your first name',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(Icons.person_outline, color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color(0xFF252538),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Save button
+              ElevatedButton(
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  Navigator.of(sheetCtx).pop();
+                  if (name.isNotEmpty) {
+                    try {
+                      await sl<UserRepository>().updateDisplayName(userId, name);
+                    } catch (_) {
+                      // Non-blocking: name update failure should not block login
+                    }
+                  }
+                  // Route to app regardless of whether name was saved
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Save & Continue', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 10),
+
+              // Skip option
+              TextButton(
+                onPressed: () {
+                  Navigator.of(sheetCtx).pop();
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                },
+                child: const Text('Skip for now', style: TextStyle(color: Colors.white38)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _resendOtp() {
@@ -107,16 +257,36 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         }
 
         if (state is AuthSuccess) {
-          // Pop back and let app.dart handle navigation
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (state.isNewUser) {
+            // New user: collect their name before routing to the app
+            _showNameCollectionSheet(context, state.user.id);
+          } else {
+            // Returning user: go straight to dashboard
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
         } else if (state is AuthFailure) {
           _otpController.clear();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          _attemptCount++;
+          final remaining = AppConfig.maxOtpAttempts - _attemptCount;
+          if (remaining <= 0) {
+            _startLockout();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Too many failed attempts. Locked for ${AppConfig.otpLockoutMinutes} minutes.',
+                ),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${state.message} ($remaining attempts left)'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
         }
       },
       child: Scaffold(
@@ -208,9 +378,33 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
                   const Spacer(),
 
+                  // Lockout warning
+                  if (_isLocked)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lock_clock, color: Colors.red, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Too many attempts. Try again in ${_lockoutTimer ~/ 60}:${(_lockoutTimer % 60).toString().padLeft(2, '0')}',
+                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // Verify button
                   ElevatedButton(
-                    onPressed: () => _verifyOtp(_otpController.text),
+                    onPressed: _isLocked ? null : () => _verifyOtp(_otpController.text),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(

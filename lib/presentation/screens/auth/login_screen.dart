@@ -71,7 +71,11 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _submitPhone() {
     if (_phoneFormKey.currentState?.validate() ?? false) {
-      final phone = _phoneController.text.trim();
+      final rawPhone = _phoneController.text.trim();
+      // Concatenate country code + phone number in E.164 format.
+      // Strip any leading zeros from the local number (e.g., 09876... → 9876...)
+      final localNumber = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
+      final phone = '$_countryCode$localNumber';
       context.read<AuthBloc>().add(PhoneSubmitted(phone));
     }
   }

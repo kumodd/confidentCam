@@ -1,7 +1,7 @@
 name: confident_cam
 description: "A 30-day AI-guided video challenge app to overcome camera anxiety."
 publish_to: 'none'
-version: 1.0.3+4
+version: 1.0.6+7
 
 environment:
   sdk: ^3.7.0-0

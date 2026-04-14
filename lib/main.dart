@@ -14,6 +14,7 @@ import 'presentation/bloc/network/network_bloc.dart';
 import 'presentation/bloc/progress/progress_bloc.dart';
 import 'presentation/bloc/settings/settings_bloc.dart';
 import 'presentation/bloc/warmup/warmup_bloc.dart';
+import 'presentation/bloc/guide/guide_bloc.dart';
 import 'app.dart';
 
 void main() async {
@@ -102,6 +103,7 @@ class ConfidentCamApp extends StatelessWidget {
         BlocProvider<WarmupBloc>(create: (_) => sl<WarmupBloc>()),
         BlocProvider<ProgressBloc>(create: (_) => sl<ProgressBloc>()),
         BlocProvider<SettingsBloc>(create: (_) => sl<SettingsBloc>()),
+        BlocProvider<GuideBloc>(create: (_) => sl<GuideBloc>()),
       ],
       child: const App(),
     );

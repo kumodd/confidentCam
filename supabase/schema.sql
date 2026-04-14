@@ -9,11 +9,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    phone TEXT NOT NULL,
-    display_name TEXT,
+    phone TEXT,                          -- E.164 format (+919876543210). NULL for email-only users.
+    email TEXT,                          -- NULL for phone-only users.
+    display_name TEXT,                   -- Collected in OTP name dialog or Edit Profile screen.
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ
 );
+
+-- Unique index on email (only for non-null values)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)
+    WHERE email IS NOT NULL;
 
 -- =============================================================================
 -- USER PROFILES TABLE (Onboarding data)
@@ -25,7 +30,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     fear TEXT,
     experience TEXT,
     timezone TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ              -- Auto-set by trigger on every UPDATE
 );
 
 -- =============================================================================
@@ -133,77 +139,99 @@ ALTER TABLE premium_status ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_settings ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
+DROP POLICY IF EXISTS "Users can read own data" ON users;
 CREATE POLICY "Users can read own data" ON users
     FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own data" ON users;
 CREATE POLICY "Users can update own data" ON users
     FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own data" ON users;
 CREATE POLICY "Users can insert own data" ON users
     FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- User profiles policies
+DROP POLICY IF EXISTS "Users can read own profile" ON user_profiles;
 CREATE POLICY "Users can read own profile" ON user_profiles
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON user_profiles;
 CREATE POLICY "Users can insert own profile" ON user_profiles
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
 CREATE POLICY "Users can update own profile" ON user_profiles
     FOR UPDATE USING (auth.uid() = user_id);
 
 -- User progress policies
+DROP POLICY IF EXISTS "Users can read own progress" ON user_progress;
 CREATE POLICY "Users can read own progress" ON user_progress
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own progress" ON user_progress;
 CREATE POLICY "Users can insert own progress" ON user_progress
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own progress" ON user_progress;
 CREATE POLICY "Users can update own progress" ON user_progress
     FOR UPDATE USING (auth.uid() = user_id);
 
 -- Daily scripts policies
+DROP POLICY IF EXISTS "Users can read own scripts" ON daily_scripts;
 CREATE POLICY "Users can read own scripts" ON daily_scripts
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own scripts" ON daily_scripts;
 CREATE POLICY "Users can insert own scripts" ON daily_scripts
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own scripts" ON daily_scripts;
 CREATE POLICY "Users can update own scripts" ON daily_scripts
     FOR UPDATE USING (auth.uid() = user_id);
 
 -- Daily completions policies
+DROP POLICY IF EXISTS "Users can read own completions" ON daily_completions;
 CREATE POLICY "Users can read own completions" ON daily_completions
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own completions" ON daily_completions;
 CREATE POLICY "Users can insert own completions" ON daily_completions
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- AI feedback policies
+DROP POLICY IF EXISTS "Users can read own feedback" ON ai_feedback;
 CREATE POLICY "Users can read own feedback" ON ai_feedback
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own feedback" ON ai_feedback;
 CREATE POLICY "Users can insert own feedback" ON ai_feedback
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Achievements policies
+DROP POLICY IF EXISTS "Users can read own achievements" ON achievements;
 CREATE POLICY "Users can read own achievements" ON achievements
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own achievements" ON achievements;
 CREATE POLICY "Users can insert own achievements" ON achievements
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Premium status policies (read-only for users)
+DROP POLICY IF EXISTS "Users can read own premium status" ON premium_status;
 CREATE POLICY "Users can read own premium status" ON premium_status
     FOR SELECT USING (auth.uid() = user_id);
 
 -- Notification settings policies
+DROP POLICY IF EXISTS "Users can read own notification settings" ON notification_settings;
 CREATE POLICY "Users can read own notification settings" ON notification_settings
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own notification settings" ON notification_settings;
 CREATE POLICY "Users can insert own notification settings" ON notification_settings
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own notification settings" ON notification_settings;
 CREATE POLICY "Users can update own notification settings" ON notification_settings
     FOR UPDATE USING (auth.uid() = user_id);
 
@@ -232,6 +260,7 @@ CREATE TABLE IF NOT EXISTS onboarding_questions (
 ALTER TABLE onboarding_questions ENABLE ROW LEVEL SECURITY;
 
 -- Everyone can read questions (public)
+DROP POLICY IF EXISTS "Anyone can read onboarding questions" ON onboarding_questions;
 CREATE POLICY "Anyone can read onboarding questions" ON onboarding_questions
     FOR SELECT USING (true);
 
@@ -276,6 +305,7 @@ CREATE TABLE IF NOT EXISTS goal_options (
 -- Enable RLS
 ALTER TABLE goal_options ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can read goal options" ON goal_options;
 CREATE POLICY "Anyone can read goal options" ON goal_options
     FOR SELECT USING (true);
 
@@ -307,9 +337,11 @@ CREATE TABLE IF NOT EXISTS challenge_extensions (
 -- Enable RLS
 ALTER TABLE challenge_extensions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own extensions" ON challenge_extensions;
 CREATE POLICY "Users can read own extensions" ON challenge_extensions
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own extensions" ON challenge_extensions;
 CREATE POLICY "Users can insert own extensions" ON challenge_extensions
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -337,6 +369,7 @@ CREATE TABLE IF NOT EXISTS language_options (
 ALTER TABLE language_options ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can read language options
+DROP POLICY IF EXISTS "Anyone can read language options" ON language_options;
 CREATE POLICY "Anyone can read language options" ON language_options
     FOR SELECT USING (true);
 
@@ -362,3 +395,40 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS language_preference TEXT DEFA
 -- Index for language lookups
 CREATE INDEX IF NOT EXISTS idx_language_options_active ON language_options(is_active, order_index);
 
+-- =============================================================================
+-- CREATOR GUIDES TABLE (Dashboard Tips & Content)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS guides (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    guide_key TEXT NOT NULL UNIQUE,
+    order_index INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    content TEXT[] NOT NULL,
+    youtube_url TEXT,
+    youtube_title TEXT,
+    action_route TEXT,
+    action_title TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE guides ENABLE ROW LEVEL SECURITY;
+
+-- Allow read-only access for all users
+DROP POLICY IF EXISTS "Anyone can read guides" ON guides;
+CREATE POLICY "Anyone can read guides" ON guides
+    FOR SELECT USING (true);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_guides_active ON guides(is_active, order_index);
+
+-- Insert default guides
+INSERT INTO guides (guide_key, order_index, title, emoji, summary, content, youtube_url, youtube_title, action_route, action_title) VALUES
+('overcoming_fear', 1, 'Overcoming Fear', '💪', 'Why you feel afraid and how to push through', ARRAY['Fear of judgment is completely normal. Every successful creator has felt this.', 'Your first 10 videos will feel awkward - that''s the learning curve, not failure.', 'Focus on progress, not perfection. Each video makes you 1% better.', 'Remember: Most people are too busy with their own lives to judge yours.', 'The discomfort you feel means you''re growing. Embrace it!'], 'https://www.youtube.com/watch?v=ZQUxL4Jm1Lo', 'How to Overcome Fear of Recording', '/warmup', 'Practice a Warmup'),
+('consistency', 2, 'Consistency > Perfection', '📅', 'Why showing up daily beats being perfect', ARRAY['Posting consistently builds trust with the algorithm and audience.', 'A "good enough" video today beats a "perfect" video never posted.', '30 days of daily practice = more growth than 1 year of occasional perfection.', 'Your audience connects with authenticity, not polish.', 'Set a specific time each day for recording - make it a habit.', 'Track your streak and celebrate small wins!'], 'https://www.youtube.com/watch?v=sYMqVwsewSg', 'The Power of Consistency', '/challenge', 'Start Today''s Challenge'),
+('no_one_is_watching', 3, 'No One Is Watching', '👀', 'The truth about engagement and visibility', ARRAY['Statistically, only 10% of your followers see your posts.', 'Your first videos will get minimal views - this is normal and good!', 'Low initial engagement = safe space to practice without pressure.', 'The algorithm shows your content to strangers first, not friends.', 'By the time people notice you, you''ll already be confident!'], 'https://www.youtube.com/watch?v=Ks-_Mh1QhMc', 'Why No One Sees Your First Posts', NULL, NULL),
+('social_media_tips', 4, 'Social Media Tips', '📱', 'Practical tips for posting and growing', ARRAY['🕐 Best times to post: 7-9 AM, 12-1 PM, 7-9 PM (local time)', '📝 Hook viewers in 3 seconds or they scroll away', '#️⃣ Use 5-10 relevant hashtags, not 30 random ones', '🎵 Trending audio boosts visibility', '💬 Reply to every comment in the first hour', '📊 Study your analytics weekly - double down on what works', '🤝 Engage with others in your niche before posting', '📍 Tag your location for local discoverability'], 'https://www.youtube.com/watch?v=UF8uR6Z6KLc', 'Instagram Algorithm Tips 2024', NULL, NULL)
+ON CONFLICT (guide_key) DO NOTHING;
