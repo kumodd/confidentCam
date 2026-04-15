@@ -8,7 +8,6 @@ import 'package:pinput/pinput.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/injection_container.dart';
-import '../../../data/datasources/local/hive_auth_datasource.dart'; // Fix #8
 import '../../../domain/repositories/user_repository.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
@@ -33,38 +32,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   bool _isLocked = false;
   int _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
 
-  // Fix #8: Hive-backed lockout datasource
-  late final HiveAuthDataSource _hiveAuth;
-
   @override
   void initState() {
     super.initState();
-    _hiveAuth = sl<HiveAuthDataSource>();
     _startResendTimer();
-    _restoreLockoutState(); // Fix #8: restore persisted lockout on screen open
     // Auto focus OTP input
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
-  }
-
-  /// Fix #8: Restore persisted lockout / attempt state so back-navigation
-  /// cannot reset the counter.
-  void _restoreLockoutState() {
-    final lockoutUntil = _hiveAuth.otpLockoutUntil;
-    if (lockoutUntil != null && lockoutUntil.isAfter(DateTime.now())) {
-      final remaining = lockoutUntil.difference(DateTime.now()).inSeconds;
-      setState(() {
-        _isLocked = true;
-        _lockoutTimer = remaining;
-        _attemptCount = _hiveAuth.otpAttempts;
-      });
-      _startLockoutCountdown();
-    } else {
-      // Lockout has passed — clear stale data
-      _hiveAuth.clearOtpLockout();
-      _attemptCount = _hiveAuth.otpAttempts;
-    }
   }
 
   @override
@@ -94,27 +69,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  /// Fix #8: Start lockout countdown and persist the end time to Hive.
   void _startLockout() {
-    final lockedUntil = DateTime.now().add(
-      Duration(minutes: AppConfig.otpLockoutMinutes),
-    );
-    _hiveAuth.setOtpLockout(lockedUntil);
     setState(() {
       _isLocked = true;
       _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
     });
-    _startLockoutCountdown();
-  }
-
-  void _startLockoutCountdown() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_lockoutTimer > 0) {
         setState(() => _lockoutTimer--);
       } else {
         t.cancel();
-        _hiveAuth.clearOtpLockout();
         setState(() {
           _isLocked = false;
           _attemptCount = 0;
@@ -292,8 +257,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         }
 
         if (state is AuthSuccess) {
-          // Fix #8: verification succeeded — clear persisted lockout
-          _hiveAuth.clearOtpLockout();
           if (state.isNewUser) {
             // New user: collect their name before routing to the app
             _showNameCollectionSheet(context, state.user.id);
@@ -301,35 +264,29 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             // Returning user: go straight to dashboard
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
-        } else if (state is AuthCodeSent) {
-          // Fix #22: only start resend timer after server confirms OTP was sent
-          _startResendTimer();
         } else if (state is AuthFailure) {
           _otpController.clear();
-          // Fix #8: persist attempt count to Hive
-          _hiveAuth.incrementOtpAttempts().then((newCount) {
-            setState(() => _attemptCount = newCount);
-            final remaining = AppConfig.maxOtpAttempts - newCount;
-            if (remaining <= 0) {
-              _startLockout();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Too many failed attempts. Locked for ${AppConfig.otpLockoutMinutes} minutes.',
-                  ),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  duration: const Duration(seconds: 5),
+          _attemptCount++;
+          final remaining = AppConfig.maxOtpAttempts - _attemptCount;
+          if (remaining <= 0) {
+            _startLockout();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Too many failed attempts. Locked for ${AppConfig.otpLockoutMinutes} minutes.',
                 ),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${state.message} ($remaining attempts left)'),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-              );
-            }
-          });
+                backgroundColor: Theme.of(context).colorScheme.error,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${state.message} ($remaining attempts left)'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          }
         }
       },
       child: Scaffold(
@@ -447,23 +404,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
                   // Verify button
                   ElevatedButton(
-                    // Fix #21: disable until all OTP digits are entered
-                    onPressed: _isLocked
-                        ? null
-                        : () {
-                            if (_otpController.text.length <
-                                AppConfig.otpLength) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please enter all 6 digits first.',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            _verifyOtp(_otpController.text);
-                          },
+                    onPressed: _isLocked ? null : () => _verifyOtp(_otpController.text),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(

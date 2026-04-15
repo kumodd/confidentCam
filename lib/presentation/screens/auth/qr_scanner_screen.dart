@@ -682,7 +682,6 @@ class _QrScannerScreenState extends State<QrScannerScreen>
           })
           .eq('session_token', sessionToken)
           .eq('status', 'pending')
-          .gte('expires_at', DateTime.now().toIso8601String()) // Fix #5: reject expired tokens
           .select()
           .maybeSingle();
 

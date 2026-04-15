@@ -87,11 +87,11 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       }
 
       final user = response.user!;
-      logger.i('OTP verified for user: ${user.id}');
+      final isNewUser = user.createdAt == user.updatedAt;
 
-      // Fix #6: Use DB record existence as the authoritative isNewUser signal.
-      // Supabase updates updatedAt on every session-refresh, making the
-      // old (createdAt == updatedAt) heuristic unreliable for returning users.
+      logger.i('OTP verified. New user: $isNewUser');
+
+      // Check if user exists in users table
       final existingUser = await client
           .from('users')
           .select()
@@ -99,10 +99,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
           .maybeSingle()
           .timeout(AppConfig.apiTimeout);
 
-      final isNewUser = existingUser == null;
-      logger.i('isNewUser (DB check): $isNewUser');
-
-      if (isNewUser) {
+      if (existingUser == null) {
         // Create user record
         logger.i('Creating new user record');
         final userData = {
@@ -118,7 +115,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         return (userData, true);
       }
 
-      return (existingUser!, false);
+      return (existingUser, false);
     } on AuthException catch (e) {
       logger.e('Auth error verifying OTP', e);
       if (e.message.contains('expired')) {
@@ -306,11 +303,9 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         }
       }
 
-      // Fix #7: isNewUser must reflect whether we actually *found* or *created*
-      // the record — not always hardcode true.
-      final bool isActuallyNew = userData == null;
-
-      if (isActuallyNew) {
+      // If no user record, return minimal data for email confirmation flow
+      // The user record will be created when they verify email and sign in
+      if (userData == null) {
         logger.i('📧 No user record yet - will be created on first sign in');
         userData = {
           'id': user.id,
@@ -320,8 +315,8 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         };
       }
 
-      logger.i('📧 Email signup completed successfully (isNew=$isActuallyNew)');
-      return (userData!, isActuallyNew);
+      logger.i('📧 Email signup completed successfully');
+      return (userData, true);
     } on AuthException catch (e) {
       logger.e('❌ Supabase Auth error during email signup', e);
       logger.e('Error code: ${e.statusCode}, Message: ${e.message}');

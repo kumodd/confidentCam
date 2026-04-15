@@ -30,12 +30,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
 
   void _submitPhone() {
     if (_formKey.currentState?.validate() ?? false) {
-      final rawPhone = _phoneController.text.trim();
-      // Strip any leading zero from the local number (e.g. 09876… → 9876…)
-      // then prepend the country dial code to produce an E.164 number.
-      final localNumber =
-          rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
-      final phone = '$_countryCode$localNumber';
+      // final phone = '$_countryCode${_phoneController.text.trim()}';
+      final phone = _phoneController.text.trim();
       context.read<AuthBloc>().add(PhoneSubmitted(phone));
     }
   }
