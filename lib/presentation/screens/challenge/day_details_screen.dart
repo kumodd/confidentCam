@@ -34,6 +34,7 @@ class DayDetailsScreen extends StatefulWidget {
 class _DayDetailsScreenState extends State<DayDetailsScreen> {
   VideoPlayerController? _controller;
   bool _isVideoLoaded = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -45,16 +46,26 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
     final videoRepo = sl<VideoRepository>();
     final result = await videoRepo.getFinalVideo(widget.dayNumber);
 
+    if (_isDisposed) return;
+
     result.fold(
       (failure) => debugPrint('Failed to load video: ${failure.message}'),
       (file) async {
-        if (file != null && mounted) {
-          _controller = VideoPlayerController.file(file);
-          await _controller!.initialize();
-          await _controller!.setLooping(true);
-          if (mounted) {
-            setState(() => _isVideoLoaded = true);
+        if (file != null) {
+          final controller = VideoPlayerController.file(file);
+          await controller.initialize();
+          
+          if (_isDisposed) {
+            controller.dispose();
+            return;
           }
+          
+          await controller.setLooping(true);
+          
+          setState(() {
+            _controller = controller;
+            _isVideoLoaded = true;
+          });
         }
       },
     );
@@ -62,6 +73,7 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _controller?.dispose();
     super.dispose();
   }

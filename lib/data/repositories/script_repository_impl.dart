@@ -454,4 +454,29 @@ class ScriptRepositoryImpl implements ScriptRepository {
   Future<void> clearCache() async {
     await localDataSource.clearScripts();
   }
+
+  @override
+  Future<Either<Failure, void>> saveWarmupScripts(List<Map<String, dynamic>> scripts) async {
+    try {
+      if (scripts.isEmpty) {
+        return const Left(ScriptFailure(message: 'No warmup scripts generated'));
+      }
+      await localDataSource.cacheWarmupScripts(scripts);
+      return const Right(null);
+    } catch (e) {
+      logger.e('SaveWarmupScripts: Failed to cache local warmup scripts', e);
+      return const Left(ScriptFailure(message: 'Failed to cache warmup scripts'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(int index) async {
+    try {
+      final script = await localDataSource.getWarmupScript(index);
+      return Right(script);
+    } catch (e) {
+      logger.e('Error getting warmup script for index $index', e);
+      return const Right(null);
+    }
+  }
 }

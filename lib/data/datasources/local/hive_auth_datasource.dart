@@ -23,10 +23,33 @@ abstract class HiveAuthDataSource {
 
   /// Get cached user ID.
   String? get userId;
+
+  // ---------------------------------------------------------------------------
+  // OTP lockout persistence (Fix #8)
+  // ---------------------------------------------------------------------------
+
+  /// Increment the OTP attempt counter and return the new count.
+  Future<int> incrementOtpAttempts();
+
+  /// Return the current OTP attempt count.
+  int get otpAttempts;
+
+  /// Persist a lockout end timestamp.
+  Future<void> setOtpLockout(DateTime lockedUntil);
+
+  /// Return the lockout end timestamp, or null if not locked.
+  DateTime? get otpLockoutUntil;
+
+  /// Clear the OTP lockout state (called on successful verification or expiry).
+  Future<void> clearOtpLockout();
 }
 
 class HiveAuthDataSourceImpl implements HiveAuthDataSource {
   final Box authBox;
+
+  // Internal Hive key names
+  static const _otpAttemptsKey = 'otp_attempts';
+  static const _otpLockoutKey = 'otp_lockout_until';
 
   HiveAuthDataSourceImpl({required this.authBox});
 
@@ -92,4 +115,38 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
 
   @override
   String? get userId => authBox.get(AppConstants.userIdKey);
+
+  // ---------------------------------------------------------------------------
+  // OTP lockout persistence implementation (Fix #8)
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<int> incrementOtpAttempts() async {
+    final current = otpAttempts;
+    final newCount = current + 1;
+    await authBox.put(_otpAttemptsKey, newCount);
+    return newCount;
+  }
+
+  @override
+  int get otpAttempts => authBox.get(_otpAttemptsKey, defaultValue: 0) as int;
+
+  @override
+  Future<void> setOtpLockout(DateTime lockedUntil) async {
+    await authBox.put(_otpLockoutKey, lockedUntil.toIso8601String());
+  }
+
+  @override
+  DateTime? get otpLockoutUntil {
+    final raw = authBox.get(_otpLockoutKey) as String?;
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  @override
+  Future<void> clearOtpLockout() async {
+    await authBox.delete(_otpAttemptsKey);
+    await authBox.delete(_otpLockoutKey);
+  }
 }
+

@@ -257,20 +257,32 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         ),
       );
 
-      final week1Scripts = await openAiService.generateWeeklyScripts(
-        weekNumber: 1,
-        firstName: personalInfo.firstName,
-        age: personalInfo.age,
-        location: personalInfo.location,
-        goal: goal,
-        onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
-        language: languageCode,
-        promptMode: current.promptMode,
-        humanTouch: current.humanTouchLevel,
-        culture: current.audienceCulture,
-      );
+      final results = await Future.wait([
+        openAiService.generateWeeklyScripts(
+          weekNumber: 1,
+          firstName: personalInfo.firstName,
+          age: personalInfo.age,
+          location: personalInfo.location,
+          goal: goal,
+          onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
+          language: languageCode,
+          promptMode: current.promptMode,
+          humanTouch: current.humanTouchLevel,
+          culture: current.audienceCulture,
+        ),
+        openAiService.generateWarmupScripts(
+          firstName: personalInfo.firstName,
+          location: personalInfo.location,
+          goal: goal,
+          language: languageCode,
+        ),
+      ]);
+
+      final week1Scripts = results[0];
+      final warmupScripts = results[1];
 
       logger.i('Week 1 complete: ${week1Scripts.length} scripts');
+      logger.i('Warmups complete: ${warmupScripts.length} scripts');
 
       // Save scripts to repository
       emit(
@@ -292,6 +304,12 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         (_) {
           logger.i('Scripts saved successfully!');
         },
+      );
+
+      final saveWarmupResult = await scriptRepository.saveWarmupScripts(warmupScripts);
+      saveWarmupResult.fold(
+        (failure) => logger.e('Failed to save warmup scripts: ${failure.message}'),
+        (_) => logger.i('Warmup scripts saved successfully!'),
       );
 
       logger.i(

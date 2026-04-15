@@ -144,8 +144,15 @@ class SupabaseOnboardingDataSourceImpl implements SupabaseOnboardingDataSource {
       logger.i('Onboarding data saved');
     } catch (e) {
       logger.e('Error saving onboarding data', e);
+      if (e is PostgrestException) {
+        throw ServerException(
+          message: 'Failed to save onboarding data: ${e.message} (details: ${e.details})',
+          code: e.code,
+          originalError: e,
+        );
+      }
       throw ServerException(
-        message: 'Failed to save onboarding data',
+        message: 'Failed to save onboarding data: $e',
         originalError: e,
       );
     }

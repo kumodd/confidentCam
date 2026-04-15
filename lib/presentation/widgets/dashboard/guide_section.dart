@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../domain/entities/guide_chapter.dart';
 import '../../bloc/guide/guide_bloc.dart';
@@ -9,6 +8,7 @@ import '../../bloc/guide/guide_event.dart';
 import '../../bloc/guide/guide_state.dart';
 import '../../screens/warmup/warmup_overview_screen.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
+import '../../screens/progress/guide_video_player_screen.dart';
 
 /// Guide section widget for dashboard
 class GuideSection extends StatefulWidget {
@@ -64,14 +64,15 @@ class _GuideSectionState extends State<GuideSection> {
                 );
               } else if (state is GuideLoaded) {
                 return Column(
-                  children: state.chapters.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final chapter = entry.value;
-                    return _ChapterCard(chapter: chapter, index: index + 1)
-                        .animate(delay: Duration(milliseconds: index * 100))
-                        .fadeIn()
-                        .slideX(begin: 0.1, end: 0);
-                  }).toList(),
+                  children:
+                      state.chapters.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final chapter = entry.value;
+                        return _ChapterCard(chapter: chapter, index: index + 1)
+                            .animate(delay: Duration(milliseconds: index * 100))
+                            .fadeIn()
+                            .slideX(begin: 0.1, end: 0);
+                      }).toList(),
                 );
               } else if (state is GuideError) {
                 return Center(
@@ -107,10 +108,11 @@ class _ChapterCardState extends State<_ChapterCard> {
     if (route == '/warmup') {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: context.read<WarmupBloc>(),
-            child: const WarmupOverviewScreen(),
-          ),
+          builder:
+              (_) => BlocProvider.value(
+                value: context.read<WarmupBloc>(),
+                child: const WarmupOverviewScreen(),
+              ),
         ),
       );
     } else if (route == '/challenge') {
@@ -239,19 +241,32 @@ class _ChapterCardState extends State<_ChapterCard> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Action buttons container
-                  if (widget.chapter.youtubeUrl != null || widget.chapter.actionRoute != null)
+                  if (widget.chapter.youtubeUrl != null ||
+                      widget.chapter.actionRoute != null)
                     Row(
                       children: [
                         if (widget.chapter.youtubeUrl != null)
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => _openYouTube(widget.chapter.youtubeUrl!),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => GuideVideoPlayerScreen(
+                                          chapter: widget.chapter,
+                                        ),
+                                  ),
+                                );
+                              },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.red.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
@@ -284,19 +299,30 @@ class _ChapterCardState extends State<_ChapterCard> {
                               ),
                             ),
                           ),
-                        if (widget.chapter.youtubeUrl != null && widget.chapter.actionRoute != null)
+                        if (widget.chapter.youtubeUrl != null &&
+                            widget.chapter.actionRoute != null)
                           const SizedBox(width: 12),
                         if (widget.chapter.actionRoute != null)
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => _handleActionRoute(widget.chapter.actionRoute!),
+                              onTap:
+                                  () => _handleActionRoute(
+                                    widget.chapter.actionRoute!,
+                                  ),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 8,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                                  color: const Color(
+                                    0xFF6366F1,
+                                  ).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFF6366F1).withValues(alpha: 0.5),
+                                    color: const Color(
+                                      0xFF6366F1,
+                                    ).withValues(alpha: 0.5),
                                   ),
                                 ),
                                 child: Row(
@@ -310,7 +336,8 @@ class _ChapterCardState extends State<_ChapterCard> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        widget.chapter.actionTitle ?? 'Take Action',
+                                        widget.chapter.actionTitle ??
+                                            'Take Action',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 13,
@@ -333,12 +360,5 @@ class _ChapterCardState extends State<_ChapterCard> {
         ],
       ),
     );
-  }
-
-  Future<void> _openYouTube(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 }

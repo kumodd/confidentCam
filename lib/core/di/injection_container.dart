@@ -253,7 +253,11 @@ void _initBlocs() {
 
   // Warmup BLoC
   sl.registerFactory<WarmupBloc>(
-    () => WarmupBloc(progressRepository: sl(), videoRepository: sl()),
+    () => WarmupBloc(
+      progressRepository: sl(),
+      videoRepository: sl(),
+      scriptRepository: sl(),
+    ),
   );
 
   // Daily Challenge BLoC

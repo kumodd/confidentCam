@@ -4,6 +4,7 @@ import '../../../core/utils/logger.dart';
 import '../../../domain/entities/warmup.dart';
 import '../../../domain/repositories/progress_repository.dart';
 import '../../../domain/repositories/video_repository.dart';
+import '../../../domain/repositories/script_repository.dart';
 import 'warmup_event.dart';
 import 'warmup_state.dart';
 
@@ -11,14 +12,18 @@ import 'warmup_state.dart';
 class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
   final ProgressRepository progressRepository;
   final VideoRepository videoRepository;
+  final ScriptRepository scriptRepository;
 
   String? _userId;
 
   /// Get stored userId for reloading
   String? get userId => _userId;
 
-  WarmupBloc({required this.progressRepository, required this.videoRepository})
-    : super(const WarmupInitial()) {
+  WarmupBloc({
+    required this.progressRepository,
+    required this.videoRepository,
+    required this.scriptRepository,
+  }) : super(const WarmupInitial()) {
     on<WarmupStatusLoaded>(_onStatusLoaded);
     on<WarmupStarted>(_onWarmupStarted);
     on<WarmupRecordingStarted>(_onRecordingStarted);
@@ -94,18 +99,36 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
     );
   }
 
-  void _onWarmupStarted(WarmupStarted event, Emitter<WarmupState> emit) {
+  Future<void> _onWarmupStarted(WarmupStarted event, Emitter<WarmupState> emit) async {
     final warmup = Warmups.getByIndex(event.warmupIndex);
     if (warmup == null) {
       emit(const WarmupError('Invalid warmup index'));
       return;
     }
 
+    emit(const WarmupLoading());
+
+    // Try to fetch custom script from repository
+    String? customScriptText;
+    final result = await scriptRepository.getWarmupScript(event.warmupIndex);
+    result.fold(
+      (failure) => logger.w('Failed to get custom warmup script: ${failure.message}'),
+      (scriptData) {
+        if (scriptData != null) {
+          final part1 = scriptData['part1'] ?? '';
+          final part2 = scriptData['part2'] ?? '';
+          final part3 = scriptData['part3'] ?? '';
+          customScriptText = '$part1\n\n$part2\n\n$part3'.trim();
+        }
+      },
+    );
+
     emit(
       WarmupInProgress(
         warmupIndex: event.warmupIndex,
         warmup: warmup,
         step: WarmupStep.intro,
+        customScriptText: customScriptText,
       ),
     );
   }
@@ -120,6 +143,7 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
         WarmupRecording(
           warmupIndex: current.warmupIndex,
           warmup: current.warmup,
+          customScriptText: current.customScriptText,
         ),
       );
     }
@@ -132,15 +156,21 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
     // Get current warmup info - try from multiple state types
     int warmupIndex;
     Warmup warmup;
+    String? scriptText;
+    
+    // Check if the event provided it explicitly
+    scriptText = event.customScriptText;
 
     if (state is WarmupRecording) {
       final current = state as WarmupRecording;
       warmupIndex = current.warmupIndex;
       warmup = current.warmup;
+      scriptText = current.customScriptText;
     } else if (state is WarmupInProgress) {
       final current = state as WarmupInProgress;
       warmupIndex = current.warmupIndex;
       warmup = current.warmup;
+      scriptText = current.customScriptText;
     } else {
       // Unexpected state - can't save video without warmup context
       logger.w('_onRecordingStopped called in unexpected state: ${state.runtimeType}');
@@ -169,6 +199,7 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
             warmupIndex: warmupIndex,
             warmup: warmup,
             videoPath: savedPath,
+            customScriptText: scriptText,
           ),
         );
       },
@@ -227,6 +258,7 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
           warmupIndex: current.warmupIndex,
           warmup: current.warmup,
           step: WarmupStep.recording,
+          customScriptText: current.customScriptText,
         ),
       );
     }

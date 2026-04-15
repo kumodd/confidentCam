@@ -57,27 +57,34 @@ class WarmupInProgress extends WarmupState {
   final Warmup warmup;
   final WarmupStep step;
   final String? videoPath;
+  final String? customScriptText;
 
   const WarmupInProgress({
     required this.warmupIndex,
     required this.warmup,
     required this.step,
     this.videoPath,
+    this.customScriptText,
   });
 
   @override
-  List<Object?> get props => [warmupIndex, warmup, step, videoPath];
+  List<Object?> get props => [warmupIndex, warmup, step, videoPath, customScriptText];
 }
 
 /// Recording in progress
 class WarmupRecording extends WarmupState {
   final int warmupIndex;
   final Warmup warmup;
+  final String? customScriptText;
 
-  const WarmupRecording({required this.warmupIndex, required this.warmup});
+  const WarmupRecording({
+    required this.warmupIndex,
+    required this.warmup,
+    this.customScriptText,
+  });
 
   @override
-  List<Object?> get props => [warmupIndex, warmup];
+  List<Object?> get props => [warmupIndex, warmup, customScriptText];
 }
 
 /// Video recorded, showing playback
@@ -85,15 +92,17 @@ class WarmupPlayback extends WarmupState {
   final int warmupIndex;
   final Warmup warmup;
   final String videoPath;
+  final String? customScriptText;
 
   const WarmupPlayback({
     required this.warmupIndex,
     required this.warmup,
     required this.videoPath,
+    this.customScriptText,
   });
 
   @override
-  List<Object?> get props => [warmupIndex, warmup, videoPath];
+  List<Object?> get props => [warmupIndex, warmup, videoPath, customScriptText];
 }
 
 /// Warmup day completed

@@ -21,12 +21,19 @@ abstract class HiveScriptsDataSource {
 
   /// Clear cached scripts.
   Future<void> clearScripts();
+
+  /// Cache warmup scripts.
+  Future<void> cacheWarmupScripts(List<Map<String, dynamic>> scripts);
+
+  /// Get script for a specific warmup index.
+  Future<Map<String, dynamic>?> getWarmupScript(int warmupIndex);
 }
 
 class HiveScriptsDataSourceImpl implements HiveScriptsDataSource {
   final Box scriptsBox;
 
   static const String _scriptsKeyPrefix = 'day_';
+  static const String _warmupKeyPrefix = 'warmup_';
   static const String _hasCachedKey = 'has_cached_scripts';
 
   HiveScriptsDataSourceImpl({required this.scriptsBox});
@@ -138,6 +145,59 @@ class HiveScriptsDataSourceImpl implements HiveScriptsDataSource {
       await scriptsBox.clear();
     } catch (e) {
       logger.e('Error clearing scripts', e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getWarmupScript(int warmupIndex) async {
+    try {
+      final key = '$_warmupKeyPrefix$warmupIndex';
+      final cached = scriptsBox.get(key);
+
+      if (cached == null) return null;
+
+      if (cached is String) {
+        return jsonDecode(cached) as Map<String, dynamic>;
+      } else if (cached is Map) {
+        return Map<String, dynamic>.from(cached);
+      }
+
+      return null;
+    } catch (e) {
+      logger.e('Error getting cached warmup script for index $warmupIndex', e);
+      return null;
+    }
+  }
+
+  @override
+  Future<void> cacheWarmupScripts(List<Map<String, dynamic>> scripts) async {
+    try {
+      logger.i('=== CACHING WARMUP SCRIPTS LOCALLY ===');
+      int cachedCount = 0;
+      for (final script in scripts) {
+        int? index;
+        final rawIndex = script['warmupIndex'];
+        if (rawIndex is int) {
+          index = rawIndex;
+        } else if (rawIndex is num) {
+          index = rawIndex.toInt();
+        } else if (rawIndex is String) {
+          index = int.tryParse(rawIndex);
+        }
+
+        if (index == null) {
+          logger.e('Warmup script has invalid index: $rawIndex');
+          continue;
+        }
+
+        final key = '$_warmupKeyPrefix$index';
+        await scriptsBox.put(key, jsonEncode(script));
+        cachedCount++;
+      }
+      logger.i('=== WARMUP SCRIPTS CACHED SUCCESSFULLY: $cachedCount/${scripts.length} ===');
+    } catch (e, stackTrace) {
+      logger.e('Error caching warmup scripts: $e');
+      throw CacheException(message: 'Failed to cache warmup scripts', originalError: e);
     }
   }
 }

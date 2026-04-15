@@ -41,4 +41,10 @@ abstract class ScriptRepository {
 
   /// Clear cached scripts.
   Future<void> clearCache();
+
+  /// Save generated warmup scripts locally.
+  Future<Either<Failure, void>> saveWarmupScripts(List<Map<String, dynamic>> scripts);
+
+  /// Get warmup script for a specific index.
+  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(int index);
 }

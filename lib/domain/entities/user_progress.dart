@@ -97,14 +97,13 @@ class UserProgress extends Equatable {
       // If no days completed yet, day 1 is unlocked
       if (lastCompletedDate == null) return day == 1;
 
-      // Check if today is a new day compared to lastCompletedDate
+      // Check if today is a new day compared to lastCompletedDate (4:00 AM reset window)
       final now = DateTime.now();
-      final lastDate = DateTime(
-        lastCompletedDate!.year,
-        lastCompletedDate!.month,
-        lastCompletedDate!.day,
-      );
-      final today = DateTime(now.year, now.month, now.day);
+      final logicalNow = now.subtract(const Duration(hours: 4));
+      final logicalLastDate = lastCompletedDate!.subtract(const Duration(hours: 4));
+
+      final today = DateTime(logicalNow.year, logicalNow.month, logicalNow.day);
+      final lastDate = DateTime(logicalLastDate.year, logicalLastDate.month, logicalLastDate.day);
 
       return today.isAfter(lastDate);
     }
@@ -121,12 +120,11 @@ class UserProgress extends Equatable {
     if (lastCompletedDate == null) return true;
 
     final now = DateTime.now();
-    final lastDate = DateTime(
-      lastCompletedDate!.year,
-      lastCompletedDate!.month,
-      lastCompletedDate!.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
+    final logicalNow = now.subtract(const Duration(hours: 4));
+    final logicalLastDate = lastCompletedDate!.subtract(const Duration(hours: 4));
+
+    final today = DateTime(logicalNow.year, logicalNow.month, logicalNow.day);
+    final lastDate = DateTime(logicalLastDate.year, logicalLastDate.month, logicalLastDate.day);
 
     return today.isAfter(lastDate);
   }

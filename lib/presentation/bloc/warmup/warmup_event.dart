@@ -36,11 +36,12 @@ class WarmupRecordingStarted extends WarmupEvent {
 /// Recording stopped
 class WarmupRecordingStopped extends WarmupEvent {
   final String videoPath;
+  final String? customScriptText;
 
-  const WarmupRecordingStopped(this.videoPath);
+  const WarmupRecordingStopped(this.videoPath, {this.customScriptText});
 
   @override
-  List<Object?> get props => [videoPath];
+  List<Object?> get props => [videoPath, customScriptText];
 }
 
 /// Checklist submitted
