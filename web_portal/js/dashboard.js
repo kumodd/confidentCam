@@ -66,7 +66,7 @@ function setupLogout() {
         const result = await authService.signOut();
         if (result.success) {
             realtimeService.unsubscribe();
-            window.location.href = 'index.html';
+            window.location.href = 'login.html';
         }
     });
 }

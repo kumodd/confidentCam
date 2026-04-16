@@ -205,7 +205,7 @@ class AuthService {
 
         // Not authenticated, redirect to login
         console.log('❌ Not authenticated, redirecting to login');
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return false;
     }
 

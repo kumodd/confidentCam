@@ -55,7 +55,7 @@ function setupUserInfo() {
 function setupLogout() {
     document.getElementById('logout-btn').addEventListener('click', async () => {
         await authService.signOut();
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
     });
 }
 

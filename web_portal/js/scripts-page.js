@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Get current user
     currentUser = await authService.getUser();
     if (!currentUser) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return;
     }
 
@@ -60,7 +60,7 @@ function setupLogout() {
     document.getElementById('logout-btn').addEventListener('click', async () => {
         await authService.signOut();
         realtimeService.unsubscribe();
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
     });
 }
 
