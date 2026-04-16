@@ -8,8 +8,10 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 const OPENAI_MODEL = 'gpt-4o-mini'
 
+const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://your-domain.com'
+
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -20,6 +22,8 @@ interface GenerateRequest {
     tone: string
     length: string
     customPrompt?: string
+    languageText?: string
+    markdownMode?: boolean
 }
 
 serve(async (req) => {
@@ -39,7 +43,7 @@ serve(async (req) => {
         }
 
         // Parse request body
-        const { template, topic, audience, tone, length, customPrompt }: GenerateRequest = await req.json()
+        const { template, topic, audience, tone, length, customPrompt, languageText, markdownMode }: GenerateRequest = await req.json()
 
         if (!topic) {
             return new Response(
@@ -49,7 +53,7 @@ serve(async (req) => {
         }
 
         // Build the prompt
-        const prompt = buildPrompt({ template, topic, audience, tone, length, customPrompt })
+        const prompt = buildPrompt({ template, topic, audience, tone, length, customPrompt, languageText, markdownMode })
 
         // Call OpenAI
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -104,7 +108,7 @@ serve(async (req) => {
     }
 })
 
-function buildPrompt({ template, topic, audience, tone, length, customPrompt }: GenerateRequest): string {
+function buildPrompt({ template, topic, audience, tone, length, customPrompt, languageText, markdownMode }: GenerateRequest): string {
     const wordCounts: Record<string, { min: number; max: number }> = {
         short: { min: 80, max: 120 },
         medium: { min: 150, max: 250 },
@@ -129,12 +133,32 @@ function buildPrompt({ template, topic, audience, tone, length, customPrompt }: 
 
     const { min, max } = wordCounts[length] || wordCounts.medium
     const audienceText = audience ? `The target audience is: ${audience}.` : ''
+    const langText = languageText ? `\nLANGUAGE: ${languageText}` : ''
+
+    // Markdown-specific rules
+    const markdownRules = markdownMode !== false ? `
+7. Use **bold** for emphasis on key words or phrases
+8. Use bullet points (- ) or numbered lists where appropriate
+9. Use line breaks to separate thoughts for easier reading on teleprompter` : `
+7. Write as plain text without markdown formatting`
+
+    const outputFormat = markdownMode !== false ? `{
+    "title": "A catchy 3-7 word title for the script",
+    "part1": "The hook in markdown format - use **bold** for emphasis",
+    "part2": "The body in markdown format - use lists, **bold**, line breaks", 
+    "part3": "The close in markdown format - **bold** the call to action"
+}` : `{
+    "title": "A catchy 3-7 word title for the script",
+    "part1": "The hook - plain text, grab attention immediately",
+    "part2": "The body - plain text, deliver the main value", 
+    "part3": "The close - plain text with clear call to action"
+}`
 
     return `You are an expert video scriptwriter creating content for social media.
 
 TASK: Create a ${length} video script about: "${topic}"
 
-${templateInstructions[template] || templateInstructions.educational}
+${templateInstructions[template] || templateInstructions.educational}${langText}
 
 TONE: Write in a ${toneDescriptions[tone] || toneDescriptions.casual} tone.
 ${audienceText}
@@ -147,18 +171,13 @@ IMPORTANT RULES:
 3. Start with a strong HOOK that stops the scroll
 4. Be conversational - use contractions, questions, direct address ("you")
 5. NO corporate jargon or overly formal language
-6. The close should have a clear call-to-action
+6. The close should have a clear call-to-action${markdownRules}
 
 OUTPUT FORMAT:
 Return a JSON object with exactly this structure:
-{
-    "title": "A catchy 3-7 word title for the script",
-    "part1": "The hook - grab attention immediately (15-25% of words)",
-    "part2": "The body - deliver the main value (50-70% of words)", 
-    "part3": "The close - call to action (15-25% of words)"
-}
+${outputFormat}
 
-Return ONLY the JSON object, no markdown formatting or extra text.`
+Return ONLY the JSON object, no code blocks or extra text.`
 }
 
 function parseScriptResponse(content: string): Record<string, string> {

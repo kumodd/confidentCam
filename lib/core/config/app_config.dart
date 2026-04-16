@@ -2,12 +2,33 @@
 ///
 /// Contains environment-specific settings like Supabase credentials.
 /// For production, use environment variables or secure key storage.
+///
+/// ─────────────────────────────────────────────────────────────────
+/// SECRET KEYS — HOW TO RUN LOCALLY OR BUILD
+/// ─────────────────────────────────────────────────────────────────
+/// Never commit real keys to source control.
+/// Pass secrets at build/run time via --dart-define:
+///
+///   flutter run \
+///     --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+///     --dart-define=SUPABASE_ANON_KEY=sb_publishable_... \
+///     --dart-define=OPENAI_API_KEY=sk-proj-...
+///
+/// For CI/CD (Play Store/App Store builds), inject via the same
+/// --dart-define mechanism.
+/// ─────────────────────────────────────────────────────────────────
 class AppConfig {
-  // Supabase Configuration
-  // TODO: Replace with your Supabase project credentials
-  static const String supabaseUrl = 'https://govbpayonsbfwrfxzbgq.supabase.co';
-  static const String supabaseAnonKey =
-      'sb_publishable_Bg4FZF-KFlpRfX4Oqt9V4A_oWtvysow';
+  // ---------------------------------------------------------------------------
+  // Supabase Configuration (read from compile-time env vars)
+  // ---------------------------------------------------------------------------
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
 
   // App Settings
   static const String appName = 'Confident Creator';
@@ -49,10 +70,13 @@ class AppConfig {
   static const Duration apiTimeout = Duration(seconds: 30);
   static const Duration uploadTimeout = Duration(minutes: 5);
 
-  // OpenAI Configuration
-  // TODO: Replace with your OpenAI API key
-  static const String openAiApiKey =
-      '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';
+  // ---------------------------------------------------------------------------
+  // OpenAI Configuration (read from compile-time env vars)
+  // ---------------------------------------------------------------------------
+  static const String openAiApiKey = String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue: '',
+  );
   static const String openAiModel = 'gpt-4o-mini'; // Cost-effective model
   static const String openAiBaseUrl = 'https://api.openai.com/v1';
   static const int maxScriptTokens = 16300;

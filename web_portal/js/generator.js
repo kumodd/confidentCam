@@ -2,16 +2,6 @@
 // AI GENERATOR PAGE CONTROLLER
 // ============================================
 
-// Note: For security, OpenAI API calls should go through a Supabase Edge Function
-// This implementation calls OpenAI directly for simplicity - 
-// In production, create an Edge Function to proxy the request
-
-const OPENAI_CONFIG = {
-    apiKey: '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',
-    model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1'
-};
-
 let currentUser = null;
 let generatedScript = null;
 let languageOptions = [];
@@ -184,8 +174,18 @@ async function generateScript() {
     showLoadingState();
 
     try {
-        const prompt = buildPrompt({ template, topic, audience, language, tone, length, customPrompt, markdownMode });
-        const script = await callOpenAI(prompt);
+        // Resolve language details to pass to Edge Function
+        const langInfo = languageOptions.find(l => l.language_code === language) || { language_name: 'English' };
+        const languageText = langInfo.is_bilingual
+            ? `Write in ${langInfo.language_name} (${langInfo.native_name}) - a mix of ${langInfo.primary_language} and ${langInfo.secondary_language}. Make it sound natural.`
+            : `Write the script in ${langInfo.language_name} (${langInfo.native_name || 'English'}).`;
+
+        const scriptData = {
+            template, topic, audience, tone, length, customPrompt,
+            languageText, markdownMode
+        };
+
+        const script = await callGenerateEdgeFunction(scriptData);
 
         if (script) {
             generatedScript = script;
@@ -204,150 +204,30 @@ async function generateScript() {
 }
 
 // ============================================
-// PROMPT BUILDING
+// EDGE FUNCTION API
 // ============================================
 
-function buildPrompt({ template, topic, audience, language, tone, length, customPrompt, markdownMode = true }) {
-    const wordCounts = {
-        short: { min: 80, max: 120 },
-        medium: { min: 150, max: 250 },
-        long: { min: 300, max: 400 }
-    };
+async function callGenerateEdgeFunction(payload) {
+    console.log('🤖 Calling Secure Edge Function Proxy...');
 
-    const templateInstructions = {
-        educational: 'Create an educational script that teaches something valuable. Start with a hook that promises value, deliver the lesson clearly, and end with a memorable takeaway.',
-        story: 'Create a story-driven script with a personal narrative. Start with an intriguing situation, build tension with the journey, and conclude with the lesson learned.',
-        tips: 'Create a tips-based script with actionable advice. Open with why this matters, deliver 3-5 quick tips, and close with encouragement to take action.',
-        review: 'Create an authentic review script. Start with your verdict, share specific pros and cons, and end with your recommendation.',
-        dayinlife: 'Create a day-in-the-life style script. Open with what makes today special, share key moments with personality, and close with reflection.',
-        custom: customPrompt || 'Create a compelling video script based on the topic.'
-    };
-
-    const toneDescriptions = {
-        casual: 'friendly and conversational, like talking to a friend',
-        professional: 'polished and authoritative, but still approachable',
-        energetic: 'high-energy and enthusiastic, keeping viewers engaged',
-        inspiring: 'motivational and uplifting, encouraging action'
-    };
-
-    const { min, max } = wordCounts[length];
-    const audienceText = audience ? `The target audience is: ${audience}.` : '';
-
-    // Get language details
-    const langInfo = languageOptions.find(l => l.language_code === language) || { language_name: 'English' };
-    const languageText = langInfo.is_bilingual
-        ? `Write in ${langInfo.language_name} (${langInfo.native_name}) - a mix of ${langInfo.primary_language} and ${langInfo.secondary_language}. Make it sound natural.`
-        : `Write the script in ${langInfo.language_name} (${langInfo.native_name || 'English'}).`;
-
-    // Markdown-specific rules
-    const markdownRules = markdownMode ? `
-7. Use **bold** for emphasis on key words or phrases
-8. Use bullet points (- ) or numbered lists where appropriate
-9. Use line breaks to separate thoughts for easier reading on teleprompter` : `
-7. Write as plain text without markdown formatting`;
-
-    const outputFormat = markdownMode ? `{
-    "title": "A catchy 3-7 word title for the script",
-    "part1": "The hook in markdown format - use **bold** for emphasis",
-    "part2": "The body in markdown format - use lists, **bold**, line breaks", 
-    "part3": "The close in markdown format - **bold** the call to action"
-}` : `{
-    "title": "A catchy 3-7 word title for the script",
-    "part1": "The hook - plain text, grab attention immediately",
-    "part2": "The body - plain text, deliver the main value", 
-    "part3": "The close - plain text with clear call to action"
-}`;
-
-    return `You are an expert video scriptwriter creating content for social media.
-
-TASK: Create a ${length} video script about: "${topic}"
-
-${templateInstructions[template]}
-
-LANGUAGE: ${languageText}
-
-TONE: Write in a ${toneDescriptions[tone]} tone.
-${audienceText}
-
-WORD COUNT: Between ${min} and ${max} words total.
-
-IMPORTANT RULES:
-1. Write ONLY the words to be spoken aloud - no stage directions, no labels
-2. Use SHORT, punchy sentences - this is spoken word, not an essay
-3. Start with a strong HOOK that stops the scroll
-4. Be conversational - use contractions, questions, direct address ("you")
-5. NO corporate jargon or overly formal language
-6. The close should have a clear call-to-action${markdownRules}
-
-OUTPUT FORMAT:
-Return a JSON object with exactly this structure:
-${outputFormat}
-
-Return ONLY the JSON object, no code blocks or extra text.`;
-}
-
-// ============================================
-// OPENAI API
-// ============================================
-
-async function callOpenAI(prompt) {
-    console.log('🤖 Calling OpenAI...');
-
-    const response = await fetch(`${OPENAI_CONFIG.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: OPENAI_CONFIG.model,
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a viral content scriptwriter. You write scripts meant to be SPOKEN, not read. Always respond with valid JSON only.'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            max_tokens: 1000,
-            temperature: 0.8
-        })
+    const supabase = getSupabase();
+    
+    // Invoke the secure edge function
+    const { data, error } = await supabase.functions.invoke('generate-script', {
+        body: payload
     });
 
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'OpenAI API error');
+    if (error) {
+        console.error('generate-script error:', error);
+        throw new Error(error.message || 'Server proxy failed to handle OpenAI request');
     }
 
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-
-    // Parse JSON response
-    return parseScriptResponse(content);
-}
-
-function parseScriptResponse(content) {
-    let cleaned = content.trim();
-
-    // Remove markdown code blocks if present
-    if (cleaned.startsWith('```json')) {
-        cleaned = cleaned.substring(7);
-    } else if (cleaned.startsWith('```')) {
-        cleaned = cleaned.substring(3);
-    }
-    if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3);
+    if (data.error) {
+        console.error('generate-script returned error payload:', data.error);
+        throw new Error(data.error);
     }
 
-    try {
-        return JSON.parse(cleaned.trim());
-    } catch (error) {
-        console.error('Failed to parse script JSON:', error);
-        console.log('Raw content:', content);
-        throw new Error('Failed to parse generated script');
-    }
+    return data;
 }
 
 // ============================================
