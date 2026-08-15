@@ -16,7 +16,7 @@
 | Document | Description |
 |---|---|
 | [01_project_overview.md](./01_project_overview.md) | Product vision, features, and app flow |
-| [02_architecture.md](./02_architecture.md) | Technical architecture, folder structure, and patterns |
+| [02_architecture.md](./docs/02_architecture.md) | Technical architecture, folder structure, and patterns |
 | [03_backend_supabase.md](./03_backend_supabase.md) | Supabase setup, database schema, RLS, triggers |
 | [04_auth_system.md](./04_auth_system.md) | Authentication flows (Phone OTP, Email/Password) |
 | [05_web_portal.md](./05_web_portal.md) | Web portal pages, QR login, teleprompter features |
