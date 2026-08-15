@@ -15,18 +15,18 @@
 
 | Document | Description |
 |---|---|
-| [01_project_overview.md](./01_project_overview.md) | Product vision, features, and app flow |
+| [01_project_overview.md](./docs/01_project_overview.md) | Product vision, features, and app flow |
 | [02_architecture.md](./docs/02_architecture.md) | Technical architecture, folder structure, and patterns |
-| [03_backend_supabase.md](./03_backend_supabase.md) | Supabase setup, database schema, RLS, triggers |
-| [04_auth_system.md](./04_auth_system.md) | Authentication flows (Phone OTP, Email/Password) |
-| [05_web_portal.md](./05_web_portal.md) | Web portal pages, QR login, teleprompter features |
-| [06_subscription_plan.md](./06_subscription_plan.md) | **RevenueCat subscription implementation plan (mobile + web)** |
-| [07_revenuecat_mobile.md](./07_revenuecat_mobile.md) | Mobile RevenueCat integration guide (Flutter) |
-| [08_revenuecat_web.md](./08_revenuecat_web.md) | Web subscription integration guide (Stripe/RevenueCat) |
-| [09_openai_integration.md](./09_openai_integration.md) | AI script generation, prompts, and OpenAI service |
-| [10_state_management.md](./10_state_management.md) | BLoC pattern, events, states, and data flow |
-| [11_environment_setup.md](./11_environment_setup.md) | Dev environment setup, secrets, and configuration |
-| [12_feature_roadmap.md](./12_feature_roadmap.md) | Current status, completed features, and roadmap |
+| [03_backend_supabase.md](./docs/docs/03_backend_supabase.md) | Supabase setup, database schema, RLS, triggers |
+| [04_auth_system.md](./docs/04_auth_system.md) | Authentication flows (Phone OTP, Email/Password) |
+| [05_web_portal.md](./docs/05_web_portal.md) | Web portal pages, QR login, teleprompter features |
+| [06_subscription_plan.md](./docs/06_subscription_plan.md) | **RevenueCat subscription implementation plan (mobile + web)** |
+| [07_revenuecat_mobile.md](./docs/07_revenuecat_mobile.md) | Mobile RevenueCat integration guide (Flutter) |
+| [08_revenuecat_web.md](./docs/08_revenuecat_web.md) | Web subscription integration guide (Stripe/RevenueCat) |
+| [09_openai_integration.md](./docs/09_openai_integration.md) | AI script generation, prompts, and OpenAI service |
+| [10_state_management.md](./docs/10_state_management.md) | BLoC pattern, events, states, and data flow |
+| [11_environment_setup.md](./docs/11_environment_setup.md) | Dev environment setup, secrets, and configuration |
+| [12_feature_roadmap.md](./docs/12_feature_roadmap.md) | Current status, completed features, and roadmap |
 
 ---
 
