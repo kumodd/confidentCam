@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/content_script.dart';
 import '../../../../services/video_recording_service.dart';
 import '../../../../services/video_storage_service.dart';
@@ -36,14 +37,12 @@ class _RecordTabState extends State<RecordTab> {
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
 
-  // Teleprompter settings
   double _currentSpeed = 0.6;
   double _currentHeight = 0.30;
   double _currentOpacity = 0.85;
   double _currentFontSize = 16.0;
-  Color _currentTextColor = Colors.white;
+  Color _currentTextColor = AppColors.primaryText;
 
-  // Teleprompter scroll
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
   bool _isScrolling = false;
@@ -73,17 +72,17 @@ class _RecordTabState extends State<RecordTab> {
   Color _getColorFromString(String colorName) {
     switch (colorName.toLowerCase()) {
       case 'white':
-        return Colors.white;
+        return AppColors.primaryText;
       case 'yellow':
-        return const Color(0xFFFBBF24);
+        return AppColors.primaryOlive;
       case 'cyan':
-        return const Color(0xFF22D3EE);
+        return AppColors.secondaryGreen;
       case 'green':
-        return const Color(0xFF22C55E);
+        return AppColors.success;
       case 'pink':
-        return const Color(0xFFF472B6);
+        return AppColors.error;
       default:
-        return Colors.white;
+        return AppColors.primaryText;
     }
   }
 
@@ -102,28 +101,27 @@ class _RecordTabState extends State<RecordTab> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Permissions Required'),
-            content: const Text(
-              'Camera and Microphone access are required to record videos. Please enable them in your device settings.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // close dialog
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  openAppSettings();
-                },
-                child: const Text('Open Settings'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('Permissions Required'),
+        content: Text(
+          'Camera and Microphone access are required to record videos. Please enable them in your device settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAppSettings();
+            },
+            child: Text('Open Settings'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -154,7 +152,6 @@ class _RecordTabState extends State<RecordTab> {
   }
 
   Future<void> _startRecording() async {
-    // Hide header and tab bar for more screen space
     ContentCreatorTabController.of(context)?.setRecording(true);
 
     setState(() {
@@ -163,7 +160,6 @@ class _RecordTabState extends State<RecordTab> {
     });
     await _recordingService.startRecording();
 
-    // Delay auto-scroll by 20 seconds to give user time to read the intro
     Future.delayed(const Duration(seconds: 20), () {
       if (_isRecording && mounted) {
         _startAutoScroll();
@@ -182,14 +178,12 @@ class _RecordTabState extends State<RecordTab> {
     if (!_isRecording) return;
     setState(() => _isRecording = false);
 
-    // Show header and tab bar again
     ContentCreatorTabController.of(context)?.setRecording(false);
 
     final path = await _recordingService.stopRecording();
     if (path != null && mounted) {
       final storageService = sl<VideoStorageService>();
 
-      // Get script title for video naming
       String? scriptTitle;
       final state = context.read<ContentCreatorBloc>().state;
       if (state is ContentCreatorLoaded && state.selectedScript != null) {
@@ -204,21 +198,20 @@ class _RecordTabState extends State<RecordTab> {
         title: scriptTitle ?? 'Content Video',
       );
 
-      if (savedPath.isNotEmpty) {
+      if (savedPath.isNotEmpty && mounted) {
         if (state is ContentCreatorLoaded && state.selectedScript != null) {
           context.read<ContentCreatorBloc>().add(
-            MarkScriptRecorded(state.selectedScript!.id),
-          );
+                MarkScriptRecorded(state.selectedScript!.id),
+              );
         }
         context.read<ContentCreatorBloc>().add(
-          LoadContentVideos(widget.userId),
-        );
+              LoadContentVideos(widget.userId),
+            );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               scriptTitle != null ? '"$scriptTitle" saved!' : 'Video saved!',
             ),
-            backgroundColor: const Color(0xFF22C55E),
           ),
         );
       }
@@ -277,261 +270,271 @@ class _RecordTabState extends State<RecordTab> {
           selectedScript = state.selectedScript;
         }
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Camera preview
-            if (!_isInitializing && _recordingService.controller != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CameraPreview(_recordingService.controller!),
-              )
-            else
-              const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text(
-                      'Preparing camera...',
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Settings button (top right)
-            if (!_showingCountdown && !_isRecording)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.tune,
-                      color: Colors.white,
-                      size: 20,
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.primaryText,
+              borderRadius: AppRadii.cardLargeBorder,
+              border: Border.all(color: AppColors.divider, width: 1.5),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (!_isInitializing && _recordingService.controller != null)
+                  CameraPreview(_recordingService.controller!)
+                else
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          color: AppColors.background,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Preparing camera...',
+                          style: AppTypography.body(color: AppColors.background),
+                        ),
+                      ],
                     ),
                   ),
-                  onPressed: () => _showSettingsSheet(context),
-                ),
-              ),
 
-            // Teleprompter overlay
-            if (!_showingCountdown && selectedScript != null)
-              Positioned(
-                top: 56,
-                left: 12,
-                right: 12,
-                height: teleprompterHeight,
-                child: _buildTeleprompter(selectedScript),
-              ),
-
-            // No script selected message
-            if (!_showingCountdown && selectedScript == null && !_isRecording)
-              Positioned(
-                top: 56,
-                left: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.white54),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No script selected. Go to My Scripts tab to select one.',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                if (!_showingCountdown && !_isRecording)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: GestureDetector(
+                      onTap: () => _showSettingsSheet(context),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.background.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
+                          color: AppColors.primaryText,
+                          size: 20,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-            // Recording indicator + duration
-            if (_isRecording)
-              Positioned(
-                top: 16,
-                left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                if (!_showingCountdown && selectedScript != null)
+                  Positioned(
+                    top: 62,
+                    left: 12,
+                    right: 12,
+                    height: teleprompterHeight,
+                    child: _buildTeleprompter(selectedScript),
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(20),
+
+                if (!_showingCountdown &&
+                    selectedScript == null &&
+                    !_isRecording)
+                  Positioned(
+                    top: 62,
+                    left: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: AppColors.primaryOlive,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'No script selected. Go to Scripts tab to select one.',
+                              style: AppTypography.bodyStrong(fontSize: 13.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
+
+                if (_isRecording)
+                  Positioned(
+                    top: 14,
+                    left: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
                               shape: BoxShape.circle,
                             ),
-                          )
-                          .animate(onComplete: (c) => c.repeat(reverse: true))
-                          .fade(duration: 500.ms),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDuration(_recordingSeconds),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Speed controls (visible during recording)
-            if (_isRecording && selectedScript != null)
-              Positioned(
-                top: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.remove,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: () => _adjustSpeed(-0.25),
-                      ),
-                      Text(
-                        '${_currentSpeed.toStringAsFixed(1)}x',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: () => _adjustSpeed(0.25),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Countdown overlay
-            if (_showingCountdown)
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$_countdown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 64,
-                        fontWeight: FontWeight.bold,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatDuration(_recordingSeconds),
+                            style: AppTypography.bodyStrong(
+                              color: AppColors.background,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ).animate().scale(
-                  begin: const Offset(1.2, 1.2),
-                  end: const Offset(1, 1),
-                  duration: 800.ms,
-                ),
-              ),
 
-            // Record/Stop button
-            Positioned(
-              bottom: 32,
-              left: 0,
-              right: 0,
-              child: Center(
-                child:
-                    _isRecording
-                        ? GestureDetector(
-                          onTap: _stopRecording,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.red, width: 4),
+                if (_isRecording && selectedScript != null)
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _adjustSpeed(-0.25),
+                            child: Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.remove,
+                                color: AppColors.primaryText,
+                                size: 18,
+                              ),
                             ),
-                            child: Center(
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(6),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              '${_currentSpeed.toStringAsFixed(1)}x',
+                              style: AppTypography.bodyStrong(fontSize: 13),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _adjustSpeed(0.25),
+                            child: Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.add,
+                                color: AppColors.primaryText,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                if (_showingCountdown)
+                  Center(
+                    child: Container(
+                      width: 116,
+                      height: 116,
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withValues(alpha: 0.94),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primaryOlive,
+                          width: 3,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$_countdown',
+                          style: AppTypography.displayMetric(
+                            fontSize: 52,
+                            color: AppColors.primaryOlive,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                Positioned(
+                  bottom: 26,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _isRecording
+                        ? GestureDetector(
+                            onTap: _stopRecording,
+                            child: Container(
+                              width: 78,
+                              height: 78,
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.error,
+                                  width: 4,
+                                ),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.error,
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        )
+                          )
                         : GestureDetector(
-                          onTap: _isInitializing ? null : _startCountdown,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFEC4899), Color(0xFF8B5CF6)],
+                            onTap: _isInitializing ? null : _startCountdown,
+                            child: Container(
+                              width: 78,
+                              height: 78,
+                              decoration: BoxDecoration(
+                                color: _isInitializing
+                                    ? AppColors.mutedText
+                                    : AppColors.primaryOlive,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.background,
+                                  width: 3.5,
+                                ),
                               ),
-                              shape: BoxShape.circle,
-                              boxShadow:
-                                  _isInitializing
-                                      ? null
-                                      : [
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xFFEC4899,
-                                          ).withOpacity(0.4),
-                                          blurRadius: 20,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                            ),
-                            child: const Icon(
-                              Icons.videocam_rounded,
-                              color: Colors.white,
-                              size: 36,
+                              child: Icon(
+                                Icons.videocam_rounded,
+                                color: AppColors.background,
+                                size: 34,
+                              ),
                             ),
                           ),
-                        ),
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -540,89 +543,69 @@ class _RecordTabState extends State<RecordTab> {
   Widget _buildTeleprompter(ContentScript script) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(_currentOpacity),
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.background.withValues(
+          alpha: _currentOpacity.clamp(0.75, 0.96),
+        ),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: (_isRecording ? Colors.red : const Color(0xFFEC4899))
-              .withOpacity(0.6),
+          color: _isRecording ? AppColors.error : AppColors.divider,
           width: 1.5,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: (_isRecording ? Colors.red : const Color(0xFFEC4899))
-                  .withOpacity(0.2),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(14),
-              ),
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     script.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTypography.bodyStrong(fontSize: 13.5),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _isRecording ? '${_currentSpeed.toStringAsFixed(1)}x' : '📖',
-                  style: TextStyle(
-                    color:
-                        _isRecording ? Colors.white : const Color(0xFFFBBF24),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
+                OlivePillBadge(
+                  label: _isRecording
+                      ? '${_currentSpeed.toStringAsFixed(1)}x'
+                      : 'Script',
                 ),
               ],
             ),
           ),
-          // Script content with sections
+          Container(height: 1.2, color: AppColors.divider),
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              // Enable manual scrolling even during recording for user control
               physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hook Section
                   _buildScriptSection(
-                    icon: '🎯',
                     title: 'HOOK',
                     content: script.part1,
-                    color: const Color(0xFFEC4899),
+                    color: AppColors.primaryOlive,
                   ),
-                  const SizedBox(height: 20),
-
-                  // Content Section
+                  const SizedBox(height: 16),
                   _buildScriptSection(
-                    icon: '💡',
                     title: 'CONTENT',
                     content: script.part2,
-                    color: const Color(0xFF8B5CF6),
+                    color: AppColors.secondaryGreen,
                   ),
-                  const SizedBox(height: 20),
-
-                  // Ending Section
+                  const SizedBox(height: 16),
                   _buildScriptSection(
-                    icon: '🎬',
                     title: 'ENDING',
                     content: script.part3,
-                    color: const Color(0xFF22C55E),
+                    color: AppColors.primaryOlive,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -633,7 +616,6 @@ class _RecordTabState extends State<RecordTab> {
   }
 
   Widget _buildScriptSection({
-    required String icon,
     required String title,
     required String content,
     required Color color,
@@ -643,43 +625,19 @@ class _RecordTabState extends State<RecordTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
-        Row(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 14)),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ],
+        OlivePillBadge(
+          label: title,
+          textColor: color,
         ),
-        const SizedBox(height: 10),
-        // Section content with markdown rendering
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: RichText(
-            text: TextSpan(
-              children: _parseMarkdown(content),
-              style: TextStyle(
-                color: _currentTextColor,
-                fontSize: _currentFontSize,
-                height: 1.7,
-                fontWeight: FontWeight.w400,
-              ),
+        const SizedBox(height: 8),
+        RichText(
+          text: TextSpan(
+            children: _parseMarkdown(content),
+            style: GoogleFonts.inter(
+              color: _currentTextColor,
+              fontSize: _currentFontSize,
+              height: 1.65,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -687,11 +645,8 @@ class _RecordTabState extends State<RecordTab> {
     );
   }
 
-  /// Parse simple markdown (bold, line breaks, bullets) into TextSpans
   List<TextSpan> _parseMarkdown(String text) {
     final spans = <TextSpan>[];
-
-    // Split by line breaks first
     final lines = text.split(RegExp(r'\\n|[\n]'));
 
     for (var i = 0; i < lines.length; i++) {
@@ -702,33 +657,26 @@ class _RecordTabState extends State<RecordTab> {
         continue;
       }
 
-      // Check if line starts with bullet
       String processedLine = line;
-      if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
-        // Already has bullet, keep it
-      } else if (line.trim().startsWith('* ')) {
-        // Convert asterisk bullet to nicer bullet
+      if (line.trim().startsWith('* ')) {
         processedLine = line.replaceFirst('* ', '• ');
       }
 
-      // Parse bold text (**text**)
       final boldPattern = RegExp(r'\*\*(.+?)\*\*');
       var lastEnd = 0;
 
       for (final match in boldPattern.allMatches(processedLine)) {
-        // Text before the match
         if (match.start > lastEnd) {
           spans.add(
             TextSpan(text: processedLine.substring(lastEnd, match.start)),
           );
         }
-        // Bold text
         spans.add(
           TextSpan(
             text: match.group(1),
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: const Color(0xFFFBBF24), // Yellow highlight for bold
+              color: AppColors.primaryOlive,
               fontSize: _currentFontSize,
             ),
           ),
@@ -736,12 +684,10 @@ class _RecordTabState extends State<RecordTab> {
         lastEnd = match.end;
       }
 
-      // Remaining text after last match
       if (lastEnd < processedLine.length) {
         spans.add(TextSpan(text: processedLine.substring(lastEnd)));
       }
 
-      // Add line break after each line (except the last)
       if (i < lines.length - 1) {
         spans.add(const TextSpan(text: '\n'));
       }
@@ -754,210 +700,178 @@ class _RecordTabState extends State<RecordTab> {
     showModalBottomSheet(
       isDismissible: true,
       context: context,
-      backgroundColor: Colors.transparent,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (context, setSheetState) => Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1E1E2E),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      color: AppColors.primaryOlive,
                     ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.tune, color: Color(0xFFEC4899)),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Teleprompter Settings',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.close,
-                                color: Colors.white54,
-                              ),
-                              onPressed: () => Navigator.pop(ctx),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Speed slider
-                        _buildSliderRow(
-                          label: 'Scroll Speed',
-                          value: _currentSpeed,
-                          min: 0.1,
-                          max: 3.0,
-                          suffix: 'x',
-                          onChanged: (v) {
-                            setSheetState(() => _currentSpeed = v);
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Height slider
-                        _buildSliderRow(
-                          label: 'Height',
-                          value: _currentHeight * 100,
-                          min: 15,
-                          max: 80,
-                          suffix: '%',
-                          onChanged: (v) {
-                            setSheetState(() => _currentHeight = v / 100);
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Opacity slider
-                        _buildSliderRow(
-                          label: 'Opacity',
-                          value: _currentOpacity * 100,
-                          min: 20,
-                          max: 100,
-                          suffix: '%',
-                          onChanged: (v) {
-                            setSheetState(() => _currentOpacity = v / 100);
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Font size slider
-                        _buildSliderRow(
-                          label: 'Font Size',
-                          value: _currentFontSize,
-                          min: 12,
-                          max: 24,
-                          suffix: 'pt',
-                          onChanged: (v) {
-                            setSheetState(() => _currentFontSize = v);
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Video Quality selector
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.high_quality,
-                              color: Color(0xFF8B5CF6),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Video Quality',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2D2D3D),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<ResolutionPreset>(
-                                  value: _recordingService.currentQuality,
-                                  dropdownColor: const Color(0xFF2D2D3D),
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_down,
-                                    color: Color(0xFF8B5CF6),
-                                    size: 20,
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: ResolutionPreset.low,
-                                      child: Text('480p (Low)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: ResolutionPreset.medium,
-                                      child: Text('720p (Medium)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: ResolutionPreset.high,
-                                      child: Text('1080p (High)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: ResolutionPreset.veryHigh,
-                                      child: Text('1440p (Very High)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: ResolutionPreset.ultraHigh,
-                                      child: Text('4K (Ultra)'),
-                                    ),
-                                  ],
-                                  onChanged: (value) async {
-                                    if (value != null) {
-                                      Navigator.pop(ctx);
-                                      setState(() => _isInitializing = true);
-                                      await _recordingService.setQuality(value);
-                                      if (mounted) {
-                                        setState(() => _isInitializing = false);
-                                      }
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Save button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              context.read<SettingsBloc>().add(
-                                TeleprompterSpeedUpdated(_currentSpeed),
-                              );
-                              context.read<SettingsBloc>().add(
-                                TeleprompterHeightUpdated(_currentHeight),
-                              );
-                              context.read<SettingsBloc>().add(
-                                TeleprompterOpacityUpdated(_currentOpacity),
-                              );
-                              Navigator.pop(ctx);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEC4899),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: const Text('Save Settings'),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Teleprompter Settings',
+                      style: AppTypography.headingMedium(fontSize: 19),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: AppColors.secondaryText,
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SageCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      _buildSliderRow(
+                        label: 'SCROLL SPEED',
+                        value: _currentSpeed,
+                        min: 0.1,
+                        max: 3.0,
+                        suffix: 'x',
+                        onChanged: (v) {
+                          setSheetState(() => _currentSpeed = v);
+                          setState(() {});
+                        },
+                      ),
+                      const Divider(height: 20),
+                      _buildSliderRow(
+                        label: 'HEIGHT',
+                        value: _currentHeight * 100,
+                        min: 15,
+                        max: 80,
+                        suffix: '%',
+                        onChanged: (v) {
+                          setSheetState(() => _currentHeight = v / 100);
+                          setState(() {});
+                        },
+                      ),
+                      const Divider(height: 20),
+                      _buildSliderRow(
+                        label: 'OPACITY',
+                        value: _currentOpacity * 100,
+                        min: 20,
+                        max: 100,
+                        suffix: '%',
+                        onChanged: (v) {
+                          setSheetState(() => _currentOpacity = v / 100);
+                          setState(() {});
+                        },
+                      ),
+                      const Divider(height: 20),
+                      _buildSliderRow(
+                        label: 'FONT SIZE',
+                        value: _currentFontSize,
+                        min: 12,
+                        max: 24,
+                        suffix: 'pt',
+                        onChanged: (v) {
+                          setSheetState(() => _currentFontSize = v);
+                          setState(() {});
+                        },
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.high_quality_outlined,
+                            color: AppColors.primaryOlive,
+                            size: 20,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Video Quality',
+                            style: AppTypography.bodyStrong(),
+                          ),
+                          const Spacer(),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<ResolutionPreset>(
+                              value: _recordingService.currentQuality,
+                              dropdownColor: AppColors.background,
+                              icon: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: AppColors.secondaryText,
+                                size: 20,
+                              ),
+                              style: AppTypography.bodyStrong(),
+                              items: [
+                                DropdownMenuItem(
+                                  value: ResolutionPreset.low,
+                                  child: Text('480p (Low)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ResolutionPreset.medium,
+                                  child: Text('720p (Medium)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ResolutionPreset.high,
+                                  child: Text('1080p (High)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ResolutionPreset.veryHigh,
+                                  child: Text('1440p (Very High)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ResolutionPreset.ultraHigh,
+                                  child: Text('4K (Ultra)'),
+                                ),
+                              ],
+                              onChanged: (value) async {
+                                if (value != null) {
+                                  Navigator.pop(ctx);
+                                  setState(() => _isInitializing = true);
+                                  await _recordingService.setQuality(value);
+                                  if (mounted) {
+                                    setState(() => _isInitializing = false);
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.read<SettingsBloc>().add(
+                            TeleprompterSpeedUpdated(_currentSpeed),
+                          );
+                      context.read<SettingsBloc>().add(
+                            TeleprompterHeightUpdated(_currentHeight),
+                          );
+                      context.read<SettingsBloc>().add(
+                            TeleprompterOpacityUpdated(_currentOpacity),
+                          );
+                      Navigator.pop(ctx);
+                    },
+                    child: Text('Save Settings'),
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
     );
   }
 
@@ -975,22 +889,22 @@ class _RecordTabState extends State<RecordTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white70)),
             Text(
-              '${value.toStringAsFixed(1)}$suffix',
-              style: const TextStyle(
-                color: Color(0xFFEC4899),
-                fontWeight: FontWeight.bold,
+              label,
+              style: AppTypography.uppercaseLabel(
+                color: AppColors.secondaryText,
+                fontSize: 10.5,
               ),
             ),
+            OlivePillBadge(label: '${value.toStringAsFixed(1)}$suffix'),
           ],
         ),
         Slider(
           value: value,
           min: min,
           max: max,
-          activeColor: const Color(0xFFEC4899),
-          inactiveColor: Colors.white24,
+          activeColor: AppColors.primaryOlive,
+          inactiveColor: AppColors.divider,
           onChanged: onChanged,
         ),
       ],

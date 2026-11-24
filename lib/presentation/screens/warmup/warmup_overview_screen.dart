@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/warmup.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import '../../bloc/warmup/warmup_event.dart';
@@ -29,103 +30,99 @@ class _WarmupOverviewScreenState extends State<WarmupOverviewScreen> {
   @override
   void initState() {
     super.initState();
-    // Reload warmup status when screen appears
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reloadStatus();
     });
   }
 
   void _reloadStatus() {
-    final bloc = context.read<WarmupBloc>();
-    // Use the reload event which uses stored userId
-    bloc.add(const WarmupReloadRequested());
+    context.read<WarmupBloc>().add(WarmupReloadRequested());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Get Ready'),
+        title: Text('Get Ready'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          icon: Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-          ),
-        ),
-        child: SafeArea(
-          child: BlocConsumer<WarmupBloc, WarmupState>(
-            listener: (context, state) {
-              if (state is WarmupDayComplete && state.isLastWarmup) {
-                Navigator.of(context).pop();
-              }
-            },
-            builder: (context, state) {
-              if (state is WarmupLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
+      body: SafeArea(
+        child: BlocConsumer<WarmupBloc, WarmupState>(
+          listener: (context, state) {
+            if (state is WarmupDayComplete && state.isLastWarmup) {
+              Navigator.of(context).pop();
+            }
+          },
+          builder: (context, state) {
+            if (state is WarmupLoading) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primaryOlive,
+                ),
+              );
+            }
 
-              if (state is WarmupOverview) {
-                return _WarmupList(
-                  state: state,
-                  userName: widget.userName,
-                  userGoal: widget.userGoal,
-                  userLocation: widget.userLocation,
-                  onReload: _reloadStatus,
-                );
-              }
+            if (state is WarmupOverview) {
+              return _WarmupList(
+                state: state,
+                userName: widget.userName,
+                userGoal: widget.userGoal,
+                userLocation: widget.userLocation,
+                onReload: _reloadStatus,
+              );
+            }
 
-              if (state is AllWarmupsComplete) {
-                return _AllComplete();
-              }
+            if (state is AllWarmupsComplete) {
+              return _AllComplete();
+            }
 
-              // For any intermediate state, trigger a reload and show shimmer
-              if (state is WarmupInProgress ||
-                  state is WarmupRecording ||
-                  state is WarmupPlayback ||
-                  state is WarmupDayComplete) {
-                // Trigger reload
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _reloadStatus();
-                });
+            if (state is WarmupInProgress ||
+                state is WarmupRecording ||
+                state is WarmupPlayback ||
+                state is WarmupDayComplete) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _reloadStatus();
+              });
 
-                return const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Refreshing...',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // Default fallback
               return Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.refresh, color: Colors.white54, size: 48),
+                    CircularProgressIndicator(
+                      color: AppColors.primaryOlive,
+                    ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _reloadStatus,
-                      child: const Text('Reload'),
+                    Text(
+                      'Refreshing...',
+                      style: AppTypography.body(),
                     ),
                   ],
                 ),
               );
-            },
-          ),
+            }
+
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.secondaryText,
+                    size: 44,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _reloadStatus,
+                    child: Text('Reload'),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -147,28 +144,40 @@ class _WarmupList extends StatelessWidget {
     required this.onReload,
   });
 
+  int get _doneCount {
+    int c = 0;
+    if (state.warmup0Done) c++;
+    if (state.warmup1Done) c++;
+    if (state.warmup2Done) c++;
+    return c;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final done = _doneCount;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Personalized header
-          Text(
-            userName != null ? 'Hey $userName! 👋' : 'Before You Start',
-            style: Theme.of(context).textTheme.displayMedium,
-          ).animate().fadeIn(duration: 400.ms),
-          const SizedBox(height: 8),
-          Text(
-            'Complete these 3 warmups to unlock your 30-day challenge.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.white54, height: 1.5),
-          ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-          const SizedBox(height: 32),
-
-          // Warmup cards
+          Center(
+            child: OliveArcGauge(
+              progress: done == 0 ? 0.33 : done / 3.0,
+              primaryValue: '$done',
+              primaryUnit: '/3',
+              statusLabel: 'WARMUP SESSIONS',
+              pillText: '${3 - done} Remaining',
+              size: 256,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SageStatusCard(
+            title: userName != null ? 'Hey $userName!' : 'Before You Start',
+            subtitle:
+                'Complete these 3 warmups to unlock your 30-day camera confidence challenge.',
+            actionLabel: '$done/3 Done',
+          ),
+          const SizedBox(height: 18),
           _WarmupCard(
             warmup: Warmups.breathing,
             index: 0,
@@ -178,9 +187,8 @@ class _WarmupList extends StatelessWidget {
             userGoal: userGoal,
             userLocation: userLocation,
             onReload: onReload,
-          ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-          const SizedBox(height: 16),
-
+          ),
+          const SizedBox(height: 14),
           _WarmupCard(
             warmup: Warmups.smile,
             index: 1,
@@ -190,9 +198,8 @@ class _WarmupList extends StatelessWidget {
             userGoal: userGoal,
             userLocation: userLocation,
             onReload: onReload,
-          ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
-          const SizedBox(height: 16),
-
+          ),
+          const SizedBox(height: 14),
           _WarmupCard(
             warmup: Warmups.energy,
             index: 2,
@@ -202,7 +209,7 @@ class _WarmupList extends StatelessWidget {
             userGoal: userGoal,
             userLocation: userLocation,
             onReload: onReload,
-          ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
+          ),
         ],
       ),
     );
@@ -234,128 +241,163 @@ class _WarmupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final canStart = isUnlocked && !isComplete;
 
-    return GestureDetector(
-      onTap:
-          canStart
-              ? () async {
-                context.read<WarmupBloc>().add(WarmupStarted(index));
-
-                // Navigate and wait for result
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                builder: (_) => BlocProvider.value(
-                  value: context.read<WarmupBloc>(),
-                  child: WarmupRecordingScreen(
-                    warmupIndex: index,
-                    userName: userName,
-                    userGoal: userGoal,
-                    userLocation: userLocation,
-                  ),
-                ),
-                  ),
-                );
-
-                // Reload status when returning
-                onReload();
-              }
+    return SageCard(
+      padding: EdgeInsets.zero,
+      borderColor: isComplete
+          ? AppColors.secondaryGreen
+          : canStart
+              ? AppColors.olivePillBorder
               : null,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                isComplete
-                    ? const Color(0xFF22C55E)
-                    : isUnlocked
-                    ? const Color(0xFF22D3EE).withValues(alpha: 0.5)
-                    : Colors.white12,
-            width: isComplete ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color:
-                    isComplete
-                        ? const Color(0xFF22C55E).withValues(alpha: 0.2)
-                        : isUnlocked
-                        ? const Color(0xFF22D3EE).withValues(alpha: 0.2)
-                        : Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child:
-                    isComplete
-                        ? const Icon(
-                          Icons.check,
-                          color: Color(0xFF22C55E),
-                          size: 28,
-                        )
-                        : isUnlocked
-                        ? Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Color(0xFF22D3EE),
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                        : const Icon(
-                          Icons.lock,
-                          color: Colors.white24,
-                          size: 24,
-                        ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    warmup.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: isUnlocked ? Colors.white : Colors.white54,
+      onTap: canStart
+          ? () async {
+              context.read<WarmupBloc>().add(WarmupStarted(index));
+
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider.value(
+                    value: context.read<WarmupBloc>(),
+                    child: WarmupRecordingScreen(
+                      warmupIndex: index,
+                      userName: userName,
+                      userGoal: userGoal,
+                      userLocation: userLocation,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    warmup.description,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white38),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                ),
+              );
+
+              onReload();
+            }
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isComplete
+                          ? Icons.check_circle_rounded
+                          : isUnlocked
+                              ? Icons.play_circle_outline_rounded
+                              : Icons.lock_outline_rounded,
+                      size: 19,
+                      color: isComplete
+                          ? AppColors.secondaryGreen
+                          : isUnlocked
+                              ? AppColors.primaryOlive
+                              : AppColors.mutedText,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'WARMUP 0${index + 1}',
+                      style: AppTypography.uppercaseLabel(
+                        fontSize: 11,
+                        color: isComplete
+                            ? AppColors.secondaryGreen
+                            : AppColors.secondaryText,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+                OlivePillBadge(
+                  label: isComplete
+                      ? 'Completed'
+                      : '~${warmup.durationSeconds ~/ 60} min',
+                ),
+              ],
+            ),
+          ),
+          Container(height: 1.3, color: AppColors.divider),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isComplete
+                        ? AppColors.navPill
+                        : isUnlocked
+                            ? AppColors.olivePillFill
+                            : AppColors.background,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: isComplete
+                          ? AppColors.secondaryGreen
+                          : isUnlocked
+                              ? AppColors.olivePillBorder
+                              : AppColors.divider,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '~${warmup.durationSeconds ~/ 60} min',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  child: Center(
+                    child: isComplete
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: AppColors.secondaryGreen,
+                            size: 24,
+                          )
+                        : isUnlocked
+                            ? Text(
+                                '${index + 1}',
+                                style: GoogleFonts.manrope(
+                                  color: AppColors.primaryOlive,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              )
+                            : Icon(
+                                Icons.lock_outline_rounded,
+                                color: AppColors.mutedText,
+                                size: 22,
+                              ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        warmup.title,
+                        style: AppTypography.sectionTitle(
+                          fontSize: 17,
+                          color: isUnlocked
+                              ? AppColors.primaryText
+                              : AppColors.mutedText,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        warmup.description,
+                        style: AppTypography.body(
+                          fontSize: 13.5,
+                          color: AppColors.secondaryText,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (canStart) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.secondaryText,
+                    size: 24,
                   ),
                 ],
-              ),
+              ],
             ),
-            if (canStart)
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF22D3EE).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward,
-                  color: Color(0xFF22D3EE),
-                  size: 20,
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -366,50 +408,47 @@ class _AllComplete extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E).withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.celebration_rounded,
-                color: Color(0xFF22C55E),
-                size: 48,
-              ),
-            ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-            const SizedBox(height: 24),
-            Text(
-              'All Warmups Complete!',
-              style: Theme.of(context).textTheme.headlineMedium,
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: 200.ms),
-            const SizedBox(height: 12),
-            Text(
-              "You're ready to start your 30-day journey!",
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: 300.ms),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22C55E),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+        padding: const EdgeInsets.all(24),
+        child: SageCard(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  color: AppColors.navPill,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.celebration_outlined,
+                  color: AppColors.secondaryGreen,
+                  size: 42,
                 ),
               ),
-              child: const Text('Start Day 1'),
-            ).animate().fadeIn(delay: 400.ms),
-          ],
+              const SizedBox(height: 22),
+              Text(
+                'All Warmups Complete!',
+                style: AppTypography.headingLarge(fontSize: 24),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You're ready to start your 30-day journey!",
+                style: AppTypography.body(),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Start Day 1'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/content_script.dart';
 import '../../../bloc/content_creator/content_creator_bloc.dart';
 import '../../../bloc/content_creator/content_creator_event.dart';
@@ -19,7 +20,9 @@ class MyScriptsTab extends StatelessWidget {
     return BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
       builder: (context, state) {
         if (state is ContentCreatorLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(color: AppColors.primaryOlive),
+          );
         }
 
         if (state is ContentCreatorLoaded) {
@@ -31,23 +34,36 @@ class MyScriptsTab extends StatelessWidget {
 
         if (state is ContentCreatorError) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  state.message,
-                  style: const TextStyle(color: Colors.white70),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: SageCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.error,
+                      size: 46,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      state.message,
+                      style: AppTypography.body(),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        context
+                            .read<ContentCreatorBloc>()
+                            .add(LoadScripts(userId));
+                      },
+                      child: Text('Retry'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<ContentCreatorBloc>().add(LoadScripts(userId));
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
+              ),
             ),
           );
         }
@@ -59,49 +75,57 @@ class MyScriptsTab extends StatelessWidget {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: SageCard(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.olivePillFill,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.olivePillBorder),
+                ),
+                child: Icon(
+                  Icons.description_outlined,
+                  size: 36,
+                  color: AppColors.primaryOlive,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'No Scripts Yet',
+                style: AppTypography.headingMedium(fontSize: 20),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Generate your first script in the Generate tab to get started.',
+                textAlign: TextAlign.center,
+                style: AppTypography.body(),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No Scripts Yet',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white70),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Generate your first script in the\nGenerate tab to get started.',
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white38),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildScriptsList(BuildContext context, List<ContentScript> scripts) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
       itemCount: scripts.length,
       itemBuilder: (context, index) {
         final script = scripts[index];
         return _ScriptCard(
-              script: script,
-              onTap: () => _showScriptDetails(context, script),
-              onDelete: () => _confirmDelete(context, script),
-              onRecord: () => _recordWithScript(context, script),
-            )
-            .animate(delay: Duration(milliseconds: index * 50))
-            .fadeIn()
-            .slideX(begin: 0.1);
+          script: script,
+          onTap: () => _showScriptDetails(context, script),
+          onDelete: () => _confirmDelete(context, script),
+          onRecord: () => _recordWithScript(context, script),
+        );
       },
     );
   }
@@ -110,265 +134,241 @@ class MyScriptsTab extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder:
-          (ctx) => DraggableScrollableSheet(
-            initialChildSize: 0.7,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            expand: false,
-            builder:
-                (_, scrollController) => Padding(
-                  padding: const EdgeInsets.all(24),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.78,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          script.title,
+                          style: AppTypography.headingMedium(fontSize: 20),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (script.promptTemplate != null)
+                              OlivePillBadge(label: script.promptTemplate!),
+                            if (script.isRecorded)
+                              OlivePillBadge(
+                                label: 'Recorded',
+                                icon: Icons.check_circle_outline_rounded,
+                                backgroundColor: AppColors.navPill,
+                                borderColor: AppColors.secondaryGreen,
+                                textColor: AppColors.secondaryGreen,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.secondaryText,
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(),
+              const SizedBox(height: 14),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  script.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    if (script.promptTemplate != null) ...[
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFFEC4899,
-                                          ).withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          script.promptTemplate!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFEC4899),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    if (script.isRecorded)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF22C55E,
-                                          ).withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: Color(0xFF22C55E),
-                                              size: 12,
-                                            ),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'Recorded',
-                                              style: TextStyle(
-                                                color: Color(0xFF22C55E),
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              color: Colors.white54,
-                            ),
-                            onPressed: () => Navigator.pop(ctx),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      const Divider(color: Colors.white12),
-                      const SizedBox(height: 16),
-
-                      // Script content
-                      Expanded(
-                        child: SingleChildScrollView(
-                          controller: scrollController,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildScriptSection('Hook/Opening', script.part1),
-                              const SizedBox(height: 16),
-                              _buildScriptSection('Content/Body', script.part2),
-                              const SizedBox(height: 16),
-                              _buildScriptSection('Close/Ending', script.part3),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Actions
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _confirmDelete(context, script);
-                              },
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                              ),
-                              label: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.red),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _recordWithScript(context, script);
-                              },
-                              icon: const Icon(Icons.videocam_rounded),
-                              label: const Text('Record'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFEC4899),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildScriptSection('HOOK / OPENING', script.part1),
+                      const SizedBox(height: 14),
+                      _buildScriptSection('CONTENT / BODY', script.part2),
+                      const SizedBox(height: 14),
+                      _buildScriptSection('CLOSE / ENDING', script.part3),
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _confirmDelete(context, script);
+                      },
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppColors.error,
+                      ),
+                      label: Text(
+                        'Delete',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppColors.error),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _recordWithScript(context, script);
+                      },
+                      icon: Icon(Icons.videocam_outlined),
+                      label: Text('Record'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
   Widget _buildScriptSection(String title, String content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Color(0xFFEC4899),
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+    return SageCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 13, 16, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                  Icons.segment_rounded,
+                  size: 18,
+                  color: AppColors.primaryOlive,
+                ),
+                Text(
+                  title,
+                  style: AppTypography.uppercaseLabel(
+                    fontSize: 10.5,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2D2D3D),
-            borderRadius: BorderRadius.circular(8),
+          Container(height: 1.2, color: AppColors.divider),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: content.isEmpty
+                ? Text('(No content)', style: AppTypography.body())
+                : RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.inter(
+                        color: AppColors.primaryText,
+                        fontSize: 14.5,
+                        height: 1.6,
+                      ),
+                      children: _parseMarkdownSpans(content),
+                    ),
+                  ),
           ),
-          child: Text(
-            content.isEmpty ? '(No content)' : content,
-            style: const TextStyle(color: Colors.white70, height: 1.6),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  List<TextSpan> _parseMarkdownSpans(String text) {
+    final normalized = text.replaceAll(r'\n', '\n');
+    final boldPattern = RegExp(r'\*\*(.+?)\*\*');
+    final spans = <TextSpan>[];
+    var lastEnd = 0;
+
+    for (final match in boldPattern.allMatches(normalized)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: normalized.substring(lastEnd, match.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            color: AppColors.primaryOlive,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < normalized.length) {
+      spans.add(TextSpan(text: normalized.substring(lastEnd)));
+    }
+    return spans;
   }
 
   void _confirmDelete(BuildContext context, ContentScript script) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Delete Script',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              'Delete "${script.title}"? This cannot be undone.',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.read<ContentCreatorBloc>().add(
-                    DeleteScript(script.id),
-                  );
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Script'),
+        content: Text('Delete "${script.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ContentCreatorBloc>().add(DeleteScript(script.id));
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   void _recordWithScript(BuildContext context, ContentScript script) {
-    // Select script
     context.read<ContentCreatorBloc>().add(SelectScript(script));
 
-    // Switch to record tab (index 2)
     final tabController = ContentCreatorTabController.of(context);
     if (tabController != null) {
       tabController.switchToTab(2);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Recording "${script.title}"'),
-          backgroundColor: const Color(0xFF22C55E),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -376,7 +376,6 @@ class MyScriptsTab extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Selected "${script.title}" - go to Record tab'),
-          backgroundColor: const Color(0xFF22C55E),
         ),
       );
     }
@@ -398,90 +397,84 @@ class _ScriptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                script.isRecorded
-                    ? const Color(0xFF22C55E).withOpacity(0.3)
-                    : const Color(0xFFEC4899).withOpacity(0.2),
-          ),
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SageCard(
+        padding: EdgeInsets.zero,
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    script.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (script.isRecorded)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      color: Color(0xFF22C55E),
-                      size: 14,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Preview
-            Text(
-              script.part1,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-
-            // Footer
-            Row(
-              children: [
-                if (script.promptTemplate != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEC4899).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      script.promptTemplate!,
-                      style: const TextStyle(
-                        color: Color(0xFFEC4899),
-                        fontSize: 11,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 15, 18, 11),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        script.isRecorded
+                            ? Icons.check_circle_rounded
+                            : Icons.description_outlined,
+                        size: 18,
+                        color: script.isRecorded
+                            ? AppColors.secondaryGreen
+                            : AppColors.primaryOlive,
                       ),
+                      const SizedBox(width: 8),
+                      Text(
+                        (script.promptTemplate ?? 'SCRIPT').toUpperCase(),
+                        style: AppTypography.uppercaseLabel(
+                          fontSize: 11,
+                          color: AppColors.secondaryText,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    _formatDate(script.createdAt),
+                    style: AppTypography.body(
+                      fontSize: 12,
+                      color: AppColors.mutedText,
                     ),
                   ),
-                const Spacer(),
-                Text(
-                  _formatDate(script.createdAt),
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
+                ],
+              ),
+            ),
+            Container(height: 1.3, color: AppColors.divider),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          script.title,
+                          style: AppTypography.sectionTitle(fontSize: 16.5),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          script.part1
+                              .replaceAll('**', '')
+                              .replaceAll(r'\n', ' '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.body(fontSize: 13.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.secondaryText,
+                    size: 22,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -498,7 +491,7 @@ class _ScriptCard extends StatelessWidget {
     } else if (diff.inDays == 1) {
       return 'Yesterday';
     } else if (diff.inDays < 7) {
-      return '${diff.inDays} days ago';
+      return '${diff.inDays}d ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }

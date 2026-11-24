@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../bloc/settings/settings_bloc.dart';
-import '../../bloc/settings/settings_event.dart';
 
 class TeleprompterSettingsSheet extends StatefulWidget {
   final double initialSpeed;
@@ -19,7 +19,8 @@ class TeleprompterSettingsSheet extends StatefulWidget {
   });
 
   @override
-  State<TeleprompterSettingsSheet> createState() => _TeleprompterSettingsSheetState();
+  State<TeleprompterSettingsSheet> createState() =>
+      _TeleprompterSettingsSheetState();
 }
 
 class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
@@ -37,62 +38,90 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
             'Teleprompter Settings',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: AppTypography.headingMedium(fontSize: 20),
           ),
-          const SizedBox(height: 24),
-          _buildSliderRow(
-            label: 'Scroll Speed',
-            value: _currentSpeed,
-            min: 0.5,
-            max: 3.0,
-            suffix: 'x',
-            onChanged: (v) => setState(() => _currentSpeed = v),
+          const SizedBox(height: 20),
+          SageCard(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              children: [
+                _buildSliderRow(
+                  label: 'SCROLL SPEED',
+                  value: _currentSpeed,
+                  min: 0.5,
+                  max: 3.0,
+                  suffix: 'x',
+                  onChanged: (v) => setState(() => _currentSpeed = v),
+                ),
+                const Divider(height: 24),
+                _buildSliderRow(
+                  label: 'HEIGHT',
+                  value: _currentHeight * 100,
+                  min: 15,
+                  max: 80,
+                  suffix: '%',
+                  onChanged: (v) => setState(() => _currentHeight = v / 100),
+                ),
+                const Divider(height: 24),
+                _buildSliderRow(
+                  label: 'OPACITY',
+                  value: _currentOpacity * 100,
+                  min: 50,
+                  max: 100,
+                  suffix: '%',
+                  onChanged: (v) => setState(() => _currentOpacity = v / 100),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          _buildSliderRow(
-            label: 'Height',
-            value: _currentHeight * 100,
-            min: 15,
-            max: 80,
-            suffix: '%',
-            onChanged: (v) => setState(() => _currentHeight = v / 100),
-          ),
-          const SizedBox(height: 16),
-          _buildSliderRow(
-            label: 'Opacity',
-            value: _currentOpacity * 100,
-            min: 50,
-            max: 100,
-            suffix: '%',
-            onChanged: (v) => setState(() => _currentOpacity = v / 100),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                context.read<SettingsBloc>().add(TeleprompterSpeedUpdated(_currentSpeed));
-                context.read<SettingsBloc>().add(TeleprompterHeightUpdated(_currentHeight));
-                context.read<SettingsBloc>().add(TeleprompterOpacityUpdated(_currentOpacity));
-                widget.onSettingsSaved(_currentSpeed, _currentHeight, _currentOpacity);
+                context
+                    .read<SettingsBloc>()
+                    .add(TeleprompterSpeedUpdated(_currentSpeed));
+                context
+                    .read<SettingsBloc>()
+                    .add(TeleprompterHeightUpdated(_currentHeight));
+                context
+                    .read<SettingsBloc>()
+                    .add(TeleprompterOpacityUpdated(_currentOpacity));
+                widget.onSettingsSaved(
+                  _currentSpeed,
+                  _currentHeight,
+                  _currentOpacity,
+                );
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22D3EE),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text('Save Settings'),
+              child: Text('Save Settings'),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -112,19 +141,22 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white70)),
             Text(
-              '${value.toStringAsFixed(1)}$suffix',
-              style: const TextStyle(color: Color(0xFF22D3EE), fontWeight: FontWeight.bold),
+              label,
+              style: AppTypography.uppercaseLabel(
+                color: AppColors.secondaryText,
+                fontSize: 11,
+              ),
             ),
+            OlivePillBadge(label: '${value.toStringAsFixed(1)}$suffix'),
           ],
         ),
         Slider(
           value: value,
           min: min,
           max: max,
-          activeColor: const Color(0xFF22D3EE),
-          inactiveColor: Colors.white24,
+          activeColor: AppColors.primaryOlive,
+          inactiveColor: AppColors.divider,
           onChanged: onChanged,
         ),
       ],

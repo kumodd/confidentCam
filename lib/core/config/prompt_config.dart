@@ -71,7 +71,6 @@ class PromptConfigFactory {
       case PromptMode.authorityBuild:
         return 'You speak calmly, grounded, without asserting dominance.';
       case PromptMode.selfDiscovery:
-      default:
         return 'You are a beginner learning to feel safe being seen.';
     }
   }

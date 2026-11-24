@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../domain/entities/guide_chapter.dart';
-import '../../../../presentation/widgets/dashboard/guide_section.dart' as guide_fallback; // Assuming we keep the fallback here for now
 
 class SupabaseGuideDatasource {
   final SupabaseClient _supabaseClient;

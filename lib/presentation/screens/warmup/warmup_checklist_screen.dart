@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/warmup.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import '../../bloc/warmup/warmup_event.dart';
@@ -39,13 +39,16 @@ class _WarmupChecklistScreenState extends State<WarmupChecklistScreen> {
       return;
     }
 
-    final checkedStrings = _checkedItems.map((i) => _warmup.checklistItems[i]).toList();
+    final checkedStrings =
+        _checkedItems.map((i) => _warmup.checklistItems[i]).toList();
 
-    context.read<WarmupBloc>().add(WarmupChecklistSubmitted(
-          warmupIndex: widget.warmupIndex,
-          checkedItems: checkedStrings,
-          videoPath: widget.videoPath,
-        ));
+    context.read<WarmupBloc>().add(
+          WarmupChecklistSubmitted(
+            warmupIndex: widget.warmupIndex,
+            checkedItems: checkedStrings,
+            videoPath: widget.videoPath,
+          ),
+        );
   }
 
   @override
@@ -63,135 +66,114 @@ class _WarmupChecklistScreenState extends State<WarmupChecklistScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Quick Checklist'),
+          title: Text('Quick Checklist'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
+            icon: Icon(Icons.arrow_back_rounded),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'How did it go?',
-                    style: Theme.of(context).textTheme.displayMedium,
-                  ).animate().fadeIn(duration: 400.ms),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Check off what you noticed about your warmup. No wrong answers!',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white54,
-                        ),
-                  ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-                  const SizedBox(height: 32),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How did it go?',
+                  style: AppTypography.headingLarge(fontSize: 25),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Check off what you noticed about your warmup. No wrong answers!',
+                  style: AppTypography.body(),
+                ),
+                const SizedBox(height: 22),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _warmup.checklistItems.length,
+                    itemBuilder: (context, index) {
+                      final item = _warmup.checklistItems[index];
+                      final isChecked = _checkedItems.contains(index);
 
-                  // Checklist items
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _warmup.checklistItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _warmup.checklistItems[index];
-                        final isChecked = _checkedItems.contains(index);
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                if (isChecked) {
-                                  _checkedItems.remove(index);
-                                } else {
-                                  _checkedItems.add(index);
-                                }
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isChecked) {
+                                _checkedItems.remove(index);
+                              } else {
+                                _checkedItems.add(index);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: isChecked
+                                  ? AppColors.olivePillFill
+                                  : AppColors.cardSurface,
+                              borderRadius: AppRadii.cardBorder,
+                              border: Border.all(
                                 color: isChecked
-                                    ? const Color(0xFF22C55E).withValues(alpha: 0.15)
-                                    : const Color(0xFF1E1E2E),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isChecked
-                                      ? const Color(0xFF22C55E)
-                                      : Colors.white12,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: isChecked
-                                          ? const Color(0xFF22C55E)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: isChecked
-                                            ? const Color(0xFF22C55E)
-                                            : Colors.white38,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: isChecked
-                                        ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 16,
-                                          )
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      item,
-                                      style: TextStyle(
-                                        color:
-                                            isChecked ? Colors.white : Colors.white70,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                    ? AppColors.primaryOlive
+                                    : AppColors.divider,
+                                width: isChecked ? 1.8 : 1.2,
                               ),
                             ),
-                          ).animate().fadeIn(
-                                delay: (100 * index).ms,
-                                duration: 300.ms,
-                              ),
-                        );
-                      },
-                    ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: isChecked
+                                        ? AppColors.secondaryGreen
+                                        : AppColors.background,
+                                    borderRadius: BorderRadius.circular(7),
+                                    border: Border.all(
+                                      color: isChecked
+                                          ? AppColors.secondaryGreen
+                                          : AppColors.secondaryText,
+                                      width: 1.6,
+                                    ),
+                                  ),
+                                  child: isChecked
+                                      ? Icon(
+                                          Icons.check_rounded,
+                                          color: AppColors.background,
+                                          size: 16,
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    item,
+                                    style: AppTypography.bodyStrong(
+                                      fontSize: 15,
+                                      color: AppColors.primaryText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-
-                  // Submit button
-                  ElevatedButton(
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22C55E),
-                      minimumSize: const Size(double.infinity, 56),
-                    ),
-                    child: Text(
-                      'Complete Warmup ${widget.warmupIndex + 1}',
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                  ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
-                ],
-              ),
+                    child: Text('Complete Warmup ${widget.warmupIndex + 1}'),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -204,53 +186,47 @@ class _WarmupChecklistScreenState extends State<WarmupChecklistScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(
-              width: 80,
-              height: 80,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
-                color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                color: AppColors.navPill,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Color(0xFF22C55E),
-                size: 48,
+              child: Icon(
+                Icons.check_circle_outline_rounded,
+                color: AppColors.secondaryGreen,
+                size: 44,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(
               state.isLastWarmup ? 'All Warmups Complete!' : 'Great Job!',
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: AppTypography.headingMedium(fontSize: 21),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               state.isLastWarmup
                   ? "You're ready to start your 30-day challenge!"
                   : 'Warmup ${widget.warmupIndex + 1} complete. Keep going!',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white54,
-                  ),
+              style: AppTypography.body(),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                // Pop back to warmup overview or dashboard
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22C55E),
-                minimumSize: const Size(200, 48),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+                child: Text(state.isLastWarmup ? 'Start Day 1' : 'Continue'),
               ),
-              child: Text(state.isLastWarmup ? 'Start Day 1' : 'Continue'),
             ),
           ],
         ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/config/prompt_config.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/onboarding_data.dart';
 import '../../../bloc/onboarding/onboarding_bloc.dart';
 import '../../../bloc/onboarding/onboarding_event.dart';
@@ -13,7 +13,7 @@ import '../../../bloc/onboarding/onboarding_state.dart';
 class PersonalInfoStep extends StatefulWidget {
   final OnboardingInProgress state;
 
-  const PersonalInfoStep({required this.state});
+  const PersonalInfoStep({super.key, required this.state});
 
   @override
   State<PersonalInfoStep> createState() => PersonalInfoStepState();
@@ -47,12 +47,12 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
   void _updateInfo() {
     final age = int.tryParse(_ageController.text);
     context.read<OnboardingBloc>().add(
-      PersonalInfoUpdated(
-        firstName: _nameController.text.trim(),
-        age: age,
-        location: _locationController.text.trim(),
-      ),
-    );
+          PersonalInfoUpdated(
+            firstName: _nameController.text.trim(),
+            age: age,
+            location: _locationController.text.trim(),
+          ),
+        );
   }
 
   @override
@@ -63,143 +63,119 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
         children: [
           Text(
             "Let's personalize your journey",
-            style: Theme.of(context).textTheme.headlineMedium,
-          ).animate().fadeIn(duration: 400.ms),
-
-          const SizedBox(height: 8),
-
+            style: AppTypography.headingLarge(fontSize: 24),
+          ),
+          const SizedBox(height: 6),
           Text(
             "We'll create custom scripts just for you",
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-          ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
+            style: AppTypography.body(),
+          ),
+          const SizedBox(height: 22),
 
-          const SizedBox(height: 32),
-
-          // Name field
-          _buildTextField(
-            controller: _nameController,
-            label: 'First Name',
-            hint: 'Enter your first name',
-            icon: Icons.person_outline,
-            onChanged: (_) => _updateInfo(),
-          ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
+          SageCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTextField(
+                  controller: _nameController,
+                  label: 'FIRST NAME',
+                  hint: 'Enter your first name',
+                  icon: Icons.person_outline_rounded,
+                  onChanged: (_) => _updateInfo(),
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _ageController,
+                  label: 'AGE',
+                  hint: 'Enter your age',
+                  icon: Icons.cake_outlined,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => _updateInfo(),
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _locationController,
+                  label: 'LOCATION (CITY/TOWN)',
+                  hint: 'Where are you from?',
+                  icon: Icons.location_on_outlined,
+                  onChanged: (_) => _updateInfo(),
+                ),
+                if (widget.state.languageOptions.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    'SCRIPT LANGUAGE',
+                    style: AppTypography.uppercaseLabel(
+                      fontSize: 11,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildLanguageSelector(context),
+                ],
+              ],
+            ),
+          ),
 
           const SizedBox(height: 20),
 
-          // Age field
-          _buildTextField(
-            controller: _ageController,
-            label: 'Age',
-            hint: 'Enter your age',
-            icon: Icons.cake_outlined,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (_) => _updateInfo(),
-          ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
-
-          const SizedBox(height: 20),
-
-          // Location field
-          _buildTextField(
-            controller: _locationController,
-            label: 'Location (City/Town)',
-            hint: 'Where are you from?',
-            icon: Icons.location_on_outlined,
-            onChanged: (_) => _updateInfo(),
-          ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
-
-          const SizedBox(height: 24),
-
-          // Language Selection
-          if (widget.state.languageOptions.isNotEmpty) ...[
-            Text(
-              'Script Language',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: Colors.white70),
-            ).animate().fadeIn(delay: 450.ms, duration: 400.ms),
-            const SizedBox(height: 8),
-            Text(
-              'Choose the language for your daily scripts',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.white38),
-            ).animate().fadeIn(delay: 475.ms, duration: 400.ms),
-            const SizedBox(height: 12),
-            _buildLanguageSelector(
-              context,
-            ).animate().fadeIn(delay: 500.ms, duration: 400.ms),
-          ],
-
-          const SizedBox(height: 32),
-
-          // Script Style (PromptMode)
-          Text(
-            '🎭 Script Style',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+          SageCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SCRIPT STYLE',
+                  style: AppTypography.uppercaseLabel(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'How would you like your scripts to feel?',
+                  style: AppTypography.body(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                _buildPromptModeSelector(context),
+                const SizedBox(height: 18),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text(
+                  'EXPRESSION STYLE',
+                  style: AppTypography.uppercaseLabel(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'How polished should your scripts sound?',
+                  style: AppTypography.body(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                _buildHumanTouchSelector(context),
+                const SizedBox(height: 18),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text(
+                  'CULTURAL CONTEXT',
+                  style: AppTypography.uppercaseLabel(
+                    fontSize: 11,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Who is your primary audience?',
+                  style: AppTypography.body(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                _buildCultureSelector(context),
+              ],
             ),
-          ).animate().fadeIn(delay: 550.ms, duration: 400.ms),
-          const SizedBox(height: 8),
-          Text(
-            'How would you like your scripts to feel?',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
-          ).animate().fadeIn(delay: 575.ms, duration: 400.ms),
-          const SizedBox(height: 12),
-          _buildPromptModeSelector(
-            context,
-          ).animate().fadeIn(delay: 600.ms, duration: 400.ms),
-
-          const SizedBox(height: 24),
-
-          // Human Touch Level
-          Text(
-            '✨ Expression Style',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ).animate().fadeIn(delay: 650.ms, duration: 400.ms),
-          const SizedBox(height: 8),
-          Text(
-            'How polished should your scripts sound?',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
-          ).animate().fadeIn(delay: 675.ms, duration: 400.ms),
-          const SizedBox(height: 12),
-          _buildHumanTouchSelector(
-            context,
-          ).animate().fadeIn(delay: 700.ms, duration: 400.ms),
-
-          const SizedBox(height: 24),
-
-          // Audience Culture
-          Text(
-            '🌍 Cultural Context',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ).animate().fadeIn(delay: 750.ms, duration: 400.ms),
-          const SizedBox(height: 8),
-          Text(
-            'Who is your primary audience?',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white38),
-          ).animate().fadeIn(delay: 775.ms, duration: 400.ms),
-          const SizedBox(height: 12),
-          _buildCultureSelector(
-            context,
-          ).animate().fadeIn(delay: 800.ms, duration: 400.ms),
-
-          const SizedBox(height: 24),
+          ),
         ],
       ),
     );
@@ -207,148 +183,140 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
 
   Widget _buildPromptModeSelector(BuildContext context) {
     final options = [
-      (PromptMode.selfDiscovery, '🌱 Self Discovery', 'Feel safe being seen'),
+      (PromptMode.selfDiscovery, 'Self Discovery', 'Feel safe being seen'),
       (
         PromptMode.clarityTraining,
-        '💭 Clarity Training',
+        'Clarity Training',
         'Clear thinking through speaking',
       ),
       (
         PromptMode.storytelling,
-        '📖 Storytelling',
+        'Storytelling',
         'Connect through shared moments',
       ),
       (
         PromptMode.authorityBuild,
-        '🎯 Authority Build',
+        'Authority Build',
         'Calm, grounded presence',
       ),
-      (PromptMode.rawDiary, '📓 Raw Diary', 'Honest expression without polish'),
+      (PromptMode.rawDiary, 'Raw Diary', 'Honest expression without polish'),
     ];
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children:
-          options.map((option) {
-            final isSelected = widget.state.promptMode == option.$1;
-            return GestureDetector(
-              onTap: () {
-                context.read<OnboardingBloc>().add(
+      children: options.map((option) {
+        final isSelected = widget.state.promptMode == option.$1;
+        return GestureDetector(
+          onTap: () {
+            context.read<OnboardingBloc>().add(
                   PromptConfigUpdated(promptMode: option.$1),
                 );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.2)
-                          : const Color(0xFF252538),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                        isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white10,
-                    width: isSelected ? 2 : 1,
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.olivePillFill
+                  : AppColors.background,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected
+                    ? AppColors.primaryOlive
+                    : AppColors.divider,
+                width: isSelected ? 1.6 : 1.1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  option.$2,
+                  style: AppTypography.bodyStrong(
+                    fontSize: 13.5,
+                    color: isSelected
+                        ? AppColors.primaryOlive
+                        : AppColors.primaryText,
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      option.$2,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      option.$3,
-                      style: TextStyle(color: Colors.white38, fontSize: 11),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  option.$3,
+                  style: AppTypography.body(
+                    color: AppColors.secondaryText,
+                    fontSize: 11.5,
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
   Widget _buildHumanTouchSelector(BuildContext context) {
     final options = [
-      (HumanTouchLevel.raw, '🌊 Raw', 'Messy, real, unfiltered'),
-      (HumanTouchLevel.natural, '🍃 Natural', 'Imperfect but flowing'),
-      (HumanTouchLevel.composed, '🎭 Composed', 'Calm and controlled'),
+      (HumanTouchLevel.raw, 'Raw', 'Real & unfiltered'),
+      (HumanTouchLevel.natural, 'Natural', 'Flowing & warm'),
+      (HumanTouchLevel.composed, 'Composed', 'Calm & controlled'),
     ];
 
     return Row(
-      children:
-          options.map((option) {
-            final isSelected = widget.state.humanTouchLevel == option.$1;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  context.read<OnboardingBloc>().add(
+      children: options.map((option) {
+        final isSelected = widget.state.humanTouchLevel == option.$1;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              context.read<OnboardingBloc>().add(
                     PromptConfigUpdated(humanTouchLevel: option.$1),
                   );
-                },
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: option.$1 != HumanTouchLevel.composed ? 8 : 0,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        isSelected
-                            ? Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.2)
-                            : const Color(0xFF252538),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color:
-                          isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.white10,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        option.$2,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        option.$3,
-                        style: TextStyle(color: Colors.white38, fontSize: 10),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+            },
+            child: Container(
+              margin: EdgeInsets.only(
+                right: option.$1 != HumanTouchLevel.composed ? 8 : 0,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.olivePillFill
+                    : AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primaryOlive
+                      : AppColors.divider,
+                  width: isSelected ? 1.6 : 1.1,
                 ),
               ),
-            );
-          }).toList(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    option.$2,
+                    style: AppTypography.bodyStrong(
+                      fontSize: 13.5,
+                      color: isSelected
+                          ? AppColors.primaryOlive
+                          : AppColors.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    option.$3,
+                    style: AppTypography.body(
+                      color: AppColors.secondaryText,
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -356,134 +324,112 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
     final options = [
       (
         AudienceCulture.india,
-        '🇮🇳 Indian Context',
-        'Quiet self-doubt, fear of judgement',
+        'Indian Context',
+        'Overcoming self-doubt & judgement',
       ),
-      (AudienceCulture.global, '🌐 Global', 'Universal, no cultural specifics'),
+      (AudienceCulture.global, 'Global', 'Universal audience context'),
     ];
 
     return Row(
-      children:
-          options.map((option) {
-            final isSelected = widget.state.audienceCulture == option.$1;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  context.read<OnboardingBloc>().add(
+      children: options.map((option) {
+        final isSelected = widget.state.audienceCulture == option.$1;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              context.read<OnboardingBloc>().add(
                     PromptConfigUpdated(audienceCulture: option.$1),
                   );
-                },
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: option.$1 == AudienceCulture.india ? 8 : 0,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        isSelected
-                            ? Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.2)
-                            : const Color(0xFF252538),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color:
-                          isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.white10,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        option.$2,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        option.$3,
-                        style: TextStyle(color: Colors.white38, fontSize: 10),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+            },
+            child: Container(
+              margin: EdgeInsets.only(
+                right: option.$1 == AudienceCulture.india ? 8 : 0,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.olivePillFill
+                    : AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primaryOlive
+                      : AppColors.divider,
+                  width: isSelected ? 1.6 : 1.1,
                 ),
               ),
-            );
-          }).toList(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    option.$2,
+                    style: AppTypography.bodyStrong(
+                      fontSize: 13.5,
+                      color: isSelected
+                          ? AppColors.primaryOlive
+                          : AppColors.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    option.$3,
+                    style: AppTypography.body(
+                      color: AppColors.secondaryText,
+                      fontSize: 11,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
   Widget _buildLanguageSelector(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF252538),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        color: AppColors.background,
+        borderRadius: AppRadii.inputBorder,
+        border: Border.all(color: AppColors.divider, width: 1.2),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<LanguageOption>(
           value: widget.state.selectedLanguage,
           isExpanded: true,
-          dropdownColor: const Color(0xFF252538),
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
-          hint: const Text(
-            'Select language',
-            style: TextStyle(color: Colors.white38),
+          dropdownColor: AppColors.background,
+          style: AppTypography.bodyStrong(),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.secondaryText,
           ),
-          items:
-              widget.state.languageOptions.map((lang) {
-                return DropdownMenuItem<LanguageOption>(
-                  value: lang,
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.language,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              lang.nativeName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            if (lang.description != null)
-                              Text(
-                                lang.description!,
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+          hint: Text(
+            'Select language',
+            style: AppTypography.body(color: AppColors.mutedText),
+          ),
+          items: widget.state.languageOptions.map((lang) {
+            return DropdownMenuItem<LanguageOption>(
+              value: lang,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.language_rounded,
+                    color: AppColors.primaryOlive,
+                    size: 19,
                   ),
-                );
-              }).toList(),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      lang.nativeName,
+                      style: AppTypography.bodyStrong(fontSize: 14.5),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
           onChanged: (lang) {
             if (lang != null) {
               context.read<OnboardingBloc>().add(LanguageSelected(lang));
@@ -508,9 +454,10 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
       children: [
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: Colors.white70),
+          style: AppTypography.uppercaseLabel(
+            fontSize: 11,
+            color: AppColors.secondaryText,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -518,29 +465,11 @@ class PersonalInfoStepState extends State<PersonalInfoStep> {
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           onChanged: onChanged,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: AppTypography.bodyStrong(),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.white54),
+            prefixIcon: Icon(icon, color: AppColors.secondaryText, size: 20),
             hintText: hint,
-            filled: true,
-            fillColor: const Color(0xFF1E1E2E),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
+            fillColor: AppColors.background,
           ),
         ),
       ],

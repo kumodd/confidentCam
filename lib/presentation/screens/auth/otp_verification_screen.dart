@@ -1,19 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/injection_container.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/repositories/user_repository.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 
-/// OTP verification screen.
+/// OTP verification screen in the minimalist sage & olive design system.
 class OtpVerificationScreen extends StatefulWidget {
   final String phone;
 
@@ -36,7 +37,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   void initState() {
     super.initState();
     _startResendTimer();
-    // Auto focus OTP input
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -88,17 +88,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
   }
 
-  /// Shows a bottom sheet to collect the user's display name after OTP success.
-  /// Runs for new users only. The user can skip by tapping "Skip".
   void _showNameCollectionSheet(BuildContext context, String userId) {
     final nameController = TextEditingController();
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1E2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (sheetCtx) {
         return Padding(
@@ -106,97 +104,64 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24,
             left: 24,
             right: 24,
-            top: 24,
+            top: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Handle bar
               Center(
                 child: Container(
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: AppColors.divider,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Greeting
               Text(
-                '👋  Welcome! What should we call you?',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Welcome! What should we call you?',
+                style: AppTypography.headingMedium(fontSize: 20),
               ),
               const SizedBox(height: 8),
               Text(
                 'Your name will appear on your dashboard. You can change it later in Settings.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white54,
-                ),
+                style: AppTypography.body(),
               ),
-              const SizedBox(height: 24),
-
-              // Name field
+              const SizedBox(height: 20),
               TextField(
                 controller: nameController,
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.bodyStrong(),
                 decoration: InputDecoration(
                   labelText: 'Your first name',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.person_outline, color: Colors.white38),
-                  filled: true,
-                  fillColor: const Color(0xFF252538),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
+                  prefixIcon: Icon(
+                    Icons.person_outline_rounded,
+                    color: AppColors.secondaryText,
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Save button
               ElevatedButton(
                 onPressed: () async {
                   final name = nameController.text.trim();
                   Navigator.of(sheetCtx).pop();
                   if (name.isNotEmpty) {
                     try {
-                      await sl<UserRepository>().updateDisplayName(userId, name);
-                    } catch (_) {
-                      // Non-blocking: name update failure should not block login
-                    }
+                      await sl<UserRepository>()
+                          .updateDisplayName(userId, name);
+                    } catch (_) {}
                   }
-                  // Route to app regardless of whether name was saved
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Save & Continue', style: TextStyle(fontSize: 16)),
+                child: Text('Save & Continue'),
               ),
-              const SizedBox(height: 10),
-
-              // Skip option
+              const SizedBox(height: 8),
               TextButton(
                 onPressed: () {
                   Navigator.of(sheetCtx).pop();
@@ -204,7 +169,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
                 },
-                child: const Text('Skip for now', style: TextStyle(color: Colors.white38)),
+                child: Text(
+                  'Skip for now',
+                  style: AppTypography.body(color: AppColors.secondaryText),
+                ),
               ),
             ],
           ),
@@ -223,27 +191,27 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final defaultPinTheme = PinTheme(
-      width: 56,
-      height: 60,
-      textStyle: const TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: Colors.white,
+      width: 50,
+      height: 58,
+      textStyle: GoogleFonts.manrope(
+        fontSize: 22,
+        fontWeight: FontWeight.w800,
+        color: AppColors.primaryText,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider, width: 1.4),
       ),
     );
 
     final focusedPinTheme = defaultPinTheme.copyWith(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.olivePillFill,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary,
-          width: 2,
+          color: AppColors.primaryOlive,
+          width: 2.0,
         ),
       ),
     );
@@ -258,10 +226,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
         if (state is AuthSuccess) {
           if (state.isNewUser) {
-            // New user: collect their name before routing to the app
             _showNameCollectionSheet(context, state.user.id);
           } else {
-            // Returning user: go straight to dashboard
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
         } else if (state is AuthFailure) {
@@ -275,7 +241,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 content: Text(
                   'Too many failed attempts. Locked for ${AppConfig.otpLockoutMinutes} minutes.',
                 ),
-                backgroundColor: Theme.of(context).colorScheme.error,
+                backgroundColor: AppColors.error,
                 duration: const Duration(seconds: 5),
               ),
             );
@@ -283,138 +249,140 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('${state.message} ($remaining attempts left)'),
-                backgroundColor: Theme.of(context).colorScheme.error,
+                backgroundColor: AppColors.error,
               ),
             );
           }
         }
       },
       child: Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
+            icon: Icon(Icons.arrow_back_rounded),
             onPressed: () => Navigator.of(context).pop(),
           ),
+          title: Text('Verification'),
         ),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 20),
-
-                  // Header
-                  Text(
-                    'Verify your number',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ).animate().fadeIn(duration: 400.ms),
-
-                  const SizedBox(height: 12),
-
-                  Text(
-                    'Enter the 6-digit code sent to',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-                  ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    widget.phone,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ).animate().fadeIn(delay: 150.ms, duration: 400.ms),
-
-                  const SizedBox(height: 48),
-
-                  // OTP input
-                  Center(
-                    child: Pinput(
-                      controller: _otpController,
-                      focusNode: _focusNode,
-                      length: AppConfig.otpLength,
-                      defaultPinTheme: defaultPinTheme,
-                      focusedPinTheme: focusedPinTheme,
-                      submittedPinTheme: defaultPinTheme,
-                      onCompleted: _verifyOtp,
-                      cursor: Container(
-                        width: 2,
-                        height: 24,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      showCursor: true,
-                    ),
-                  ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-
-                  const SizedBox(height: 32),
-
-                  // Resend button
-                  Center(
-                    child: _resendTimer > 0
-                        ? Text(
-                            'Resend code in $_resendTimer seconds',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.white54),
-                          )
-                        : TextButton(
-                            onPressed: _resendOtp,
-                            child: const Text('Resend Code'),
-                          ),
-                  ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
-
-                  const Spacer(),
-
-                  // Lockout warning
-                  if (_isLocked)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-                      ),
-                      child: Row(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SageCard(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.lock_clock, color: Colors.red, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Too many attempts. Try again in ${_lockoutTimer ~/ 60}:${(_lockoutTimer % 60).toString().padLeft(2, '0')}',
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                          Icon(
+                            Icons.shield_outlined,
+                            color: AppColors.secondaryGreen,
+                            size: 20,
+                          ),
+                          Text(
+                            'ONE-TIME PASSCODE',
+                            style: AppTypography.uppercaseLabel(
+                              fontSize: 11,
+                              color: AppColors.secondaryText,
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                  // Verify button
-                  ElevatedButton(
-                    onPressed: _isLocked ? null : () => _verifyOtp(_otpController.text),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                      const SizedBox(height: 12),
+                      Container(height: 1.2, color: AppColors.divider),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Verify your number',
+                        style: AppTypography.headingLarge(fontSize: 24),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter the 6-digit code sent to',
+                        style: AppTypography.body(),
+                      ),
+                      const SizedBox(height: 8),
+                      OlivePillBadge(
+                        label: widget.phone,
+                        icon: Icons.phone_outlined,
+                      ),
+                      const SizedBox(height: 28),
+                      Center(
+                        child: Pinput(
+                          controller: _otpController,
+                          focusNode: _focusNode,
+                          length: AppConfig.otpLength,
+                          defaultPinTheme: defaultPinTheme,
+                          focusedPinTheme: focusedPinTheme,
+                          submittedPinTheme: defaultPinTheme,
+                          onCompleted: _verifyOtp,
+                          cursor: Container(
+                            width: 2,
+                            height: 22,
+                            color: AppColors.primaryOlive,
+                          ),
+                          showCursor: true,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: _resendTimer > 0
+                            ? Text(
+                                'Resend code in $_resendTimer seconds',
+                                style: AppTypography.body(
+                                  fontSize: 13.5,
+                                  color: AppColors.secondaryText,
+                                ),
+                              )
+                            : TextButton(
+                                onPressed: _resendOtp,
+                                child: Text('Resend Code'),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                if (_isLocked)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorTint,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.4),
                       ),
                     ),
-                    child: const Text('Verify', style: TextStyle(fontSize: 18)),
-                  ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
-                ],
-              ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lock_clock_outlined,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Too many attempts. Try again in ${_lockoutTimer ~/ 60}:${(_lockoutTimer % 60).toString().padLeft(2, '0')}',
+                            style: AppTypography.body(
+                              color: AppColors.error,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ElevatedButton(
+                  onPressed:
+                      _isLocked ? null : () => _verifyOtp(_otpController.text),
+                  child: Text('Verify & Continue'),
+                ),
+              ],
             ),
           ),
         ),

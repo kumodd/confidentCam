@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../../domain/entities/content_script.dart';
 import '../../../../domain/entities/onboarding_data.dart';
 import '../../../bloc/content_creator/content_creator_bloc.dart';
 import '../../../bloc/content_creator/content_creator_event.dart';
 import '../../../bloc/content_creator/content_creator_state.dart';
+import '../content_creator_screen.dart';
 
 /// Tab for generating new scripts using AI.
 class ScriptGeneratorTab extends StatefulWidget {
@@ -51,7 +53,7 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
     try {
       final languageDataSource = sl<SupabaseLanguageDataSource>();
       final options = await languageDataSource.getLanguageOptions();
-      
+
       if (mounted) {
         setState(() {
           _languageOptions = options;
@@ -85,268 +87,309 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
           _showScriptDialog(context, state.script);
         } else if (state is ContentCreatorError) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+            ),
           );
         }
       },
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
-              Text(
-                '✨ Generate Your Script',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ).animate().fadeIn(),
-              const SizedBox(height: 8),
-              Text(
-                'Answer a few questions and let AI create your script',
-                style: TextStyle(color: Colors.white54),
-              ),
-              const SizedBox(height: 24),
-
-              // Questionnaire
-              _buildTextField(
-                controller: _topicController,
-                label: 'What is this video about?',
-                hint: 'e.g., 5 productivity tips for remote workers',
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-
-              _buildTextField(
-                controller: _audienceController,
-                label: 'Who is your target audience?',
-                hint: 'e.g., Young professionals, students, entrepreneurs',
-              ),
-              const SizedBox(height: 16),
-
-              _buildTextField(
-                controller: _messageController,
-                label: 'What is your key message?',
-                hint: 'e.g., Small daily habits lead to big results',
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-
-              // Tone selector
-              _buildLabel('Select your tone'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children:
-                    _toneOptions.map((tone) {
-                      final isSelected = _selectedTone == tone;
-                      return ChoiceChip(
-                        label: Text(tone),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFFEC4899),
-                        backgroundColor: const Color(0xFF2D2D3D),
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
+              SageCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_outlined,
+                          color: AppColors.primaryOlive,
+                          size: 20,
                         ),
-                        onSelected: (selected) {
-                          if (selected) setState(() => _selectedTone = tone);
-                        },
-                      );
-                    }).toList(),
+                        Text(
+                          'AI SCRIPT GENERATOR',
+                          style: AppTypography.uppercaseLabel(
+                            fontSize: 11,
+                            color: AppColors.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(height: 1.2, color: AppColors.divider),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Generate Your Script',
+                      style: AppTypography.headingMedium(fontSize: 20),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Answer a few questions and let AI create your teleprompter script',
+                      style: AppTypography.body(fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildTextField(
+                      controller: _topicController,
+                      label: 'WHAT IS THIS VIDEO ABOUT?',
+                      hint: 'e.g., 5 productivity tips for remote workers',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _audienceController,
+                      label: 'WHO IS YOUR TARGET AUDIENCE?',
+                      hint: 'e.g., Young professionals, students, founders',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _messageController,
+                      label: 'WHAT IS YOUR KEY MESSAGE?',
+                      hint: 'e.g., Small daily habits lead to big results',
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
 
-              // Language selector
-              _buildLabel('Script Language'),
-              const SizedBox(height: 8),
-              _isLoadingLanguages
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D2D3D),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        children: [
-                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEC4899))),
-                          SizedBox(width: 12),
-                          Text('Loading languages...', style: TextStyle(color: Colors.white54)),
-                        ],
-                      ),
-                    )
-                  : _languageOptions.isEmpty
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2D2D3D),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text('No languages available', style: TextStyle(color: Colors.white54)),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2D2D3D),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<LanguageOption>(
-                              value: _selectedLanguage,
-                              isExpanded: true,
-                              dropdownColor: const Color(0xFF2D2D3D),
-                              icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFEC4899)),
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
-                              items: _languageOptions.map((lang) {
-                                return DropdownMenuItem<LanguageOption>(
-                                  value: lang,
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.language, color: Color(0xFFEC4899), size: 18),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          '${lang.name} (${lang.nativeName})',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                if (value != null) setState(() => _selectedLanguage = value);
-                              },
+              const SizedBox(height: 16),
+
+              SageCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLabel('SELECT YOUR TONE'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _toneOptions.map((tone) {
+                        final isSelected = _selectedTone == tone;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedTone = tone),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.olivePillFill
+                                  : AppColors.background,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primaryOlive
+                                    : AppColors.divider,
+                                width: isSelected ? 1.6 : 1.1,
+                              ),
+                            ),
+                            child: Text(
+                              tone,
+                              style: AppTypography.bodyStrong(
+                                fontSize: 13.5,
+                                color: isSelected
+                                    ? AppColors.primaryOlive
+                                    : AppColors.primaryText,
+                              ),
                             ),
                           ),
-                        ),
-              const SizedBox(height: 24),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    _buildLabel('SCRIPT LANGUAGE'),
+                    const SizedBox(height: 10),
+                    _isLoadingLanguages
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: AppRadii.inputBorder,
+                              border: Border.all(color: AppColors.divider),
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primaryOlive,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Loading languages...',
+                                  style: AppTypography.body(),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _languageOptions.isEmpty
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: AppRadii.inputBorder,
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: Text(
+                                  'No languages available',
+                                  style: AppTypography.body(),
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: AppRadii.inputBorder,
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<LanguageOption>(
+                                    value: _selectedLanguage,
+                                    isExpanded: true,
+                                    dropdownColor: AppColors.background,
+                                    icon: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: AppColors.secondaryText,
+                                    ),
+                                    style: AppTypography.bodyStrong(),
+                                    items: _languageOptions.map((lang) {
+                                      return DropdownMenuItem<LanguageOption>(
+                                        value: lang,
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.language_rounded,
+                                              color: AppColors.primaryOlive,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                '${lang.name} (${lang.nativeName})',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(
+                                          () => _selectedLanguage = value,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                  ],
+                ),
+              ),
 
-              // Template selector
-              _buildLabel('Choose a script template'),
-              const SizedBox(height: 12),
-              ...PromptTemplate.values.map(_buildTemplateCard),
               const SizedBox(height: 16),
 
-              // Custom prompt (optional, shown for Custom template)
+              SageSectionHeader(title: 'CHOOSE A SCRIPT TEMPLATE'),
+              const SizedBox(height: 6),
+              ...PromptTemplate.values.map(_buildTemplateCard),
+
               if (_selectedTemplate == PromptTemplate.custom) ...[
-                _buildTextField(
-                  controller: _customPromptController,
-                  label: 'Custom prompt instructions',
-                  hint: 'Add any specific instructions for the AI...',
-                  maxLines: 3,
+                const SizedBox(height: 12),
+                SageCard(
+                  padding: const EdgeInsets.all(18),
+                  child: _buildTextField(
+                    controller: _customPromptController,
+                    label: 'CUSTOM PROMPT INSTRUCTIONS',
+                    hint: 'Add any specific instructions for the AI...',
+                    maxLines: 3,
+                  ),
                 ),
-                const SizedBox(height: 16),
               ],
 
-              // Generate button
+              const SizedBox(height: 18),
+
               BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
                 builder: (context, state) {
                   final isGenerating = state is ScriptGenerating;
 
                   return SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       onPressed: isGenerating ? null : _generateScript,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEC4899),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child:
-                          isGenerating
-                              ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Generating...'),
-                                ],
-                              )
-                              : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.auto_awesome),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Generate Script',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                      icon: isGenerating
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.background,
                               ),
+                            )
+                          : Icon(Icons.auto_awesome_outlined, size: 19),
+                      label: Text(
+                        isGenerating ? 'Generating...' : 'Generate Script',
+                      ),
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 24),
-              
-              // Divider with "OR"
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Colors.white24)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'OR',
-                      style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Colors.white24)),
-                ],
-              ),
-              const SizedBox(height: 24),
 
-              // Custom script creation button
-              Text(
-                '✍️ Write Your Own Script',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(height: 22),
+
+              SageCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Write Your Own Script',
+                      style: AppTypography.sectionTitle(fontSize: 17),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Prefer to write your own? Create a custom 3-part teleprompter script from scratch.',
+                      style: AppTypography.body(fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showCustomScriptDialog(context),
+                        icon: Icon(
+                          Icons.edit_note_rounded,
+                          color: AppColors.secondaryGreen,
+                        ),
+                        label: Text('Create Custom Script'),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.background,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Prefer to write your own? Create a custom script from scratch.',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _showCustomScriptDialog(context),
-                  icon: const Icon(Icons.edit_note, color: Color(0xFF8B5CF6)),
-                  label: const Text(
-                    'Create Custom Script',
-                    style: TextStyle(
-                      color: Color(0xFF8B5CF6),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFF8B5CF6)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -357,10 +400,9 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w600,
-        fontSize: 14,
+      style: AppTypography.uppercaseLabel(
+        fontSize: 11,
+        color: AppColors.secondaryText,
       ),
     );
   }
@@ -379,20 +421,10 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
         TextFormField(
           controller: controller,
           maxLines: maxLines,
-          style: const TextStyle(color: Colors.white),
+          style: AppTypography.bodyStrong(),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-            filled: true,
-            fillColor: const Color(0xFF2D2D3D),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFEC4899)),
-            ),
+            fillColor: AppColors.background,
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -408,63 +440,66 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
   Widget _buildTemplateCard(PromptTemplate template) {
     final isSelected = _selectedTemplate == template;
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTemplate = template),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? const Color(0xFFEC4899).withOpacity(0.2)
-                  : const Color(0xFF2D2D3D),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? const Color(0xFFEC4899) : Colors.transparent,
-            width: 2,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTemplate = template),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color:
+                isSelected ? AppColors.olivePillFill : AppColors.cardSurface,
+            borderRadius: AppRadii.cardBorder,
+            border: Border.all(
+              color:
+                  isSelected ? AppColors.primaryOlive : AppColors.divider,
+              width: isSelected ? 1.8 : 1.2,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? const Color(0xFFEC4899) : Colors.white38,
-                  width: 2,
+          child: Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primaryOlive
+                        : AppColors.secondaryText,
+                    width: 1.6,
+                  ),
+                  color: isSelected
+                      ? AppColors.primaryOlive
+                      : AppColors.background,
                 ),
-                color:
-                    isSelected ? const Color(0xFFEC4899) : Colors.transparent,
+                child: isSelected
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: AppColors.background,
+                        size: 14,
+                      )
+                    : null,
               ),
-              child:
-                  isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 14)
-                      : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    template.displayName,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.w500,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      template.displayName,
+                      style: AppTypography.bodyStrong(fontSize: 15),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    template.description,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      template.description,
+                      style: AppTypography.body(fontSize: 12.5),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -475,103 +510,91 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
 
     if (_selectedLanguage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please wait for languages to load'), backgroundColor: Colors.orange),
+        SnackBar(
+          content: Text('Please wait for languages to load'),
+        ),
       );
       return;
     }
 
     context.read<ContentCreatorBloc>().add(
-      GenerateScript(
-        userId: widget.userId,
-        topic: _topicController.text,
-        audience: _audienceController.text,
-        message: _messageController.text,
-        tone: _selectedTone,
-        language: _selectedLanguage!.name,
-        template: _selectedTemplate,
-        customPrompt:
-            _selectedTemplate == PromptTemplate.custom
+          GenerateScript(
+            userId: widget.userId,
+            topic: _topicController.text,
+            audience: _audienceController.text,
+            message: _messageController.text,
+            tone: _selectedTone,
+            language: _selectedLanguage!.name,
+            template: _selectedTemplate,
+            customPrompt: _selectedTemplate == PromptTemplate.custom
                 ? _customPromptController.text
                 : null,
-      ),
-    );
+          ),
+        );
   }
 
   void _showScriptDialog(BuildContext context, ContentScript script) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.check_circle_outline_rounded,
+              color: AppColors.secondaryGreen,
             ),
-            title: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Color(0xFF22C55E)),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Script Generated!',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    script.title,
-                    style: const TextStyle(
-                      color: Color(0xFFEC4899),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2D2D3D),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      script.fullScript,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Script Generated!',
+                style: AppTypography.headingMedium(fontSize: 19),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.read<ContentCreatorBloc>().add(
-                    LoadScripts(widget.userId),
-                  );
-                },
-                child: const Text('View in My Scripts'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Navigate to record tab (index 2)
-                  // This would require a callback or state management
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEC4899),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                script.title,
+                style: AppTypography.sectionTitle(
+                  color: AppColors.primaryOlive,
                 ),
-                child: const Text('Record Now'),
+              ),
+              const SizedBox(height: 12),
+              SageCard(
+                padding: const EdgeInsets.all(14),
+                child: Text(
+                  script.fullScript.replaceAll('**', ''),
+                  style: AppTypography.body(color: AppColors.primaryText),
+                ),
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context
+                  .read<ContentCreatorBloc>()
+                  .add(LoadScripts(widget.userId));
+              ContentCreatorTabController.of(context)?.switchToTab(1);
+            },
+            child: Text('View in My Scripts'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ContentCreatorBloc>().add(SelectScript(script));
+              ContentCreatorTabController.of(context)?.switchToTab(2);
+            },
+            child: Text('Record Now'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -584,173 +607,146 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.9,
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
         child: Padding(
           padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            left: 22,
+            right: 22,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 22,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 children: [
-                  const Icon(Icons.edit_note, color: Color(0xFF8B5CF6)),
-                  const SizedBox(width: 12),
-                  const Expanded(
+                  Icon(
+                    Icons.edit_note_rounded,
+                    color: AppColors.primaryOlive,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Text(
                       'Create Custom Script',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.headingMedium(fontSize: 20),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.secondaryText,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text(
+              const SizedBox(height: 4),
+              Text(
                 'Write your own 3-part script for the teleprompter',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
+                style: AppTypography.body(fontSize: 13),
               ),
-              const SizedBox(height: 20),
-              
-              // Form
+              const SizedBox(height: 16),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Title
-                      const Text('Script Title', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      _buildLabel('SCRIPT TITLE'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: titleController,
-                        style: const TextStyle(color: Colors.white),
+                        style: AppTypography.bodyStrong(),
                         decoration: InputDecoration(
                           hintText: 'e.g., My Morning Routine Tips',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                          filled: true,
-                          fillColor: const Color(0xFF2D2D3D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // Hook
-                      const Text('Part 1: Hook/Opening', style: TextStyle(color: Color(0xFFEC4899), fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      const Text('Grab attention (20-40 words)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      const SizedBox(height: 16),
+                      _buildLabel('PART 1: HOOK / OPENING (20–40 WORDS)'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: hookController,
-                        style: const TextStyle(color: Colors.white),
+                        style: AppTypography.bodyStrong(),
                         maxLines: 3,
                         decoration: InputDecoration(
                           hintText: 'Start with a hook that grabs attention...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                          filled: true,
-                          fillColor: const Color(0xFF2D2D3D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // Body
-                      const Text('Part 2: Content/Body', style: TextStyle(color: Color(0xFF8B5CF6), fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      const Text('Main content (80-150 words)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      const SizedBox(height: 16),
+                      _buildLabel('PART 2: CONTENT / BODY (80–150 WORDS)'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: bodyController,
-                        style: const TextStyle(color: Colors.white),
+                        style: AppTypography.bodyStrong(),
                         maxLines: 6,
                         decoration: InputDecoration(
                           hintText: 'Deliver your main value here...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                          filled: true,
-                          fillColor: const Color(0xFF2D2D3D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // Close
-                      const Text('Part 3: Close/Ending', style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      const Text('End with impact (20-40 words)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      const SizedBox(height: 16),
+                      _buildLabel('PART 3: CLOSE / ENDING (20–40 WORDS)'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: closeController,
-                        style: const TextStyle(color: Colors.white),
+                        style: AppTypography.bodyStrong(),
                         maxLines: 3,
                         decoration: InputDecoration(
                           hintText: 'End with **key takeaway**...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                          filled: true,
-                          fillColor: const Color(0xFF2D2D3D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      
-                      // Markdown Tips Card
-                      Container(
+                      const SizedBox(height: 18),
+                      SageCard(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
-                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.tips_and_updates, color: Color(0xFF8B5CF6), size: 18),
-                                SizedBox(width: 8),
-                                Text('💡 Markdown Tips', style: TextStyle(color: Color(0xFF8B5CF6), fontWeight: FontWeight.w600)),
+                                Icon(
+                                  Icons.tips_and_updates_outlined,
+                                  color: AppColors.primaryOlive,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'MARKDOWN TIPS',
+                                  style: AppTypography.uppercaseLabel(
+                                    color: AppColors.primaryOlive,
+                                    fontSize: 11,
+                                  ),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _buildMarkdownTip('**word**', 'Bold text (highlights yellow)'),
+                            const SizedBox(height: 10),
+                            _buildMarkdownTip('**word**', 'Bold highlighted text'),
                             const SizedBox(height: 6),
                             _buildMarkdownTip('...', 'Pause while speaking'),
                             const SizedBox(height: 6),
                             _buildMarkdownTip('• or -', 'Bullet point for lists'),
-                            const SizedBox(height: 6),
-                            _buildMarkdownTip('\\n', 'Line break'),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
               ),
-
-              // Save button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    if (titleController.text.isEmpty || hookController.text.isEmpty) {
+                    if (titleController.text.isEmpty ||
+                        hookController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill in title and at least the hook'), backgroundColor: Colors.orange),
+                        SnackBar(
+                          content: Text(
+                            'Please fill in title and at least the hook',
+                          ),
+                        ),
                       );
                       return;
                     }
@@ -771,24 +767,21 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
 
                     context.read<ContentCreatorBloc>().add(SaveScript(script));
                     Navigator.pop(ctx);
-                    
+
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Custom script saved! Check My Scripts tab.'),
-                        backgroundColor: Color(0xFF22C55E),
+                      SnackBar(
+                        content: Text(
+                          'Custom script saved! Check My Scripts tab.',
+                        ),
                       ),
                     );
-                    
-                    // Reload scripts
-                    context.read<ContentCreatorBloc>().add(LoadScripts(widget.userId));
+
+                    context
+                        .read<ContentCreatorBloc>()
+                        .add(LoadScripts(widget.userId));
                   },
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save Script', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  icon: Icon(Icons.save_outlined),
+                  label: Text('Save Script'),
                 ),
               ),
             ],
@@ -804,24 +797,24 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E2E),
+            color: AppColors.background,
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.divider),
           ),
           child: Text(
             code,
-            style: const TextStyle(
-              color: Color(0xFFFBBF24),
-              fontFamily: 'monospace',
+            style: GoogleFonts.manrope(
+              color: AppColors.primaryOlive,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             description,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: AppTypography.body(fontSize: 12.5),
           ),
         ),
       ],

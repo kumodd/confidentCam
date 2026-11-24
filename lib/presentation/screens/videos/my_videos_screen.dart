@@ -1,15 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../services/video_storage_service.dart';
 
-/// My Videos screen showing all recorded videos.
+/// My Videos screen showing all recorded videos in the sage & olive design system.
 class MyVideosScreen extends StatefulWidget {
   const MyVideosScreen({super.key});
 
@@ -41,49 +41,54 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-        ),
-      ),
+      color: AppColors.background,
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverAppBar(
-              floating: true,
-              backgroundColor: Colors.transparent,
-              title: Text('My Videos'),
-              actions: [
-                // Placeholder for filter/sort
-              ],
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'My Videos',
+                      style: AppTypography.headingLarge(fontSize: 25),
+                    ),
+                    OlivePillBadge(
+                      label: '${_videos.length} Saved',
+                      icon: Icons.videocam_outlined,
+                    ),
+                  ],
+                ),
+              ),
             ),
             if (_isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+              SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryOlive,
+                  ),
+                ),
               )
             else if (_videos.isEmpty)
               SliverFillRemaining(child: _buildEmptyState())
             else
               SliverPadding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.75,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.76,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _VideoCard(
-                          video: _videos[index],
-                          onDelete: () => _deleteVideo(_videos[index]),
-                          onExport: () => _exportVideo(_videos[index]),
-                        )
-                        .animate(delay: Duration(milliseconds: (index.clamp(0, 10)) * 50))
-                        .fadeIn()
-                        .scale(begin: const Offset(0.95, 0.95)),
+                      video: _videos[index],
+                      onDelete: () => _deleteVideo(_videos[index]),
+                      onExport: () => _exportVideo(_videos[index]),
+                    ),
                     childCount: _videos.length,
                   ),
                 ),
@@ -96,30 +101,41 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_library_outlined,
-            size: 80,
-            color: Colors.white.withValues(alpha: 0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: SageCard(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: AppColors.olivePillFill,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.olivePillBorder),
+                ),
+                child: Icon(
+                  Icons.video_library_outlined,
+                  size: 38,
+                  color: AppColors.primaryOlive,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'No Videos Yet',
+                style: AppTypography.headingMedium(fontSize: 21),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Complete warmups and daily challenges\nto see your recorded videos here.',
+                textAlign: TextAlign.center,
+                style: AppTypography.body(),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No Videos Yet',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white70),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Complete warmups and daily challenges\nto see your videos here.',
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white38),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -127,26 +143,25 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
   Future<void> _deleteVideo(VideoInfo video) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Delete Video'),
-            content: Text(
-              'Delete "${video.displayName}"? This cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Video'),
+        content: Text(
+          'Delete "${video.displayName}"? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true) {
@@ -159,130 +174,98 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
   Future<void> _exportVideo(VideoInfo video) async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder:
-          (ctx) => Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
               children: [
-                // Header
-                Row(
-                  children: [
-                    Icon(Icons.share, color: Colors.white70, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Export ${video.displayName}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            _formatBytes(video.sizeBytes),
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                Icon(
+                  Icons.ios_share_rounded,
+                  color: AppColors.primaryOlive,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Export ${video.displayName}',
+                        style: AppTypography.headingMedium(fontSize: 18),
                       ),
-                    ),
-                  ],
+                      Text(
+                        _formatBytes(video.sizeBytes),
+                        style: AppTypography.body(fontSize: 12.5),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white12),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.photo_library,
-                      color: Color(0xFF22C55E),
-                    ),
-                  ),
-                  title: const Text(
-                    'Save to Gallery ',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  subtitle: const Text(
-                    'Export to camera roll/gallery',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                  trailing: const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white38,
-                    size: 16,
-                  ),
-                  onTap: () => _handleExportToGallery(ctx, video),
-                ),
-                // ListTile(
-                //   leading: Container(
-                //     padding: const EdgeInsets.all(10),
-                //     decoration: BoxDecoration(
-                //       color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-                //       borderRadius: BorderRadius.circular(10),
-                //     ),
-                //     child: const Icon(Icons.folder, color: Color(0xFF6366F1)),
-                //   ),
-                //   title: const Text(
-                //     'Save to Files',
-                //     style: TextStyle(color: Colors.white),
-                //   ),
-                //   subtitle: const Text(
-                //     'Choose location in Files app',
-                //     style: TextStyle(color: Colors.white54),
-                //   ),
-                //   trailing: const Icon(
-                //     Icons.arrow_forward_ios,
-                //     color: Colors.white38,
-                //     size: 16,
-                //   ),
-                //   onTap: () => _handleExportToFiles(ctx, video),
-                // ),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.share, color: Color(0xFF3B82F6)),
-                  ),
-                  title: const Text(
-                    'Share',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  subtitle: const Text(
-                    'Share via apps',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                  trailing: const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white38,
-                    size: 16,
-                  ),
-                  onTap: () => _handleShare(ctx, video),
-                ),
-                const SizedBox(height: 8),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.navPill,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.secondaryGreen,
+                ),
+              ),
+              title: Text('Save to Gallery', style: AppTypography.bodyStrong()),
+              subtitle: Text(
+                'Export to camera roll / gallery',
+                style: AppTypography.body(fontSize: 12.5),
+              ),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.secondaryText,
+              ),
+              onTap: () => _handleExportToGallery(ctx, video),
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.olivePillFill,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.share_outlined,
+                  color: AppColors.primaryOlive,
+                ),
+              ),
+              title: Text('Share', style: AppTypography.bodyStrong()),
+              subtitle: Text(
+                'Share via apps',
+                style: AppTypography.body(fontSize: 12.5),
+              ),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.secondaryText,
+              ),
+              onTap: () => _handleShare(ctx, video),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Future<void> _handleExportToGallery(BuildContext ctx, VideoInfo video) async {
+  Future<void> _handleExportToGallery(
+    BuildContext ctx,
+    VideoInfo video,
+  ) async {
     Navigator.pop(ctx);
     EasyLoading.show(status: 'Saving to Photos...');
     final service = sl<VideoStorageService>();
@@ -290,25 +273,8 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
     EasyLoading.dismiss();
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Video saved! Check your Photos app.'),
-          backgroundColor: Color(0xFF22C55E),
-        ),
-      );
-    }
-  }
-
-  Future<void> _handleExportToFiles(BuildContext ctx, VideoInfo video) async {
-    Navigator.pop(ctx);
-    EasyLoading.show(status: 'Preparing export...');
-    final service = sl<VideoStorageService>();
-    await service.exportToFolder(video.path);
-    EasyLoading.dismiss();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choose where to save your video'),
-          backgroundColor: Color(0xFF6366F1),
         ),
       );
     }
@@ -338,110 +304,86 @@ class _VideoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final isWarmup = video.type == 'warmup';
+    return SageCard(
+      padding: EdgeInsets.zero,
       onTap: () => _playVideo(context),
-      onLongPress: () => _showOptions(context),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                video.type == 'warmup'
-                    ? const Color(0xFF22D3EE).withValues(alpha: 0.3)
-                    : const Color(0xFF6366F1).withValues(alpha: 0.3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                OlivePillBadge(
+                  label: isWarmup ? 'Warmup' : 'Day',
+                  backgroundColor:
+                      isWarmup ? AppColors.navPill : AppColors.olivePillFill,
+                  borderColor: isWarmup
+                      ? AppColors.secondaryGreen
+                      : AppColors.olivePillBorder,
+                  textColor: isWarmup
+                      ? AppColors.secondaryGreen
+                      : AppColors.primaryOlive,
+                ),
+                GestureDetector(
+                  onTap: () => _showOptions(context),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.more_vert_rounded,
+                      color: AppColors.secondaryText,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Thumbnail
-            Expanded(
+          Container(height: 1.2, color: AppColors.divider),
+          Expanded(
+            child: Center(
               child: Container(
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
+                  color: AppColors.olivePillFill,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.olivePillBorder),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.play_circle_outline,
-                      size: 48,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    // Type badge
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              video.type == 'warmup'
-                                  ? const Color(0xFF22D3EE)
-                                  : const Color(0xFF6366F1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          video.type == 'warmup' ? 'Warmup' : 'Day',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Options button
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.more_vert,
-                          color: Colors.white54,
-                        ),
-                        onPressed: () => _showOptions(context),
-                      ),
-                    ),
-                  ],
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 30,
+                  color: AppColors.primaryOlive,
                 ),
               ),
             ),
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    video.displayName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+          ),
+          Container(height: 1.2, color: AppColors.divider),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  video.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyStrong(fontSize: 14),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${_formatDate(video.createdAt)} • ${_formatSize(video.sizeBytes)}',
+                  style: AppTypography.body(
+                    color: AppColors.mutedText,
+                    fontSize: 11.5,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDate(video.createdAt),
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatSize(video.sizeBytes),
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -449,11 +391,10 @@ class _VideoCard extends StatelessWidget {
   void _playVideo(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => _VideoPlayerScreen(
-              videoPath: video.path,
-              title: video.displayName,
-            ),
+        builder: (_) => _VideoPlayerScreen(
+          videoPath: video.path,
+          title: video.displayName,
+        ),
       ),
     );
   }
@@ -461,57 +402,61 @@ class _VideoCard extends StatelessWidget {
   void _showOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E2E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder:
-          (ctx) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.play_arrow, color: Colors.white70),
-                  title: const Text('Play'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _playVideo(context);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.share, color: Colors.white70),
-                  title: const Text('Export'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onExport();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Delete',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onDelete();
-                  },
-                ),
-              ],
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.play_arrow_rounded,
+                color: AppColors.primaryOlive,
+              ),
+              title: Text('Play', style: AppTypography.bodyStrong()),
+              onTap: () {
+                Navigator.pop(ctx);
+                _playVideo(context);
+              },
             ),
-          ),
+            ListTile(
+              leading: Icon(
+                Icons.share_outlined,
+                color: AppColors.secondaryGreen,
+              ),
+              title: Text('Export', style: AppTypography.bodyStrong()),
+              onTap: () {
+                Navigator.pop(ctx);
+                onExport();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                'Delete',
+                style: AppTypography.bodyStrong(color: AppColors.error),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                onDelete();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
+  String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
   String _formatSize(int bytes) => formatBytes(bytes);
 }
 
-/// Full-screen video player
 class _VideoPlayerScreen extends StatefulWidget {
   final String videoPath;
   final String title;
@@ -547,12 +492,11 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       }
       _controller!.play();
     } catch (e) {
-      debugPrint('Error initializing video player: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Failed to load video'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         Navigator.of(context).pop();
@@ -573,116 +517,66 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text(widget.title)),
       body: GestureDetector(
         onTap: _toggleControls,
-        child: Stack(
-          fit: StackFit.expand,
+        child: Column(
           children: [
-            // Video — stable widget, does NOT rebuild on play state changes
-            if (_isInitialized && _controller != null)
-              Center(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: VideoPlayer(_controller!),
-                ),
-              )
-            else
-              const Center(child: CircularProgressIndicator()),
-
-            // Controls overlay — uses ValueListenableBuilder
-            // to rebuild ONLY the controls when play state changes,
-            // instead of the entire widget tree via setState.
-            if (_showControls && _isInitialized && _controller != null) ...[
-              // Top bar (static — doesn't depend on play state)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
                 child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 8,
-                    right: 8,
-                  ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.transparent,
-                      ],
-                    ),
+                    color: AppColors.cardSurface,
+                    borderRadius: AppRadii.cardLargeBorder,
+                    border: Border.all(color: AppColors.divider, width: 1.5),
                   ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
+                  clipBehavior: Clip.antiAlias,
+                  child: _isInitialized && _controller != null
+                      ? Center(
+                          child: AspectRatio(
+                            aspectRatio: _controller!.value.aspectRatio,
+                            child: VideoPlayer(_controller!),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                        )
+                      : Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryOlive,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
-
-              // Bottom controls — scoped rebuild via ValueListenableBuilder
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + 16,
-                    left: 16,
-                    right: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
+            ),
+            if (_showControls && _isInitialized && _controller != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                child: SageCard(
+                  padding: const EdgeInsets.all(16),
                   child: ValueListenableBuilder<VideoPlayerValue>(
                     valueListenable: _controller!,
                     builder: (context, value, child) {
                       return Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Progress bar
                           VideoProgressIndicator(
                             _controller!,
                             allowScrubbing: true,
-                            colors: const VideoProgressColors(
-                              playedColor: Color(0xFF6366F1),
-                              bufferedColor: Colors.white24,
-                              backgroundColor: Colors.white12,
+                            colors: VideoProgressColors(
+                              playedColor: AppColors.primaryOlive,
+                              bufferedColor: AppColors.olivePillBorder,
+                              backgroundColor: AppColors.divider,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          // Play controls
+                          const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               IconButton(
-                                icon: const Icon(
-                                  Icons.replay_10,
-                                  color: Colors.white,
-                                  size: 32,
+                                icon: Icon(
+                                  Icons.replay_10_rounded,
+                                  color: AppColors.primaryText,
+                                  size: 28,
                                 ),
                                 onPressed: () {
                                   final pos = value.position;
@@ -691,14 +585,14 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                                   );
                                 },
                               ),
-                              const SizedBox(width: 24),
+                              const SizedBox(width: 20),
                               IconButton(
                                 icon: Icon(
                                   value.isPlaying
-                                      ? Icons.pause_circle_filled
-                                      : Icons.play_circle_filled,
-                                  color: Colors.white,
-                                  size: 56,
+                                      ? Icons.pause_circle_filled_rounded
+                                      : Icons.play_circle_filled_rounded,
+                                  color: AppColors.primaryOlive,
+                                  size: 52,
                                 ),
                                 onPressed: () {
                                   if (value.isPlaying) {
@@ -708,12 +602,12 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                                   }
                                 },
                               ),
-                              const SizedBox(width: 24),
+                              const SizedBox(width: 20),
                               IconButton(
-                                icon: const Icon(
-                                  Icons.forward_10,
-                                  color: Colors.white,
-                                  size: 32,
+                                icon: Icon(
+                                  Icons.forward_10_rounded,
+                                  color: AppColors.primaryText,
+                                  size: 28,
                                 ),
                                 onPressed: () {
                                   final pos = value.position;
@@ -730,7 +624,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                   ),
                 ),
               ),
-            ],
           ],
         ),
       ),

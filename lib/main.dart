@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 import 'core/di/injection_container.dart';
+import 'core/theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'data/datasources/local/hive_settings_datasource.dart';
 import 'core/constants/app_constants.dart';
@@ -26,15 +27,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set system UI overlay style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.black,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
+  // Set system UI overlay style for warm light-cream palette
+  SystemChrome.setSystemUIOverlayStyle(AppTheme.systemOverlayStyle);
 
   // Initialize dependencies
   await initDependencies();
@@ -45,7 +39,7 @@ void main() async {
   // Configure EasyLoading
   _configureEasyLoading();
 
-  runApp(const ConfidentCamApp());
+  runApp(ConfidentCamApp());
 }
 
 /// Initialize notification service and schedule saved reminder.
@@ -54,15 +48,16 @@ Future<void> _initializeNotifications() async {
     final notificationService = sl<NotificationService>();
     await notificationService.initialize();
     await notificationService.requestPermissions();
-    
+
     // Schedule reminder from saved settings
     final settingsDataSource = sl<HiveSettingsDataSource>();
     final settings = await settingsDataSource.getSettings();
-    final timeStr = settings[AppConstants.reminderTimeKey] as String? ?? '09:00';
+    final timeStr =
+        settings[AppConstants.reminderTimeKey] as String? ?? '09:00';
     final parts = timeStr.split(':');
     final hour = int.tryParse(parts[0]) ?? 9;
     final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-    
+
     await notificationService.scheduleDailyReminder(
       TimeOfDay(hour: hour, minute: minute),
     );
@@ -75,14 +70,16 @@ void _configureEasyLoading() {
   EasyLoading.instance
     ..displayDuration = const Duration(milliseconds: 2000)
     ..indicatorType = EasyLoadingIndicatorType.fadingCircle
-    ..loadingStyle = EasyLoadingStyle.dark
-    ..indicatorSize = 45.0
-    ..radius = 10.0
-    ..progressColor = Colors.white
-    ..backgroundColor = Colors.black87
-    ..indicatorColor = Colors.white
-    ..textColor = Colors.white
-    ..maskType = EasyLoadingMaskType.black
+    ..loadingStyle = EasyLoadingStyle.custom
+    ..indicatorSize = 42.0
+    ..radius = 18.0
+    ..progressColor = AppColors.primaryOlive
+    ..backgroundColor = AppColors.cardSurface
+    ..indicatorColor = AppColors.primaryOlive
+    ..textColor = AppColors.primaryText
+    ..maskColor = Colors.black.withValues(alpha: 0.25)
+    ..maskType = EasyLoadingMaskType.custom
+    ..boxShadow = <BoxShadow>[]
     ..userInteractions = false
     ..dismissOnTap = false;
 }
@@ -97,15 +94,18 @@ class ConfidentCamApp extends StatelessWidget {
         // Core BLoCs available app-wide
         BlocProvider<NetworkBloc>(create: (_) => sl<NetworkBloc>()),
         BlocProvider<AuthBloc>(
-          create: (_) => sl<AuthBloc>()..add(const SessionCheckRequested()),
+          create: (_) => sl<AuthBloc>()..add(SessionCheckRequested()),
         ),
         // Feature BLoCs - lazy created but available everywhere
         BlocProvider<WarmupBloc>(create: (_) => sl<WarmupBloc>()),
+        BlocProvider<DailyChallengeBloc>(
+          create: (_) => sl<DailyChallengeBloc>(),
+        ),
         BlocProvider<ProgressBloc>(create: (_) => sl<ProgressBloc>()),
         BlocProvider<SettingsBloc>(create: (_) => sl<SettingsBloc>()),
         BlocProvider<GuideBloc>(create: (_) => sl<GuideBloc>()),
       ],
-      child: const App(),
+      child: App(),
     );
   }
 }

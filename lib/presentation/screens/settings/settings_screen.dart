@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/di/injection_container.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../domain/repositories/user_repository.dart';
@@ -14,9 +17,10 @@ import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../bloc/settings/settings_bloc.dart';
 import '../auth/qr_scanner_screen.dart';
+import '../onboarding/app_intro_onboarding_screen.dart';
 import 'edit_profile_screen.dart';
 
-/// Fully functional settings screen.
+/// Fully functional settings screen in the sage & olive design system.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -36,8 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadStorage();
     _loadProfile();
-    // Ensure settings are loaded
-    context.read<SettingsBloc>().add(const SettingsLoaded());
+    context.read<SettingsBloc>().add(SettingsLoaded());
   }
 
   Future<void> _loadStorage() async {
@@ -51,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Fetches the user profile so it can be passed to EditProfileScreen.
   Future<void> _loadProfile() async {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthSuccess) {
@@ -60,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final result = await sl<UserRepository>().getProfile(authState.user.id);
       result.fold(
-        (_) {}, // Silently ignore; profile may not exist yet
+        (_) {},
         (profile) {
           if (mounted) setState(() => _currentProfile = profile);
         },
@@ -68,7 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Opens the Edit Profile screen and refreshes local profile data on return.
   Future<void> _openEditProfile() async {
     if (_currentUserId == null) return;
     final updated = await Navigator.of(context).push<bool>(
@@ -80,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
-    if (updated == true) _loadProfile(); // Refresh cached profile
+    if (updated == true) _loadProfile();
   }
 
   String _formatBytes(int bytes) => formatBytes(bytes);
@@ -102,15 +103,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (state is SettingsNotificationError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text(
-                  'Reminder saved, but you must enable notifications for ConfidantCam in your phone settings to receive them.',
-                  style: TextStyle(color: Colors.white),
+                content: Text(
+                  'Reminder saved, but you must enable notifications for ConfidentCam in your phone settings to receive them.',
                 ),
-                backgroundColor: Colors.orange.shade800,
                 duration: const Duration(seconds: 4),
                 action: SnackBarAction(
                   label: 'Settings',
-                  textColor: Colors.white,
                   onPressed: () {
                     openAppSettings();
                   },
@@ -120,53 +118,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
         },
         child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-            ),
-          ),
+          color: AppColors.background,
           child: SafeArea(
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, state) {
-                final settings =
-                    (state is SettingsLoadSuccess)
-                        ? state.settings
-                        : (state is SettingsNotificationError)
+                final settings = (state is SettingsLoadSuccess)
+                    ? state.settings
+                    : (state is SettingsNotificationError)
                         ? state.settings
                         : Settings.defaults();
 
                 return CustomScrollView(
                   slivers: [
-                    const SliverAppBar(
-                      floating: true,
-                      backgroundColor: Colors.transparent,
-                      title: Text('Settings'),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Settings',
+                              style: AppTypography.headingLarge(fontSize: 25),
+                            ),
+                            OlivePillBadge(
+                              label: 'v${AppConfig.appVersion}',
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     SliverList(
                       delegate: SliverChildListDelegate([
-                        // ── Profile Section ──────────────────────────────
+                        // Profile Card
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E1E2E),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white10),
-                            ),
+                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 4),
+                          child: SageCard(
+                            padding: const EdgeInsets.all(18),
+                            onTap: _openEditProfile,
                             child: Row(
                               children: [
-                                // Avatar circle
                                 Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [Color(0xFF6366F1), Color(0xFF22D3EE)],
-                                    ),
+                                  width: 54,
+                                  height: 54,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.olivePillFill,
                                     shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.olivePillBorder,
+                                      width: 1.4,
+                                    ),
                                   ),
                                   child: Center(
                                     child: Text(
@@ -176,92 +176,113 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           .characters
                                           .first
                                           .toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
+                                      style: GoogleFonts.manrope(
+                                        color: AppColors.primaryOlive,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-                                // Name + contact
+                                const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _currentDisplayName ?? 'Confident Creator',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
+                                        _currentDisplayName ??
+                                            'Confident Creator',
+                                        style: AppTypography.sectionTitle(
+                                          fontSize: 16.5,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      if (_currentProfile?.goal != null) ...[
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          _currentProfile!.goal!,
-                                          style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _currentProfile?.goal ??
+                                            'Tap to personalize your profile',
+                                        style: AppTypography.body(
+                                          fontSize: 12.5,
                                         ),
-                                      ],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ],
                                   ),
                                 ),
-                                // Edit button
                                 TextButton.icon(
                                   onPressed: _openEditProfile,
-                                  icon: const Icon(Icons.edit_outlined, size: 16),
-                                  label: const Text('Edit'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF6366F1),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
+                                  icon: Icon(
+                                    Icons.edit_outlined,
+                                    size: 16,
                                   ),
+                                  label: Text('Edit'),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+
+                        // Quick 2-column metric cards for Storage & Reminder
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: SageMetricCard(
+                                  icon: Icons.folder_outlined,
+                                  iconColor: AppColors.primaryOlive,
+                                  label: 'STORAGE',
+                                  value: _loadingStorage
+                                      ? '...'
+                                      : _formatBytes(_storageBytes),
+                                  onTap: _clearAllVideos,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: SageMetricCard(
+                                  icon: Icons.alarm_outlined,
+                                  iconColor: AppColors.secondaryGreen,
+                                  label: 'REMINDER',
+                                  value: _formatTime(settings.reminderTime),
+                                  onTap: () => _pickReminderTime(
+                                    settings.reminderTime,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
                         // Teleprompter Section
                         _SettingsSection(
                           title: 'Teleprompter',
                           children: [
-                            // Auto-scroll toggle
                             SwitchListTile(
-                              secondary: const Icon(
+                              secondary: Icon(
                                 Icons.play_arrow_outlined,
-                                color: Colors.white54,
+                                color: AppColors.primaryOlive,
                               ),
-                              title: const Text(
+                              title: Text(
                                 'Auto-Scroll',
-                                style: TextStyle(color: Colors.white),
+                                style: AppTypography.bodyStrong(),
                               ),
-                              subtitle: const Text(
+                              subtitle: Text(
                                 'Automatically scroll teleprompter during recording',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
+                                style: AppTypography.body(fontSize: 12.5),
                               ),
                               value: settings.autoScrollEnabled,
-                              activeThumbColor: const Color(0xFF22D3EE),
+                              activeThumbColor: AppColors.secondaryGreen,
+                              activeTrackColor: AppColors.navPill,
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  AutoScrollToggled(v),
-                                );
+                                      AutoScrollToggled(v),
+                                    );
                               },
                             ),
+                            const Divider(height: 1),
                             _SliderTile(
                               icon: Icons.speed_outlined,
                               title: 'Scroll Speed',
@@ -271,10 +292,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               suffix: 'x',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  TeleprompterSpeedUpdated(v),
-                                );
+                                      TeleprompterSpeedUpdated(v),
+                                    );
                               },
                             ),
+                            const Divider(height: 1),
                             _SliderTile(
                               icon: Icons.height_outlined,
                               title: 'Display Height',
@@ -284,10 +306,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  TeleprompterHeightUpdated(v / 100),
-                                );
+                                      TeleprompterHeightUpdated(v / 100),
+                                    );
                               },
                             ),
+                            const Divider(height: 1),
                             _SliderTile(
                               icon: Icons.opacity_outlined,
                               title: 'Background Opacity',
@@ -297,15 +320,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  TeleprompterOpacityUpdated(v / 100),
-                                );
+                                      TeleprompterOpacityUpdated(v / 100),
+                                    );
                               },
                             ),
+                            const Divider(height: 1),
                             _DropdownTile(
                               icon: Icons.text_fields_outlined,
                               title: 'Font Size',
                               value: settings.teleprompterFontSize,
-                              options: const {
+                              options: {
                                 'small': 'Small',
                                 'medium': 'Medium',
                                 'large': 'Large',
@@ -313,25 +337,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  TeleprompterFontSizeUpdated(v),
-                                );
+                                      TeleprompterFontSizeUpdated(v),
+                                    );
                               },
                             ),
+                            const Divider(height: 1),
                             _DropdownTile(
                               icon: Icons.palette_outlined,
                               title: 'Text Color',
                               value: settings.teleprompterTextColor,
-                              options: const {
-                                'white': 'White',
-                                'yellow': 'Yellow',
-                                'cyan': 'Cyan',
-                                'green': 'Green',
-                                'pink': 'Pink',
+                              options: {
+                                'white': 'Charcoal',
+                                'yellow': 'Olive',
+                                'cyan': 'Sage Green',
+                                'green': 'Forest Green',
+                                'pink': 'Crimson',
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  TeleprompterTextColorUpdated(v),
-                                );
+                                      TeleprompterTextColorUpdated(v),
+                                    );
                               },
                             ),
                           ],
@@ -344,12 +369,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _SettingsTile(
                               icon: Icons.folder_outlined,
                               title: 'Storage Used',
-                              subtitle:
-                                  _loadingStorage
-                                      ? 'Calculating...'
-                                      : _formatBytes(_storageBytes),
+                              subtitle: _loadingStorage
+                                  ? 'Calculating...'
+                                  : _formatBytes(_storageBytes),
                               onTap: () {},
                             ),
+                            const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.delete_sweep_outlined,
                               title: 'Clear All Videos',
@@ -359,61 +384,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
 
-                        // Camera Section
+                        // Camera & Language Section
                         _SettingsSection(
-                          title: 'Camera',
+                          title: 'Camera & Language',
                           children: [
                             _DropdownTile(
                               icon: Icons.videocam_outlined,
                               title: 'Default Camera',
                               value: settings.defaultCamera,
-                              options: const {
+                              options: {
                                 'front': 'Front Camera',
                                 'back': 'Back Camera',
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  DefaultCameraUpdated(v),
-                                );
+                                      DefaultCameraUpdated(v),
+                                    );
                               },
                             ),
-                          ],
-                        ),
-
-                        // Language Section
-                        _SettingsSection(
-                          title: 'Language',
-                          children: [
+                            const Divider(height: 1),
                             _DropdownTile(
                               icon: Icons.language_outlined,
                               title: 'Script Language',
                               value: settings.languagePreference,
-                              options: const {
+                              options: {
                                 'en': 'English',
                                 'hi': 'Hindi (हिन्दी)',
                                 'hinglish': 'Hinglish',
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                  LanguagePreferenceUpdated(v),
-                                );
+                                      LanguagePreferenceUpdated(v),
+                                    );
                                 _showLanguageChangeWarning(context);
                               },
                             ),
-                          ],
-                        ),
-
-                        // Notifications Section
-                        _SettingsSection(
-                          title: 'Notifications',
-                          children: [
+                            const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.alarm_outlined,
                               title: 'Daily Reminder',
                               subtitle: _formatTime(settings.reminderTime),
-                              onTap:
-                                  () =>
-                                      _pickReminderTime(settings.reminderTime),
+                              onTap: () => _pickReminderTime(
+                                settings.reminderTime,
+                              ),
                             ),
                           ],
                         ),
@@ -423,51 +436,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Support',
                           children: [
                             _SettingsTile(
-                              icon: Icons.qr_code_scanner,
+                              icon: Icons.auto_awesome_outlined,
+                              title: 'App Intro Tour',
+                              subtitle: 'Replay the 5-step onboarding guide',
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        AppIntroOnboardingScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _SettingsTile(
+                              icon: Icons.qr_code_scanner_rounded,
                               title: 'Web Login',
                               subtitle: 'Scan QR to login on web portal',
                               onTap: _openQrScanner,
                             ),
+                            const Divider(height: 1),
                             _SettingsTile(
-                              icon: Icons.help_outline,
+                              icon: Icons.help_outline_rounded,
                               title: 'Help Center',
                               subtitle: 'Get help via email',
-                              onTap:
-                                  () => _launchUrl(
-                                    'mailto:support@confidentcam.app?subject=Help%20Request',
-                                  ),
+                              onTap: () => _launchUrl(
+                                'mailto:support@confidentcam.app?subject=Help%20Request',
+                              ),
                             ),
+                            const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.privacy_tip_outlined,
                               title: 'Privacy Policy',
                               subtitle: 'How we handle your data',
-                              onTap:
-                                  () => _launchUrl(
-                                    'https://confidentcam.app/privacy-policy.html',
-                                  ),
+                              onTap: () => _launchUrl(
+                                'https://confidentcam.app/privacy-policy.html',
+                              ),
                             ),
+                            const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.description_outlined,
                               title: 'Terms of Service',
                               subtitle: 'Usage terms and conditions',
-                              onTap:
-                                  () => _launchUrl(
-                                    'https://confidentcam.app/terms-of-service.html',
-                                  ),
+                              onTap: () => _launchUrl(
+                                'https://confidentcam.app/terms-of-service.html',
+                              ),
                             ),
                           ],
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: OutlinedButton(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          child: OutlinedButton.icon(
                             onPressed: _logout,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(color: Colors.red),
+                            icon: Icon(
+                              Icons.logout_rounded,
+                              color: AppColors.error,
+                              size: 19,
                             ),
-                            child: const Text('Logout'),
+                            label: Text('Logout'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.error,
+                              side: BorderSide(
+                                color: AppColors.error,
+                                width: 1.3,
+                              ),
+                            ),
                           ),
                         ),
 
@@ -476,23 +511,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Danger Zone',
                           children: [
                             _SettingsTile(
-                              icon: Icons.delete_forever,
+                              icon: Icons.delete_forever_outlined,
                               title: 'Delete Account',
                               subtitle: 'Permanently delete all your data',
+                              iconColor: AppColors.error,
                               onTap: _deleteAccount,
                             ),
                           ],
                         ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 28),
                         Center(
                           child: Text(
-                            'ConfidentCam v1.0.0',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: Colors.white38),
+                            'ConfidentCam v${AppConfig.appVersion}',
+                            style: AppTypography.body(
+                              fontSize: 12.5,
+                              color: AppColors.mutedText,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
                       ]),
                     ),
                   ],
@@ -521,11 +559,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showLanguageChangeWarning(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
           'Language updated! New scripts will be generated in the selected language.',
         ),
-        backgroundColor: Color(0xFF6366F1),
         duration: Duration(seconds: 3),
       ),
     );
@@ -534,7 +571,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openQrScanner() {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const QrScannerScreen()));
+    ).push(MaterialPageRoute(builder: (_) => QrScannerScreen()));
   }
 
   Future<void> _launchUrl(String urlString) async {
@@ -544,9 +581,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Could not open link'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -556,27 +593,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _clearAllVideos() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Clear All Videos'),
-            content: const Text(
-              'This will delete ALL your warmup and daily challenge videos. '
-              'This cannot be undone. Are you sure?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
-                  'Delete All',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text('Clear All Videos'),
+        content: Text(
+          'This will delete ALL your warmup and daily challenge videos. '
+          'This cannot be undone. Are you sure?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete All',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true) {
@@ -591,149 +627,147 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _logout() {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Logout'),
-            content: const Text('Are you sure you want to logout?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.read<AuthBloc>().add(const LogoutRequested());
-                },
-                child: const Text('Logout'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text('Logout'),
+        content: Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(LogoutRequested());
+            },
+            child: Text('Logout'),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _deleteAccount() async {
-    // First confirmation
     final firstConfirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
-                SizedBox(width: 12),
-                Text('Delete Account', style: TextStyle(color: Colors.red)),
-              ],
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.error,
+              size: 26,
             ),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'This will permanently delete:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Text('• Your Supabase account & authentication'),
-                Text('• All your scripts (30-day challenge scripts)'),
-                Text('• All your progress & streaks'),
-                Text('• All settings and preferences'),
-                Text('• Your user profile and personalization'),
-                SizedBox(height: 12),
-                Text(
-                  'What will NOT be deleted:',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-                SizedBox(height: 8),
-                Text('• Recorded videos (saved on your device)'),
-                SizedBox(height: 12),
-                Text(
-                  'This action CANNOT be undone.',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            SizedBox(width: 10),
+            Text(
+              'Delete Account',
+              style: TextStyle(color: AppColors.error),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will permanently delete:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Your Supabase account & authentication'),
+            Text('• All your scripts (30-day challenge scripts)'),
+            Text('• All your progress & streaks'),
+            Text('• All settings and preferences'),
+            Text('• Your user profile and personalization'),
+            SizedBox(height: 12),
+            Text(
+              'What will NOT be deleted:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondaryGreen,
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(color: Colors.red),
-                ),
+            ),
+            SizedBox(height: 6),
+            Text('• Recorded videos (saved on your device)'),
+            SizedBox(height: 12),
+            Text(
+              'This action CANNOT be undone.',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Continue',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
     );
 
     if (firstConfirm != true || !mounted) return;
 
-    // Second confirmation - require typing DELETE
     String typedText = '';
     final finalConfirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (context, setDialogState) => AlertDialog(
-                  title: const Text('Final Confirmation'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Type DELETE to confirm account deletion:'),
-                      const SizedBox(height: 16),
-                      TextField(
-                        autofocus: true,
-                        onChanged:
-                            (value) => setDialogState(() => typedText = value),
-                        decoration: const InputDecoration(
-                          hintText: 'Type DELETE',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        if (typedText.toUpperCase() == 'DELETE') {
-                          Navigator.pop(ctx, true);
-                        } else {
-                          EasyLoading.showError(
-                            'Please type DELETE to confirm',
-                          );
-                        }
-                      },
-                      child: const Text(
-                        'Delete Forever',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Final Confirmation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Type DELETE to confirm account deletion:'),
+              const SizedBox(height: 16),
+              TextField(
+                autofocus: true,
+                onChanged: (value) => setDialogState(() => typedText = value),
+                decoration: InputDecoration(
+                  hintText: 'Type DELETE',
                 ),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (typedText.toUpperCase() == 'DELETE') {
+                  Navigator.pop(ctx, true);
+                } else {
+                  EasyLoading.showError('Please type DELETE to confirm');
+                }
+              },
+              child: Text(
+                'Delete Forever',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
 
     if (finalConfirm != true || !mounted) return;
 
-    // Show loading and perform deletion
     EasyLoading.show(status: 'Deleting account...');
 
     try {
-      // Clear local videos first
       final videoService = sl<VideoStorageService>();
       await videoService.clearAllVideos();
 
@@ -742,8 +776,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      // Delete account via AuthBloc - this will trigger AuthLoggedOut
-      context.read<AuthBloc>().add(const AccountDeletionRequested());
+      context.read<AuthBloc>().add(AccountDeletionRequested());
     } catch (e) {
       EasyLoading.dismiss();
       EasyLoading.showError('Failed to delete account');
@@ -763,20 +796,21 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 8),
           child: Text(
             title.toUpperCase(),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white54,
-              letterSpacing: 1.2,
+            style: AppTypography.uppercaseLabel(
+              fontSize: 11.5,
+              color: AppColors.secondaryText,
+              letterSpacing: 1.5,
             ),
           ),
         ),
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E2E),
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.cardSurface,
+            borderRadius: AppRadii.cardBorder,
           ),
           child: Column(children: children),
         ),
@@ -789,22 +823,42 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Color? iconColor;
   final VoidCallback onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     this.subtitle,
+    this.iconColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white54),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+      leading: Icon(
+        icon,
+        color: iconColor ?? AppColors.primaryOlive,
+        size: 21,
+      ),
+      title: Text(
+        title,
+        style: AppTypography.bodyStrong(
+          color: iconColor ?? AppColors.primaryText,
+        ),
+      ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: AppTypography.body(fontSize: 12.5),
+            )
+          : null,
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: AppColors.secondaryText,
+      ),
       onTap: onTap,
     );
   }
@@ -845,7 +899,6 @@ class _SliderTileState extends State<_SliderTile> {
   @override
   void didUpdateWidget(_SliderTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update local value when prop changes (after bloc update)
     if (oldWidget.value != widget.value) {
       _currentValue = widget.value.clamp(widget.min, widget.max);
     }
@@ -854,22 +907,18 @@ class _SliderTileState extends State<_SliderTile> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(widget.icon, color: Colors.white54, size: 20),
+              Icon(widget.icon, color: AppColors.primaryOlive, size: 20),
               const SizedBox(width: 12),
-              Text(widget.title, style: const TextStyle(color: Colors.white)),
+              Text(widget.title, style: AppTypography.bodyStrong()),
               const Spacer(),
-              Text(
-                '${_currentValue.toStringAsFixed(1)}${widget.suffix}',
-                style: const TextStyle(
-                  color: Color(0xFF22D3EE),
-                  fontWeight: FontWeight.bold,
-                ),
+              OlivePillBadge(
+                label: '${_currentValue.toStringAsFixed(1)}${widget.suffix}',
               ),
             ],
           ),
@@ -877,8 +926,8 @@ class _SliderTileState extends State<_SliderTile> {
             value: _currentValue,
             min: widget.min,
             max: widget.max,
-            activeColor: const Color(0xFF22D3EE),
-            inactiveColor: Colors.white24,
+            activeColor: AppColors.primaryOlive,
+            inactiveColor: AppColors.divider,
             onChanged: (v) {
               setState(() => _currentValue = v);
               widget.onChanged(v);
@@ -908,27 +957,34 @@ class _DropdownTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white54, size: 20),
+          Icon(icon, color: AppColors.primaryOlive, size: 20),
           const SizedBox(width: 12),
-          Text(title, style: const TextStyle(color: Colors.white)),
+          Text(title, style: AppTypography.bodyStrong()),
           const Spacer(),
           DropdownButton<String>(
             value: options.containsKey(value) ? value : options.keys.first,
-            dropdownColor: const Color(0xFF1E1E2E),
+            dropdownColor: AppColors.background,
             underline: const SizedBox.shrink(),
-            items:
-                options.entries.map((e) {
-                  return DropdownMenuItem(
-                    value: e.key,
-                    child: Text(
-                      e.value,
-                      style: const TextStyle(color: Color(0xFF22D3EE)),
-                    ),
-                  );
-                }).toList(),
+            icon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.secondaryText,
+            ),
+            items: options.entries.map((e) {
+              return DropdownMenuItem(
+                value: e.key,
+                child: Text(
+                  e.value,
+                  style: GoogleFonts.manrope(
+                    color: AppColors.secondaryGreen,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              );
+            }).toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
             },

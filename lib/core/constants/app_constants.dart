@@ -24,6 +24,7 @@ class AppConstants {
   static const String lastCompletedDateKey = 'last_completion_date';
 
   // Settings Keys
+  static const String hasSeenIntroOnboardingKey = 'has_seen_intro_onboarding';
   static const String reminderTimeKey = 'reminder_time';
   static const String teleprompterSpeedKey = 'teleprompter_speed';
   static const String teleprompterFontSizeKey = 'teleprompter_font_size';

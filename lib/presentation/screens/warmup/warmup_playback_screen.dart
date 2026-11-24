@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/warmup.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import 'warmup_checklist_screen.dart';
@@ -74,24 +74,27 @@ class _WarmupPlaybackScreenState extends State<WarmupPlaybackScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
         title: Text(_warmup.title),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          icon: Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Video preview
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: AppRadii.cardLargeBorder,
+                    border: Border.all(color: AppColors.divider, width: 1.5),
+                  ),
+                  clipBehavior: Clip.antiAlias,
                   child: _isInitialized
                       ? GestureDetector(
                           onTap: () {
@@ -114,82 +117,69 @@ class _WarmupPlaybackScreenState extends State<WarmupPlaybackScreen> {
                                   width: 64,
                                   height: 64,
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.5),
+                                    color: AppColors.background.withValues(
+                                      alpha: 0.9,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 40,
+                                  child: Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: AppColors.primaryOlive,
+                                    size: 38,
                                   ),
                                 ),
                             ],
                           ),
                         )
-                      : const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
+                      : Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryOlive,
+                          ),
                         ),
                 ),
               ),
             ),
-
-            // Actions
             Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Text(
-                    'Happy with your warmup?',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ).animate().fadeIn(duration: 400.ms),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Don't worry about being perfect! This is just practice.",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white54,
-                        ),
-                    textAlign: TextAlign.center,
-                  ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _retryRecording,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.refresh),
-                              SizedBox(width: 8),
-                              Text('Try Again'),
-                            ],
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+              child: SageCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Text(
+                      'Happy with your warmup?',
+                      style: AppTypography.headingMedium(fontSize: 19),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Don't worry about being perfect! This is just practice.",
+                      style: AppTypography.body(),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _retryRecording,
+                            icon: Icon(Icons.refresh_rounded, size: 19),
+                            label: Text('Try Again'),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _continueToChecklist,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF22C55E),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Continue'),
-                              SizedBox(width: 8),
-                              Icon(Icons.arrow_forward),
-                            ],
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _continueToChecklist,
+                            icon: Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 19,
+                            ),
+                            label: Text('Continue'),
                           ),
                         ),
-                      ),
-                    ],
-                  ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

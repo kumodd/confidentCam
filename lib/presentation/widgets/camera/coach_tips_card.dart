@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+
+import '../../../core/theme/app_theme.dart';
 
 /// Coaching tips widget that shows rotating tips on the recording screen.
 class CoachTipsCard extends StatefulWidget {
@@ -17,44 +18,44 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
 
   static const List<CoachTip> _recordingTips = [
     CoachTip(
-      icon: Icons.visibility,
+      icon: Icons.visibility_outlined,
       text: "Look at the camera lens like it's your best friend",
-      category: "Eye Contact",
+      category: 'EYE CONTACT',
     ),
     CoachTip(
-      icon: Icons.volume_up,
-      text: "Project your voice - speak 20% louder than usual",
-      category: "Voice",
+      icon: Icons.volume_up_outlined,
+      text: 'Project your voice - speak 20% louder than usual',
+      category: 'VOICE',
     ),
     CoachTip(
-      icon: Icons.sentiment_satisfied,
-      text: "Smile gently - it relaxes your face and voice",
-      category: "Expression",
+      icon: Icons.sentiment_satisfied_outlined,
+      text: 'Smile gently - it relaxes your face and voice',
+      category: 'EXPRESSION',
     ),
     CoachTip(
-      icon: Icons.speed,
-      text: "Slow down - we all speak faster when nervous",
-      category: "Pacing",
+      icon: Icons.speed_outlined,
+      text: 'Slow down - we all speak faster when nervous',
+      category: 'PACING',
     ),
     CoachTip(
-      icon: Icons.air,
-      text: "Take a breath before starting - it calms the nerves",
-      category: "Breathing",
+      icon: Icons.air_rounded,
+      text: 'Take a breath before starting - it calms the nerves',
+      category: 'BREATHING',
     ),
     CoachTip(
-      icon: Icons.emoji_emotions,
+      icon: Icons.emoji_emotions_outlined,
       text: "Imagine you're talking to a close friend",
-      category: "Connection",
+      category: 'CONNECTION',
     ),
     CoachTip(
-      icon: Icons.gesture,
-      text: "Use hand gestures naturally - they add energy",
-      category: "Body Language",
+      icon: Icons.gesture_rounded,
+      text: 'Use hand gestures naturally - they add energy',
+      category: 'BODY LANGUAGE',
     ),
     CoachTip(
-      icon: Icons.self_improvement,
-      text: "Imperfect is perfect - authenticity wins",
-      category: "Mindset",
+      icon: Icons.self_improvement_outlined,
+      text: 'Imperfect is perfect - authenticity wins',
+      category: 'MINDSET',
     ),
   ];
 
@@ -79,13 +80,12 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.background.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color:
-                widget.isRecording
-                    ? Colors.red.withValues(alpha: 0.5)
-                    : const Color(0xFF22D3EE).withValues(alpha: 0.5),
+                widget.isRecording ? AppColors.error : AppColors.divider,
+            width: 1.3,
           ),
         ),
         child: Row(
@@ -94,16 +94,21 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color:
-                    widget.isRecording
-                        ? Colors.red.withValues(alpha: 0.2)
-                        : const Color(0xFF22D3EE).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: widget.isRecording
+                    ? AppColors.errorTint
+                    : AppColors.olivePillFill,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: widget.isRecording
+                      ? AppColors.error.withValues(alpha: 0.4)
+                      : AppColors.olivePillBorder,
+                ),
               ),
               child: Icon(
                 tip.icon,
-                color:
-                    widget.isRecording ? Colors.red : const Color(0xFF22D3EE),
+                color: widget.isRecording
+                    ? AppColors.error
+                    : AppColors.primaryOlive,
                 size: 22,
               ),
             ),
@@ -115,37 +120,33 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
                 children: [
                   Text(
                     tip.category,
-                    style: TextStyle(
-                      color:
-                          widget.isRecording
-                              ? Colors.red
-                              : const Color(0xFF22D3EE),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                    style: AppTypography.uppercaseLabel(
+                      color: widget.isRecording
+                          ? AppColors.error
+                          : AppColors.secondaryGreen,
+                      fontSize: 10.5,
+                      letterSpacing: 1.4,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     tip.text,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
+                    style: AppTypography.bodyStrong(
+                      color: AppColors.primaryText,
+                      fontSize: 13.5,
                     ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.touch_app,
-              color: Colors.white.withValues(alpha: 0.3),
-              size: 16,
+              Icons.touch_app_outlined,
+              color: AppColors.mutedText,
+              size: 17,
             ),
           ],
         ),
-      ).animate(key: ValueKey(_currentTipIndex)).fadeIn(duration: 300.ms),
+      ),
     );
   }
 }
@@ -180,16 +181,11 @@ class SampleScriptCard extends StatelessWidget {
     final goal = userGoal ?? 'build my confidence on camera';
 
     final scripts = [
-      // Warmup 0 - Breathing/Introduction
       "Hi, I'm $name and this is my first step toward becoming confident on camera. "
           "My goal is to $goal. I know it won't be perfect, but I'm proud of myself for starting. "
           "Let's do this!",
-
-      // Warmup 1 - Smile/Energy
       "Hey everyone! $name here again. Today I'm working on bringing more energy and positivity. "
           "I'm one step closer to $goal. Each day I show up, I'm proving to myself that I can do this!",
-
-      // Warmup 2 - Full warmup
       "What's up! It's $name and I'm on my final warmup before the 30-day challenge begins. "
           "I've already grown so much just by practicing these warmups. "
           "My goal of $goal feels more achievable every day. Let's crush this!",
@@ -203,11 +199,9 @@ class SampleScriptCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF6366F1).withValues(alpha: 0.5),
-        ),
+        color: AppColors.background.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.divider, width: 1.3),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,30 +209,27 @@ class SampleScriptCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.lightbulb_outline,
-                color: Color(0xFFFBBF24),
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: AppColors.primaryOlive,
                 size: 18,
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Need inspiration? Try this:',
-                style: TextStyle(
-                  color: Color(0xFFFBBF24),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              Text(
+                'NEED INSPIRATION? TRY THIS:',
+                style: AppTypography.uppercaseLabel(
+                  color: AppColors.primaryOlive,
+                  fontSize: 10.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             '"${_getSampleScript()}"',
-            style: const TextStyle(
-              color: Colors.white,
+            style: AppTypography.body(
+              color: AppColors.primaryText,
               fontSize: 14,
-              fontStyle: FontStyle.italic,
-              height: 1.4,
             ),
           ),
         ],

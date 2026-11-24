@@ -196,7 +196,7 @@ class HiveScriptsDataSourceImpl implements HiveScriptsDataSource {
       }
       logger.i('=== WARMUP SCRIPTS CACHED SUCCESSFULLY: $cachedCount/${scripts.length} ===');
     } catch (e, stackTrace) {
-      logger.e('Error caching warmup scripts: $e');
+      logger.e('Error caching warmup scripts: $e', e, stackTrace);
       throw CacheException(message: 'Failed to cache warmup scripts', originalError: e);
     }
   }

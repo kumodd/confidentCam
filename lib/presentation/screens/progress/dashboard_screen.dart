@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user.dart';
 import '../../../domain/entities/user_progress.dart';
 import '../../bloc/progress/progress_bloc.dart';
@@ -17,7 +18,7 @@ import '../settings/settings_screen.dart';
 import '../content_creator/widgets/content_creator_card.dart';
 import '../beginner_challenge/widgets/beginner_challenge_card.dart';
 
-/// Main dashboard screen after authentication.
+/// Main dashboard screen redesigned to match the reference visual benchmark.
 class DashboardScreen extends StatefulWidget {
   final User user;
   final bool isNewUser;
@@ -39,7 +40,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
 
-    // Load data using existing BLoCs from parent
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
       context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
@@ -47,513 +47,396 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onChallengeStarted() {
-    // Reload data after onboarding completes
     context.read<ProgressBloc>().add(ProgressLoaded(widget.user.id));
     context.read<WarmupBloc>().add(WarmupStatusLoaded(widget.user.id));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: _buildBody(), bottomNavigationBar: _buildBottomNav());
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: _buildBody(),
+      bottomNavigationBar: SageBottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: [
+          SageNavItem(
+            icon: Icons.dashboard_outlined,
+            activeIcon: Icons.dashboard_rounded,
+            label: 'Home',
+          ),
+          SageNavItem(
+            icon: Icons.calendar_today_outlined,
+            activeIcon: Icons.calendar_today_rounded,
+            label: 'Days',
+          ),
+          SageNavItem(
+            icon: Icons.videocam_outlined,
+            activeIcon: Icons.videocam_rounded,
+            label: 'Videos',
+          ),
+          SageNavItem(
+            icon: Icons.settings_outlined,
+            activeIcon: Icons.settings_rounded,
+            label: 'Settings',
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildBody() {
-    // IndexedStack preserves widget state across tab switches,
-    // preventing unnecessary data reloads and scroll position loss.
     return IndexedStack(
       index: _currentIndex,
       children: [
         _buildHomeTab(),
         DayListScreen(userId: widget.user.id),
-        const MyVideosScreen(),
-        const SettingsScreen(),
+        MyVideosScreen(),
+        SettingsScreen(),
       ],
     );
   }
 
   Widget _buildHomeTab() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-        ),
-      ),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // App bar
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome back,',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: Colors.white54),
-                        ),
-                        Text(
-                          widget.user.displayName ?? 'Confident Creator',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                      ],
-                    ),
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(
-                        (widget.user.displayName ?? 'C').characters.first.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(duration: 400.ms),
-            ),
-
-            // Progress card
-            SliverToBoxAdapter(
-              child: BlocBuilder<ProgressBloc, ProgressState>(
-                builder: (context, state) {
-                  if (state is ProgressLoadSuccess) {
-                    return _buildProgressCard(state.progress);
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-
-            // Warmup or Today's challenge (reactive — only shows if scripts exist)
-            SliverToBoxAdapter(
-              child: BlocBuilder<ProgressBloc, ProgressState>(
-                buildWhen: (prev, curr) {
-                  if (prev is ProgressLoadSuccess && curr is ProgressLoadSuccess) {
-                    return prev.hasScripts != curr.hasScripts;
-                  }
-                  return true;
-                },
-                builder: (context, progressState) {
-                  final hasScripts = progressState is ProgressLoadSuccess &&
-                      progressState.hasScripts;
-                  if (!hasScripts) return const SizedBox.shrink();
-
-                  return BlocBuilder<WarmupBloc, WarmupState>(
-                    builder: (context, state) {
-                      if (state is WarmupOverview && !state.allWarmupsComplete) {
-                        return _buildWarmupCard(state);
-                      } else if (state is AllWarmupsComplete) {
-                        return _buildTodaysChallengeCard();
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  );
-                },
-              ),
-            ),
-
-            // Quick actions
-            SliverToBoxAdapter(child: _buildQuickActions()),
-
-            // Content Creator Card (standalone - for experienced users)
-            SliverToBoxAdapter(
-              child: ContentCreatorCard(userId: widget.user.id),
-            ),
-
-            // Beginner Challenge Card (for 30-day confidence journey)
-            SliverToBoxAdapter(
-              child: BeginnerChallengeCard(
-                userId: widget.user.id,
-                userName: widget.user.displayName,
-                onChallengeStarted: _onChallengeStarted,
-              ),
-            ),
-
-            // Guide Section
-            const SliverToBoxAdapter(child: GuideSection()),
-
-            // Bottom spacing
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressCard(UserProgress progress) {
-    return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF6366F1), Color(0xFFA855F7)],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Day', '${progress.currentDay}/30'),
-                _buildStatItem('Streak', '🔥 ${progress.streak}'),
-                _buildStatItem('Best', '${progress.longestStreak} days'),
-              ],
-            ),
-          ),
-        )
-        .animate()
-        .fadeIn(delay: 100.ms, duration: 400.ms)
-        .slideY(begin: 0.2, end: 0);
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWarmupCard(WarmupOverview state) {
-    return Padding(
-          padding: const EdgeInsets.all(24),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder:
-                      (_) => BlocProvider.value(
-                        value: context.read<WarmupBloc>(),
-                        child: WarmupOverviewScreen(
-                          userName: widget.user.displayName,
-                        ),
-                      ),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E2E),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF22D3EE).withValues(alpha: 0.3),
-                ),
-              ),
+    return SafeArea(
+      child: CustomScrollView(
+        slivers: [
+          // Top header bar matching reference screenshot ("AmpereFlow" header style)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 16, 18, 8),
               child: Row(
                 children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22D3EE).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.fitness_center_rounded,
-                      color: Color(0xFF22D3EE),
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Complete Warmups',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          'ConfidentCam',
+                          style: AppTypography.headingLarge(fontSize: 25),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          '${state.warmupsCompleted}/3 warmups done',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.white54),
+                          'Welcome back, ${widget.user.displayName ?? 'Creator'}',
+                          style: AppTypography.body(
+                            fontSize: 13,
+                            color: AppColors.secondaryText,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white54,
-                    size: 16,
+                  IconButton(
+                    tooltip: '30-Day Schedule',
+                    onPressed: () => setState(() => _currentIndex = 1),
+                    icon: Icon(
+                      Icons.diamond_outlined,
+                      color: AppColors.secondaryGreen,
+                      size: 24,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _currentIndex = 3),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardSurface,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.divider,
+                          width: 1.4,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          (widget.user.displayName ?? 'C')
+                              .characters
+                              .first
+                              .toUpperCase(),
+                          style: GoogleFonts.manrope(
+                            color: AppColors.primaryOlive,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        )
-        .animate()
-        .fadeIn(delay: 200.ms, duration: 400.ms)
-        .slideY(begin: 0.2, end: 0);
+
+          // Hero open circular arc gauge matching the reference screenshot
+          SliverToBoxAdapter(
+            child: BlocBuilder<ProgressBloc, ProgressState>(
+              builder: (context, state) {
+                final progress = state is ProgressLoadSuccess
+                    ? state.progress
+                    : UserProgress(
+                        userId: widget.user.id,
+                        currentDay: 0,
+                        streak: 0,
+                        longestStreak: 0,
+                        completedDays: [],
+                      );
+                return _buildHeroArcSection(progress);
+              },
+            ),
+          ),
+
+          // Active status banner card matching "Monitoring Active" card in reference screenshot
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 16),
+              child: _buildStatusBannerSection(),
+            ),
+          ),
+
+          // 2-Column metric & feature grid cards matching reference screenshot
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: _buildTwoColumnFeatureGrid(),
+            ),
+          ),
+
+          // Quick Actions 2-column metric cards
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+              child: _buildQuickActionsGrid(),
+            ),
+          ),
+
+          // Creator's Guide Section
+          SliverToBoxAdapter(child: GuideSection()),
+
+          SliverToBoxAdapter(child: SizedBox(height: 36)),
+        ],
+      ),
+    );
   }
 
-  // warmupsCompleted is provided by the WarmupOverview extension at bottom of file
+  Widget _buildHeroArcSection(UserProgress progress) {
+    final completedCount = progress.currentDay.clamp(0, 30);
+    final activeDay = (completedCount + 1).clamp(1, 30);
+    final ratio = completedCount > 0
+        ? (completedCount / 30.0).clamp(0.15, 1.0)
+        : 0.92;
+    final percentage = ((completedCount / 30.0) * 100).round();
 
-  Widget _buildTodaysChallengeCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Center(
+        child: OliveArcGauge(
+          progress: ratio,
+          primaryValue: completedCount > 0 ? '$percentage' : 'Day $activeDay',
+          primaryUnit: completedCount > 0 ? '%' : '/30',
+          statusLabel: completedCount >= 30
+              ? 'CHALLENGE COMPLETE'
+              : '30-DAY CHALLENGE',
+          pillText: '${progress.streak}d Streak • Best ${progress.longestStreak}d',
+          onTap: () => setState(() => _currentIndex = 1),
+          size: 282,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBannerSection() {
     return BlocBuilder<ProgressBloc, ProgressState>(
       builder: (context, progressState) {
-        if (progressState is! ProgressLoadSuccess) {
-          return const SizedBox.shrink();
+        final hasScripts =
+            progressState is ProgressLoadSuccess && progressState.hasScripts;
+
+        if (!hasScripts) {
+          return SageStatusCard(
+            title: 'Journey Ready to Start',
+            subtitle:
+                'Personalize your 30-day teleprompter scripts, warmups, and daily camera practice',
+            actionLabel: 'Start',
+            onActionTap: () {
+              BeginnerChallengeCard.launchFlow(
+                context,
+                userId: widget.user.id,
+                userName: widget.user.displayName,
+                onChallengeStarted: _onChallengeStarted,
+              );
+            },
+          );
         }
 
-        final progress = progressState.progress;
-        final currentDay = progress.currentDay;
-        final nextDay = currentDay + 1;
-        final canRecord = progress.canRecordNextDay;
-        final isChallengeComplete = progress.isChallengeComplete;
+        return BlocBuilder<WarmupBloc, WarmupState>(
+          builder: (context, warmupState) {
+            if (warmupState is WarmupOverview &&
+                !warmupState.allWarmupsComplete) {
+              return SageStatusCard(
+                title: 'Complete Warmups',
+                subtitle:
+                    '${warmupState.warmupsCompleted}/3 warmups done • Powers camera presence and vocal clarity',
+                actionLabel: 'Continue',
+                onActionTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider.value(
+                        value: context.read<WarmupBloc>(),
+                        child: WarmupOverviewScreen(
+                          userName: widget.user.displayName,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
 
-        // If challenge is complete (all 30 days done)
-        if (isChallengeComplete) {
-          return Padding(
-                padding: const EdgeInsets.all(24),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF22C55E).withValues(alpha: 0.3),
-                        const Color(0xFF10B981).withValues(alpha: 0.2),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFF22C55E).withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF22C55E),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.emoji_events,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Challenge Complete! 🎉",
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'You finished all 30 days!',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            final progress = progressState.progress;
+            final currentDay = progress.currentDay;
+            final nextDay = (currentDay + 1).clamp(1, 30);
+            final canRecord = progress.canRecordNextDay;
+            final isComplete = progress.isChallengeComplete;
+
+            if (isComplete) {
+              return SageStatusCard(
+                title: 'Challenge Complete!',
+                subtitle:
+                    'You finished all 30 days of camera confidence practice',
+                actionLabel: 'Review',
+                onActionTap: () => setState(() => _currentIndex = 1),
+              );
+            }
+
+            if (!canRecord && currentDay > 0) {
+              return SageStatusCard(
+                title: 'Day $currentDay Complete',
+                subtitle:
+                    'Day $nextDay unlocks tomorrow • Consistency builds lasting confidence',
+                actionLabel: 'Details',
+                onActionTap: _showComeBackTomorrowDialog,
+              );
+            }
+
+            return SageStatusCard(
+              title: "Today's Challenge • Day $nextDay",
+              subtitle:
+                  'Powers daily speaking confidence, teleprompter flow, and self-review',
+              actionLabel: 'Record',
+              onActionTap: () => _navigateToDailyChallenge(nextDay),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTwoColumnFeatureGrid() {
+    return Row(
+      children: [
+        Expanded(
+          child: ContentCreatorCard(userId: widget.user.id),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: BeginnerChallengeCard(
+            userId: widget.user.id,
+            userName: widget.user.displayName,
+            onChallengeStarted: _onChallengeStarted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionsGrid() {
+    return BlocBuilder<ProgressBloc, ProgressState>(
+      builder: (context, state) {
+        final currentDay =
+            state is ProgressLoadSuccess ? state.progress.currentDay : 0;
+        final streak =
+            state is ProgressLoadSuccess ? state.progress.streak : 0;
+        final bestStreak =
+            state is ProgressLoadSuccess ? state.progress.longestStreak : 0;
+
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: SageMetricCard(
+                    icon: Icons.calendar_today_outlined,
+                    iconColor: AppColors.secondaryGreen,
+                    label: 'SCHEDULE',
+                    value: 'Day ${currentDay.clamp(0, 30)}/30',
+                    onTap: () => setState(() => _currentIndex = 1),
                   ),
                 ),
-              )
-              .animate()
-              .fadeIn(delay: 200.ms, duration: 400.ms)
-              .slideY(begin: 0.2, end: 0);
-        }
-
-        // If can't record today (already completed today's challenge)
-        if (!canRecord && currentDay > 0) {
-          return GestureDetector(
-                onTap: () => _showComeBackTomorrowDialog(),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.grey.withValues(alpha: 0.2),
-                          Colors.grey.withValues(alpha: 0.1),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[700],
-                            borderRadius: BorderRadius.circular(16),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SageMetricCard(
+                    icon: Icons.local_fire_department_outlined,
+                    iconColor: AppColors.error,
+                    label: 'STREAK',
+                    value: '$streak Days',
+                    valueColor: streak > 0
+                        ? AppColors.secondaryGreen
+                        : AppColors.primaryText,
+                    showWaveAccent: true,
+                    waveColor: AppColors.error,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Current streak: $streak days • Best streak: $bestStreak days',
                           ),
-                          child: const Icon(
-                            Icons.lock_clock,
-                            color: Colors.white54,
-                            size: 28,
-                          ),
+                          duration: const Duration(seconds: 2),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Day $currentDay Complete! ✅",
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Day $nextDay unlocks tomorrow',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: Colors.white54),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.schedule,
-                            color: Colors.white38,
-                            size: 24,
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
-              )
-              .animate()
-              .fadeIn(delay: 200.ms, duration: 400.ms)
-              .slideY(begin: 0.2, end: 0);
-        }
-
-        // Normal state - can record
-        return GestureDetector(
-          onTap: () => _navigateToDailyChallenge(nextDay),
-          child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.3),
-                        Theme.of(
-                          context,
-                        ).colorScheme.secondary.withValues(alpha: 0.2),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(16),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: SageMetricCard(
+                    icon: Icons.emoji_events_outlined,
+                    iconColor: AppColors.primaryOlive,
+                    label: 'ACHIEVEMENTS',
+                    value: 'Best ${bestStreak}d',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Achievements coming soon!'),
+                          duration: Duration(seconds: 1),
                         ),
-                        child: const Icon(
-                          Icons.videocam_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Today's Challenge - Day $nextDay",
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Tap to start recording',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              )
-              .animate()
-              .fadeIn(delay: 200.ms, duration: 400.ms)
-              .slideY(begin: 0.2, end: 0),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: SageMetricCard(
+                    icon: Icons.help_outline_rounded,
+                    iconColor: AppColors.secondaryGreen,
+                    label: 'TIPS',
+                    value: 'Coach Guide',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Tips coming soon!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
         );
       },
     );
@@ -562,38 +445,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showComeBackTomorrowDialog() {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              color: AppColors.primaryOlive,
+              size: 24,
             ),
-            title: const Row(
-              children: [
-                Icon(Icons.schedule, color: Color(0xFF6366F1), size: 28),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Great Job Today! 🎉',
-                    style: TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: const Text(
-              "You've completed today's challenge!\n\nYour next day will unlock tomorrow. Consistency is key to building confidence!",
-              style: TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                ),
-                child: const Text('Got It'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Great Job Today!',
+                style: AppTypography.headingMedium(fontSize: 19),
               ),
-            ],
+            ),
+          ],
+        ),
+        content: Text(
+          "You've completed today's challenge!\n\nYour next day will unlock tomorrow. Consistency is key to building confidence!",
+          style: AppTypography.body(),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Got It'),
           ),
+        ],
+      ),
     );
   }
 
@@ -601,163 +480,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => DayChallengeOverviewScreen(
-              userId: widget.user.id,
-              dayNumber: dayNumber,
-            ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuickActionButton(
-                  icon: Icons.calendar_today_rounded,
-                  label: 'Schedule',
-                  color: const Color(0xFFF472B6),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickActionButton(
-                  icon: Icons.emoji_events_rounded,
-                  label: 'Achievements',
-                  color: const Color(0xFFFBBF24),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickActionButton(
-                  icon: Icons.help_outline_rounded,
-                  label: 'Tips',
-                  color: const Color(0xFF22D3EE),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 300.ms, duration: 400.ms);
-  }
-
-  Widget _buildQuickActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    // TODO: Wire up to navigation when screens are implemented
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label coming soon!'),
-            backgroundColor: const Color(0xFF6366F1),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home_rounded, 'Home', 0),
-              _buildNavItem(Icons.calendar_month_rounded, 'Days', 1),
-              _buildNavItem(Icons.video_library_rounded, 'Videos', 2),
-              _buildNavItem(Icons.settings_rounded, 'Settings', 3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _currentIndex == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration:
-            isSelected
-                ? BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                )
-                : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color:
-                  isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.white54,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color:
-                    isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.white54,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
+        builder: (_) => DayChallengeOverviewScreen(
+          userId: widget.user.id,
+          dayNumber: dayNumber,
         ),
       ),
     );

@@ -71,6 +71,10 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
           AppConstants.languagePreferenceKey,
           defaultValue: 'en',
         ),
+        AppConstants.hasSeenIntroOnboardingKey: settingsBox.get(
+          AppConstants.hasSeenIntroOnboardingKey,
+          defaultValue: false,
+        ),
       };
     } catch (e) {
       logger.e('Error getting settings', e);

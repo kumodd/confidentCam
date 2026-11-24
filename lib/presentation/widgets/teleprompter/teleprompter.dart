@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/daily_script.dart';
 
 /// Teleprompter widget for displaying scrolling script text.
@@ -9,7 +10,7 @@ class Teleprompter extends StatefulWidget {
   final String text;
   final double scrollSpeed;
   final double fontSize;
-  final Color textColor;
+  final Color? textColor;
   final bool isPlaying;
   final VoidCallback? onComplete;
 
@@ -18,7 +19,7 @@ class Teleprompter extends StatefulWidget {
     required this.text,
     this.scrollSpeed = 1.0,
     this.fontSize = 24,
-    this.textColor = Colors.white,
+    this.textColor,
     this.isPlaying = false,
     this.onComplete,
   });
@@ -61,7 +62,6 @@ class TeleprompterState extends State<Teleprompter> {
     if (_isScrolling) return;
     _isScrolling = true;
 
-    // Calculate scroll increment based on speed
     final scrollIncrement = widget.scrollSpeed * 0.8;
 
     _scrollTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
@@ -109,7 +109,7 @@ class TeleprompterState extends State<Teleprompter> {
             Colors.white,
             Colors.transparent,
           ],
-          stops: const [0.0, 0.1, 0.5, 0.9, 1.0],
+          stops: [0.0, 0.1, 0.5, 0.9, 1.0],
         ).createShader(bounds);
       },
       blendMode: BlendMode.dstIn,
@@ -123,7 +123,7 @@ class TeleprompterState extends State<Teleprompter> {
         child: Text(
           widget.text,
           style: TextStyle(
-            color: widget.textColor,
+            color: widget.textColor ?? AppColors.primaryText,
             fontSize: widget.fontSize,
             fontWeight: FontWeight.w500,
             height: 1.8,
@@ -141,7 +141,7 @@ class TeleprompterOverlay extends StatelessWidget {
   final String text;
   final double scrollSpeed;
   final double fontSize;
-  final Color textColor;
+  final Color? textColor;
   final bool isPlaying;
   final double opacity;
   final GlobalKey<TeleprompterState>? teleprompterKey;
@@ -151,7 +151,7 @@ class TeleprompterOverlay extends StatelessWidget {
     required this.text,
     this.scrollSpeed = 1.0,
     this.fontSize = 20,
-    this.textColor = Colors.white,
+    this.textColor,
     this.isPlaying = false,
     this.opacity = 0.9,
     this.teleprompterKey,
@@ -159,14 +159,15 @@ class TeleprompterOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedColor = textColor ?? AppColors.primaryText;
     return Container(
-      color: Colors.black.withValues(alpha: opacity * 0.3),
+      color: AppColors.background.withValues(alpha: opacity * 0.8),
       child: Teleprompter(
         key: teleprompterKey,
         text: text,
         scrollSpeed: scrollSpeed,
         fontSize: fontSize,
-        textColor: textColor.withValues(alpha: opacity),
+        textColor: resolvedColor.withValues(alpha: opacity),
         isPlaying: isPlaying,
       ),
     );
@@ -191,7 +192,6 @@ class SegmentedScriptDisplay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Segment indicators
         Row(
           children: List.generate(segments.length, (index) {
             final isActive = index == currentSegment;
@@ -202,15 +202,14 @@ class SegmentedScriptDisplay extends StatelessWidget {
                 onTap: () => onSegmentTap?.call(index),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 4,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color:
-                        isDone
-                            ? const Color(0xFF22C55E)
-                            : isActive
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
+                    color: isDone
+                        ? AppColors.secondaryGreen
+                        : isActive
+                            ? AppColors.primaryOlive
+                            : AppColors.divider,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
@@ -218,47 +217,24 @@ class SegmentedScriptDisplay extends StatelessWidget {
           }),
         ),
         const SizedBox(height: 16),
-
-        // Current segment text
         if (currentSegment < segments.length) ...[
           Text(
-            'Part ${currentSegment + 1}',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
+            'PART ${currentSegment + 1}',
+            style: AppTypography.uppercaseLabel(
+              color: AppColors.primaryOlive,
+              fontSize: 11,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             segments[currentSegment].text,
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: AppTypography.headingMedium(fontSize: 18),
           ),
           if (segments[currentSegment].focus.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.lightbulb_outline,
-                    color: Color(0xFFFBBF24),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Focus: ${segments[currentSegment].focus}',
-                    style: const TextStyle(
-                      color: Color(0xFFFBBF24),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+            OlivePillBadge(
+              label: 'Focus: ${segments[currentSegment].focus}',
+              icon: Icons.lightbulb_outline_rounded,
             ),
           ],
         ],

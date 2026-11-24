@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/guide_chapter.dart';
 import '../../bloc/guide/guide_bloc.dart';
 import '../../bloc/guide/guide_event.dart';
@@ -10,7 +10,7 @@ import '../../screens/warmup/warmup_overview_screen.dart';
 import '../../bloc/warmup/warmup_bloc.dart';
 import '../../screens/progress/guide_video_player_screen.dart';
 
-/// Guide section widget for dashboard
+/// Guide section widget for dashboard in the sage & olive design language.
 class GuideSection extends StatefulWidget {
   const GuideSection({super.key});
 
@@ -28,57 +28,64 @@ class _GuideSectionState extends State<GuideSection> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.menu_book, color: Color(0xFFFBBF24)),
-              const SizedBox(width: 8),
-              Text(
-                'Creator\'s Guide',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    color: AppColors.primaryOlive,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "CREATOR'S GUIDE",
+                    style: AppTypography.uppercaseLabel(
+                      fontSize: 12,
+                      color: AppColors.secondaryText,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                ],
               ),
+              OlivePillBadge(label: 'Chapters'),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Tips to overcome fear and grow on social media',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
+            style: AppTypography.body(fontSize: 13.5),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           BlocBuilder<GuideBloc, GuideState>(
             builder: (context, state) {
               if (state is GuideLoading) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator(color: Color(0xFFFBBF24)),
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryOlive,
+                    ),
                   ),
                 );
               } else if (state is GuideLoaded) {
                 return Column(
-                  children:
-                      state.chapters.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final chapter = entry.value;
-                        return _ChapterCard(chapter: chapter, index: index + 1)
-                            .animate(delay: Duration(milliseconds: index * 100))
-                            .fadeIn()
-                            .slideX(begin: 0.1, end: 0);
-                      }).toList(),
+                  children: state.chapters.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final chapter = entry.value;
+                    return _ChapterCard(chapter: chapter, index: index + 1);
+                  }).toList(),
                 );
               } else if (state is GuideError) {
                 return Center(
                   child: Text(
                     'Failed to load guides.',
-                    style: TextStyle(color: Colors.red[300]),
+                    style: AppTypography.body(color: AppColors.error),
                   ),
                 );
               }
@@ -108,21 +115,16 @@ class _ChapterCardState extends State<_ChapterCard> {
     if (route == '/warmup') {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder:
-              (_) => BlocProvider.value(
-                value: context.read<WarmupBloc>(),
-                child: const WarmupOverviewScreen(),
-              ),
+          builder: (_) => BlocProvider.value(
+            value: context.read<WarmupBloc>(),
+            child: WarmupOverviewScreen(),
+          ),
         ),
       );
     } else if (route == '/challenge') {
-      // Challenge deep link via Dashboard or direct route routing
-      // If we are already on Dashboard, ideally we should switch tabs or push day list.
-      // For simplicity, we can pop until dashboard or dispatch an event, but here a simple snackbar or basic routing can serve as demo.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Navigating to Challenges...'),
-          backgroundColor: Color(0xFF6366F1),
           duration: Duration(seconds: 1),
         ),
       );
@@ -134,58 +136,58 @@ class _ChapterCardState extends State<_ChapterCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color:
-              _isExpanded
-                  ? const Color(0xFFFBBF24).withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.1),
-        ),
+        color: AppColors.cardSurface,
+        borderRadius: AppRadii.cardBorder,
+        border: _isExpanded
+            ? Border.all(color: AppColors.olivePillBorder, width: 1.4)
+            : null,
       ),
       child: Column(
         children: [
-          // Header
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.cardBorder,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.olivePillFill,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.olivePillBorder),
                     ),
                     child: Center(
                       child: Text(
                         widget.chapter.emoji,
-                        style: const TextStyle(fontSize: 20),
+                        style: TextStyle(fontSize: 19),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Chapter ${widget.index}: ${widget.chapter.title}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                          'CHAPTER ${widget.index}',
+                          style: AppTypography.uppercaseLabel(
+                            fontSize: 10.5,
+                            color: AppColors.primaryOlive,
+                            letterSpacing: 1.4,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
+                          widget.chapter.title,
+                          style: AppTypography.sectionTitle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
                           widget.chapter.summary,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
+                          style: AppTypography.body(fontSize: 12.5),
                         ),
                       ],
                     ),
@@ -193,47 +195,49 @@ class _ChapterCardState extends State<_ChapterCard> {
                   AnimatedRotation(
                     turns: _isExpanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white54,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.secondaryText,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Content
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 200),
-            crossFadeState:
-                _isExpanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(color: Colors.white12),
-                  const SizedBox(height: 8),
+                  const Divider(),
+                  const SizedBox(height: 12),
                   ...widget.chapter.content.map(
                     (point) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '• ',
-                            style: TextStyle(color: Color(0xFFFBBF24)),
+                          Padding(
+                            padding: EdgeInsets.only(top: 3),
+                            child: Icon(
+                              Icons.circle,
+                              size: 7,
+                              color: AppColors.primaryOlive,
+                            ),
                           ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               point,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                height: 1.5,
+                              style: AppTypography.body(
+                                color: AppColors.primaryText,
+                                fontSize: 13.5,
                               ),
                             ),
                           ),
@@ -241,118 +245,72 @@ class _ChapterCardState extends State<_ChapterCard> {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // Action buttons container
                   if (widget.chapter.youtubeUrl != null ||
-                      widget.chapter.actionRoute != null)
+                      widget.chapter.actionRoute != null) ...[
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         if (widget.chapter.youtubeUrl != null)
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () {
+                            child: OutlinedButton.icon(
+                              onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder:
-                                        (_) => GuideVideoPlayerScreen(
-                                          chapter: widget.chapter,
-                                        ),
+                                    builder: (_) => GuideVideoPlayerScreen(
+                                      chapter: widget.chapter,
+                                    ),
                                   ),
                                 );
                               },
-                              child: Container(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: AppColors.background,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
-                                  horizontal: 8,
+                                  horizontal: 10,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.red.withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.play_circle_fill,
-                                      color: Colors.red,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        'Watch Video',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              ),
+                              icon: Icon(
+                                Icons.play_circle_outline_rounded,
+                                color: AppColors.error,
+                                size: 18,
+                              ),
+                              label: Text(
+                                'Watch Video',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                         if (widget.chapter.youtubeUrl != null &&
                             widget.chapter.actionRoute != null)
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                         if (widget.chapter.actionRoute != null)
                           Expanded(
-                            child: GestureDetector(
-                              onTap:
-                                  () => _handleActionRoute(
-                                    widget.chapter.actionRoute!,
-                                  ),
-                              child: Container(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _handleActionRoute(
+                                widget.chapter.actionRoute!,
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.secondaryGreen,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
-                                  horizontal: 8,
+                                  horizontal: 10,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF6366F1,
-                                  ).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFF6366F1,
-                                    ).withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.flash_on_rounded,
-                                      color: Color(0xFF818CF8),
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        widget.chapter.actionTitle ??
-                                            'Take Action',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              ),
+                              icon: Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                widget.chapter.actionTitle ?? 'Take Action',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                       ],
                     ),
+                  ],
                 ],
               ),
             ),

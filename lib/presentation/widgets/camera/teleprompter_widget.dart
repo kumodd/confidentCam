@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../../core/theme/app_theme.dart';
 
 class TeleprompterWidget extends StatefulWidget {
   final String script;
@@ -8,7 +11,7 @@ class TeleprompterWidget extends StatefulWidget {
   final double scrollSpeed;
   final double opacity;
   final double fontSize;
-  final Color textColor;
+  final Color? textColor;
   final Function(double) onSpeedChange;
 
   const TeleprompterWidget({
@@ -19,7 +22,7 @@ class TeleprompterWidget extends StatefulWidget {
     required this.scrollSpeed,
     required this.opacity,
     this.fontSize = 16.0,
-    this.textColor = Colors.white,
+    this.textColor,
     required this.onSpeedChange,
   });
 
@@ -58,7 +61,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
     if (_isScrolling) return;
     _isScrolling = true;
     final pixelsPerTick = 0.5 * widget.scrollSpeed;
-    final tickDuration = const Duration(milliseconds: 16);
+    const tickDuration = Duration(milliseconds: 16);
 
     _scrollTimer = Timer.periodic(tickDuration, (timer) {
       if (!_scrollController.hasClients) return;
@@ -81,12 +84,20 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Use high-readability sage/cream card surface over camera preview
+    final resolvedTextColor = (widget.textColor == null ||
+            widget.textColor == Colors.white)
+        ? AppColors.primaryText
+        : widget.textColor!;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: widget.opacity),
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.background.withValues(
+          alpha: widget.opacity.clamp(0.75, 0.96),
+        ),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: widget.isRecording ? Colors.red.withValues(alpha: 0.6) : const Color(0xFF6366F1).withValues(alpha: 0.6),
+          color: widget.isRecording ? AppColors.error : AppColors.divider,
           width: 1.5,
         ),
       ),
@@ -94,22 +105,38 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: widget.isRecording ? Colors.red.withValues(alpha: 0.2) : const Color(0xFF6366F1).withValues(alpha: 0.2),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              color: AppColors.cardSurface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: widget.isRecording ? Colors.red : const Color(0xFF6366F1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: widget.isRecording
+                        ? AppColors.error
+                        : AppColors.olivePillFill,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.isRecording
+                          ? AppColors.error
+                          : AppColors.olivePillBorder,
+                    ),
                   ),
                   child: Text(
                     widget.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.manrope(
+                      color: widget.isRecording
+                          ? AppColors.background
+                          : AppColors.primaryOlive,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -118,52 +145,90 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                     onTap: () => widget.onSpeedChange(-0.25),
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-                      child: const Icon(Icons.remove, color: Colors.white, size: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Icon(
+                        Icons.remove,
+                        color: AppColors.primaryText,
+                        size: 14,
+                      ),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
                       '${widget.scrollSpeed.toStringAsFixed(1)}x',
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.manrope(
+                        color: AppColors.primaryText,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   GestureDetector(
                     onTap: () => widget.onSpeedChange(0.25),
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-                      child: const Icon(Icons.add, color: Colors.white, size: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Icon(
+                        Icons.add,
+                        color: AppColors.primaryText,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ],
                 const Spacer(),
                 Text(
-                  widget.isRecording ? '📖 Reading...' : '📖 Your Script',
-                  style: TextStyle(color: widget.isRecording ? Colors.white : const Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w600),
+                  widget.isRecording ? 'READING' : 'YOUR SCRIPT',
+                  style: AppTypography.uppercaseLabel(
+                    color: widget.isRecording
+                        ? AppColors.error
+                        : AppColors.secondaryGreen,
+                    fontSize: 10.5,
+                    letterSpacing: 1.4,
+                  ),
                 ),
               ],
             ),
           ),
+          Container(height: 1.2, color: AppColors.divider),
           Expanded(
             child: ShaderMask(
               shaderCallback: (Rect bounds) {
                 return LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.white, Colors.white, Colors.white.withValues(alpha: 0.0)],
-                  stops: const [0.0, 0.75, 1.0],
+                  colors: [
+                    Colors.white,
+                    Colors.white,
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                  stops: [0.0, 0.78, 1.0],
                 ).createShader(bounds);
               },
               blendMode: BlendMode.dstIn,
               child: SingleChildScrollView(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 40),
-                physics: widget.isRecording ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                physics: widget.isRecording
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
                 child: Text(
                   widget.script,
-                  style: TextStyle(color: widget.textColor, fontSize: widget.fontSize, height: 1.6, fontWeight: FontWeight.w400),
+                  style: GoogleFonts.inter(
+                    color: resolvedTextColor,
+                    fontSize: widget.fontSize,
+                    height: 1.6,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),

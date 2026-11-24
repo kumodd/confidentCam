@@ -72,7 +72,7 @@ class VideoInfo {
   final int sizeBytes;
   final String? title; // Optional title for content videos
 
-  VideoInfo({
+  const VideoInfo({
     required this.path,
     required this.type,
     required this.dayOrWarmupIndex,

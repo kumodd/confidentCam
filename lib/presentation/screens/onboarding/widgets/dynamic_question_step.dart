@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/onboarding_data.dart';
 import '../../../bloc/onboarding/onboarding_bloc.dart';
 import '../../../bloc/onboarding/onboarding_event.dart';
@@ -13,7 +13,11 @@ class DynamicQuestionStep extends StatelessWidget {
   final OnboardingInProgress state;
   final OnboardingQuestion question;
 
-  const DynamicQuestionStep({required this.state, required this.question});
+  const DynamicQuestionStep({
+    super.key,
+    required this.state,
+    required this.question,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,26 +29,17 @@ class DynamicQuestionStep extends StatelessWidget {
         children: [
           Text(
             question.questionText,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ).animate().fadeIn(duration: 400.ms),
-
-          const SizedBox(height: 8),
-
+            style: AppTypography.headingLarge(fontSize: 23),
+          ),
+          const SizedBox(height: 6),
           Text(
             question.isMultiSelect
                 ? 'Select all that apply'
                 : 'Select one option',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-          ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-
-          const SizedBox(height: 24),
-
-          // Options
-          ...question.options.asMap().entries.map((entry) {
-            final index = entry.key;
-            final option = entry.value;
+            style: AppTypography.body(),
+          ),
+          const SizedBox(height: 22),
+          ...question.options.map((option) {
             final isSelected = selectedOptions.contains(option);
 
             return Padding(
@@ -55,11 +50,14 @@ class DynamicQuestionStep extends StatelessWidget {
                 showCheckbox: question.isMultiSelect,
                 onTap: () {
                   context.read<OnboardingBloc>().add(
-                    AnswerToggled(questionKey: question.key, option: option),
-                  );
+                        AnswerToggled(
+                          questionKey: question.key,
+                          option: option,
+                        ),
+                      );
                 },
               ),
-            ).animate().fadeIn(delay: (150 + index * 50).ms, duration: 300.ms);
+            );
           }),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../core/theme/app_theme.dart';
+
 /// Splash screen shown during app initialization.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -8,89 +10,81 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E), Color(0xFF2D1F3D)],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo / Icon
-              Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF6366F1), Color(0xFFA855F7)],
-                      ),
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.4),
-                          blurRadius: 30,
-                          spreadRadius: 0,
-                        ),
-                      ],
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Minimalist sage/olive logo badge
+            Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: AppColors.divider,
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.olivePillFill,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: AppColors.olivePillBorder,
+                      width: 1.2,
                     ),
-                    child: const Icon(
-                      Icons.videocam_rounded,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(duration: 600.ms)
-                  .scale(
-                    begin: const Offset(0.5, 0.5),
-                    end: const Offset(1, 1),
                   ),
-
-              const SizedBox(height: 32),
-
-              // App name
-              Text(
-                    'ConfidentCam',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -1,
-                    ),
-                  )
-                  .animate()
-                  .fadeIn(delay: 300.ms, duration: 600.ms)
-                  .slideY(begin: 0.3, end: 0),
-
-              const SizedBox(height: 8),
-
-              // Tagline
-              Text(
-                '30 days to camera confidence',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-              ).animate().fadeIn(delay: 500.ms, duration: 600.ms),
-
-              const SizedBox(height: 48),
-
-              // Loading indicator
-              SizedBox(
-                width: 40,
-                height: 40,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
+                  child: Icon(
+                    Icons.videocam_outlined,
+                    size: 38,
+                    color: AppColors.primaryOlive,
                   ),
                 ),
-              ).animate().fadeIn(delay: 700.ms, duration: 400.ms),
-            ],
-          ),
+              ),
+            ).animate().fadeIn(duration: 500.ms).scale(
+                  begin: const Offset(0.85, 0.85),
+                  end: const Offset(1, 1),
+                ),
+
+            const SizedBox(height: 28),
+
+            // App name
+            Text(
+              'ConfidentCam',
+              style: AppTypography.headingLarge(fontSize: 30),
+            ).animate().fadeIn(delay: 200.ms, duration: 500.ms),
+
+            const SizedBox(height: 8),
+
+            // Tagline
+            Text(
+              '30 DAYS TO CAMERA CONFIDENCE',
+              style: AppTypography.uppercaseLabel(
+                fontSize: 11.5,
+                color: AppColors.secondaryText,
+                letterSpacing: 2.0,
+              ),
+            ).animate().fadeIn(delay: 350.ms, duration: 500.ms),
+
+            const SizedBox(height: 44),
+
+            // Loading indicator
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.8,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryOlive,
+                ),
+              ),
+            ).animate().fadeIn(delay: 500.ms, duration: 400.ms),
+          ],
         ),
       ),
     );

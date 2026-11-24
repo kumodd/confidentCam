@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/daily_completion.dart';
 import '../../../domain/entities/user_progress.dart';
 import '../../../domain/repositories/video_repository.dart';
@@ -54,14 +54,14 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
         if (file != null) {
           final controller = VideoPlayerController.file(file);
           await controller.initialize();
-          
+
           if (_isDisposed) {
             controller.dispose();
             return;
           }
-          
+
           await controller.setLooping(true);
-          
+
           setState(() {
             _controller = controller;
             _isVideoLoaded = true;
@@ -81,230 +81,150 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-          ),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // App bar
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+        title: Text('Day ${widget.dayNumber}'),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Center(
+              child: OlivePillBadge(
+                label: 'Completed',
+                icon: Icons.check_rounded,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: AppRadii.cardLargeBorder,
+                    border: Border.all(color: AppColors.divider, width: 1.5),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _isVideoLoaded && _controller != null
+                      ? GestureDetector(
+                          onTap: () {
+                            if (_controller!.value.isPlaying) {
+                              _controller!.pause();
+                            } else {
+                              _controller!.play();
+                            }
+                            setState(() {});
+                          },
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              AspectRatio(
+                                aspectRatio: _controller!.value.aspectRatio,
+                                child: VideoPlayer(_controller!),
+                              ),
+                              if (!_controller!.value.isPlaying)
+                                Container(
+                                  width: 68,
+                                  height: 68,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: AppColors.primaryOlive,
+                                    size: 42,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: AppColors.primaryOlive,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Loading video...',
+                                style: AppTypography.body(),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Text(
-                      'Day ${widget.dayNumber}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check, color: Colors.white, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'Completed',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SageMetricCard(
+                            icon: Icons.calendar_today_outlined,
+                            iconColor: AppColors.secondaryGreen,
+                            label: 'COMPLETED',
+                            value: DateFormat('MMM d').format(
+                              widget.completion.completedAt,
+                            ),
+                            subtitle: DateFormat('yyyy').format(
+                              widget.completion.completedAt,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SageMetricCard(
+                            icon: Icons.timer_outlined,
+                            iconColor: AppColors.primaryOlive,
+                            label: 'DURATION',
+                            value: widget.completion.durationSeconds != null
+                                ? _formatDuration(
+                                    widget.completion.durationSeconds!,
+                                  )
+                                : 'Recorded',
+                            subtitle:
+                                '${widget.completion.checklistResponses.length} reflections',
+                          ),
+                        ),
+                      ],
                     ),
+                    if (_canReRecord()) ...[
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _reRecordDay,
+                          icon: Icon(Icons.replay_rounded),
+                          label: Text('Re-record This Day'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ).animate().fadeIn(duration: 300.ms),
-
-              // Video preview
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child:
-                        _isVideoLoaded && _controller != null
-                            ? GestureDetector(
-                              onTap: () {
-                                if (_controller!.value.isPlaying) {
-                                  _controller!.pause();
-                                } else {
-                                  _controller!.play();
-                                }
-                                setState(() {});
-                              },
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  AspectRatio(
-                                    aspectRatio: _controller!.value.aspectRatio,
-                                    child: VideoPlayer(_controller!),
-                                  ),
-                                  if (!_controller!.value.isPlaying)
-                                    Container(
-                                      width: 72,
-                                      height: 72,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.play_arrow,
-                                        color: Colors.white,
-                                        size: 48,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            )
-                            : Container(
-                              color: Colors.black26,
-                              child: const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Loading video...',
-                                      style: TextStyle(color: Colors.white54),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                  ),
-                ),
-              ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-
-              // Details section
-              Expanded(
-                flex: 2,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Completion date
-                      _buildDetailRow(
-                        icon: Icons.calendar_today,
-                        label: 'Completed on',
-                        value: DateFormat(
-                          'MMMM d, yyyy',
-                        ).format(widget.completion.completedAt),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Duration
-                      if (widget.completion.durationSeconds != null)
-                        _buildDetailRow(
-                          icon: Icons.timer,
-                          label: 'Duration',
-                          value: _formatDuration(
-                            widget.completion.durationSeconds!,
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-
-                      // Checklist summary
-                      if (widget.completion.checklistResponses.isNotEmpty)
-                        _buildDetailRow(
-                          icon: Icons.check_box,
-                          label: 'Self-reflection',
-                          value:
-                              '${widget.completion.checklistResponses.length} items checked',
-                        ),
-                      const SizedBox(height: 32),
-
-                      // Re-record button (only if this is current day and can record)
-                      if (_canReRecord())
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _reRecordDay,
-                            icon: const Icon(Icons.replay),
-                            label: const Text('Re-record This Day'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ).animate().fadeIn(delay: 400.ms, duration: 400.ms),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: Colors.white54, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
@@ -318,35 +238,30 @@ class _DayDetailsScreenState extends State<DayDetailsScreen> {
   }
 
   bool _canReRecord() {
-    // Can only re-record if this day was completed today
     final now = DateTime.now();
     final completedDate = widget.completion.completedAt;
-    final isSameDay =
-        now.year == completedDate.year &&
+    return now.year == completedDate.year &&
         now.month == completedDate.month &&
         now.day == completedDate.day;
-    return isSameDay;
   }
 
   void _reRecordDay() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create:
-                  (_) =>
-                      sl<DailyChallengeBloc>()..add(
-                        DayLoaded(
-                          userId: widget.userId,
-                          dayNumber: widget.dayNumber,
-                        ),
-                      ),
-              child: DayChallengeOverviewScreen(
+        builder: (_) => BlocProvider.value(
+          value: context.read<DailyChallengeBloc>()
+            ..add(
+              DayLoaded(
                 userId: widget.userId,
                 dayNumber: widget.dayNumber,
               ),
             ),
+          child: DayChallengeOverviewScreen(
+            userId: widget.userId,
+            dayNumber: widget.dayNumber,
+          ),
+        ),
       ),
     );
   }

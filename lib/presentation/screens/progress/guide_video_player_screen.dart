@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/guide_chapter.dart';
 
 class GuideVideoPlayerScreen extends StatefulWidget {
@@ -23,11 +23,12 @@ class _GuideVideoPlayerScreenState extends State<GuideVideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    final videoId = YoutubePlayer.convertUrlToId(widget.chapter.youtubeUrl ?? '');
-    
+    final videoId =
+        YoutubePlayer.convertUrlToId(widget.chapter.youtubeUrl ?? '');
+
     _controller = YoutubePlayerController(
       initialVideoId: videoId ?? '',
-      flags: const YoutubePlayerFlags(
+      flags: YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
         enableCaption: true,
@@ -45,7 +46,6 @@ class _GuideVideoPlayerScreenState extends State<GuideVideoPlayerScreen> {
 
   @override
   void deactivate() {
-    // Pauses video while navigating to next page.
     _controller.pause();
     super.deactivate();
   }
@@ -60,21 +60,19 @@ class _GuideVideoPlayerScreenState extends State<GuideVideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return YoutubePlayerBuilder(
-      onExitFullScreen: () {
-        // Optional handling when forcing orientations
-      },
+      onExitFullScreen: () {},
       player: YoutubePlayer(
         controller: _controller,
         showVideoProgressIndicator: true,
-        progressIndicatorColor: const Color(0xFFFBBF24),
+        progressIndicatorColor: AppColors.primaryOlive,
         topActions: <Widget>[
           const SizedBox(width: 8.0),
           Expanded(
             child: Text(
               _controller.metadata.title,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 18.0,
+                fontSize: 16.0,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -87,104 +85,105 @@ class _GuideVideoPlayerScreenState extends State<GuideVideoPlayerScreen> {
       ),
       builder: (context, player) {
         return Scaffold(
-          backgroundColor: const Color(0xFF0F172A), // Aligning with dark theme
+          backgroundColor: AppColors.background,
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+              icon: Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            title: Text(
-              widget.chapter.title,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            title: Text(widget.chapter.title),
           ),
           body: Column(
             children: [
-              // 1. Core Youtube Player
-              player,
-              
-              // 2. Extracted Chapter Content underneath
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: ClipRRect(
+                  borderRadius: AppRadii.cardBorder,
+                  child: player,
+                ),
+              ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                widget.chapter.emoji,
-                                style: const TextStyle(fontSize: 24),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              widget.chapter.summary,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ).animate().fadeIn().slideY(begin: 0.1, end: 0),
-                      
-                      const SizedBox(height: 24),
-                      const Text(
-                        'KEY TAKEAWAYS',
-                        style: TextStyle(
-                          color: Color(0xFFFBBF24),
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ).animate().fadeIn(delay: 200.ms),
-                      const SizedBox(height: 16),
-                      
-                      ...widget.chapter.content.asMap().entries.map((entry) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.only(top: 4),
-                                child: Icon(
-                                  Icons.check_circle_rounded,
-                                  color: Color(0xFF6366F1),
-                                  size: 18,
+                      SageCard(
+                        padding: const EdgeInsets.all(18),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.olivePillFill,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: AppColors.olivePillBorder,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
+                              child: Center(
                                 child: Text(
-                                  entry.value,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 15,
-                                    height: 1.6,
-                                  ),
+                                  widget.chapter.emoji,
+                                  style: TextStyle(fontSize: 22),
                                 ),
                               ),
-                            ],
-                          ),
-                        ).animate().fadeIn(
-                          delay: Duration(milliseconds: 300 + (entry.key * 100))
-                        ).slideX(begin: 0.1, end: 0);
-                      }),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                widget.chapter.summary,
+                                style: AppTypography.bodyStrong(fontSize: 15),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SageSectionHeader(title: 'KEY TAKEAWAYS'),
+                      const SizedBox(height: 8),
+                      SageCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children:
+                              widget.chapter.content.asMap().entries.map((e) {
+                            final isLast =
+                                e.key == widget.chapter.content.length - 1;
+                            return Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 2),
+                                      child: Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        color: AppColors.secondaryGreen,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        e.value,
+                                        style: AppTypography.body(
+                                          color: AppColors.primaryText,
+                                          fontSize: 14.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (!isLast)
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 12),
+                                    child: Divider(),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ],
                   ),
                 ),

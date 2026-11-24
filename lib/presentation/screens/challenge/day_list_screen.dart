@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
-import '../../../core/di/injection_container.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/daily_completion.dart';
 import '../../../domain/entities/user_progress.dart';
-import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
-import '../../bloc/daily_challenge/daily_challenge_event.dart';
 import '../../bloc/progress/progress_bloc.dart';
+import '../../bloc/warmup/warmup_bloc.dart';
+import '../warmup/warmup_overview_screen.dart';
 import 'day_challenge_overview_screen.dart';
 import 'day_details_screen.dart';
 
-/// Day list screen showing 30-day challenge grid.
+/// Day list screen showing 30-day challenge grid in the sage & olive design system.
 class DayListScreen extends StatelessWidget {
   final String userId;
 
@@ -21,23 +21,74 @@ class DayListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0F0F1A), Color(0xFF1E1E2E)],
-        ),
-      ),
+      color: AppColors.background,
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverAppBar(
-              floating: true,
-              backgroundColor: Colors.transparent,
-              title: Text('30-Day Challenge'),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '30-Day Challenge',
+                      style: AppTypography.headingLarge(fontSize: 25),
+                    ),
+                    OlivePillBadge(
+                      label: 'Daily Grid',
+                      icon: Icons.calendar_today_outlined,
+                    ),
+                  ],
+                ),
+              ),
             ),
+
+            // Summary status card
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
+                child: BlocBuilder<ProgressBloc, ProgressState>(
+                  builder: (context, state) {
+                    final progress =
+                        state is ProgressLoadSuccess ? state.progress : null;
+                    final completed = progress?.currentDay ?? 0;
+                    final warmupsDone = progress?.warmupsComplete ?? false;
+                    return SageStatusCard(
+                      title: warmupsDone
+                          ? 'Progress: $completed of 30 Days'
+                          : 'Warmups Required First',
+                      subtitle: warmupsDone
+                          ? 'Complete one video challenge each day to build lasting camera confidence'
+                          : 'Finish all 3 warmups before unlocking Day 1 of the 30-day challenge',
+                      actionLabel: warmupsDone ? 'Day ${(completed + 1).clamp(1, 30)}' : 'Warmups',
+                      onActionTap: () {
+                        if (!warmupsDone) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<WarmupBloc>(),
+                                child: WarmupOverviewScreen(),
+                              ),
+                            ),
+                          );
+                        } else {
+                          _openDay(
+                            context,
+                            (completed + 1).clamp(1, 30),
+                            progress,
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // 30-Day Grid inside a SageCard container
             SliverPadding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
               sliver: BlocBuilder<ProgressBloc, ProgressState>(
                 builder: (context, state) {
                   UserProgress? progress;
@@ -56,34 +107,42 @@ class DayListScreen extends StatelessWidget {
                       childCount: 30,
                     ),
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                        SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 5,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
                         ),
                   );
                 },
               ),
             ),
+
             // Legend
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _LegendItem(
-                      color: const Color(0xFF22C55E),
-                      label: 'Complete',
-                    ),
-                    const SizedBox(width: 24),
-                    _LegendItem(
-                      color: Theme.of(context).colorScheme.primary,
-                      label: 'Current',
-                    ),
-                    const SizedBox(width: 24),
-                    _LegendItem(color: Colors.white24, label: 'Locked'),
-                  ],
+                padding: const EdgeInsets.all(22),
+                child: SageCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _LegendItem(
+                        color: AppColors.secondaryGreen,
+                        label: 'Complete',
+                      ),
+                      _LegendItem(
+                        color: AppColors.primaryOlive,
+                        label: 'Current',
+                      ),
+                      _LegendItem(
+                        color: AppColors.divider,
+                        label: 'Locked',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -105,33 +164,39 @@ class DayListScreen extends StatelessWidget {
     );
     final currentDay = progress.currentDay;
 
-    // Check if warmups are complete first
     if (!warmupsComplete) {
       _showLockedDayDialog(
         context,
-        'Complete Warmups First! 🎯',
+        'Complete Warmups First!',
         'You need to complete all 3 warmup videos before starting the 30-day challenge.',
         'Go to Warmups',
-        Icons.play_circle_outline,
+        Icons.play_circle_outline_rounded,
+        onAction: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: context.read<WarmupBloc>(),
+                child: WarmupOverviewScreen(),
+              ),
+            ),
+          );
+        },
       );
       return;
     }
 
-    // If day is completed, show options dialog
     if (isCompleted) {
       final completion = progress.getCompletionForDay(day);
       _showCompletedDayDialog(context, day, completion, progress);
       return;
     }
 
-    // Check if day is unlocked (calendar day check)
     if (!isUnlocked) {
-      // Check if it's the next day but not a new calendar day yet
       if (day == currentDay + 1) {
         final now = DateTime.now();
         final lastDate = progress.lastCompletedDate;
 
-        String message = 'Great job completing Day $currentDay! 🎉\n\n';
+        String message = 'Great job completing Day $currentDay!\n\n';
         if (lastDate != null) {
           final todayStart = DateTime(now.year, now.month, now.day);
           final lastDateStart = DateTime(
@@ -152,41 +217,33 @@ class DayListScreen extends StatelessWidget {
 
         _showLockedDayDialog(
           context,
-          'Come Back Tomorrow! 📅',
+          'Come Back Tomorrow!',
           message,
           'Got It',
-          Icons.schedule,
+          Icons.schedule_rounded,
         );
       } else if (day > currentDay + 1) {
         _showLockedDayDialog(
           context,
-          'Day $day Locked 🔒',
+          'Day $day Locked',
           'Complete Day ${currentDay + 1} first to unlock this day.\n\nOne day at a time - consistency is key!',
           'OK',
-          Icons.lock_outline,
+          Icons.lock_outline_rounded,
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Complete Day ${day - 1} first!'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
       return;
     }
 
-    // Navigate to day challenge overview for recording
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => BlocProvider(
-              create:
-                  (_) =>
-                      sl<DailyChallengeBloc>()
-                        ..add(DayLoaded(userId: userId, dayNumber: day)),
-              child: DayChallengeOverviewScreen(userId: userId, dayNumber: day),
-            ),
+        builder: (_) =>
+            DayChallengeOverviewScreen(userId: userId, dayNumber: day),
       ),
     );
   }
@@ -196,42 +253,35 @@ class DayListScreen extends StatelessWidget {
     String title,
     String message,
     String buttonText,
-    IconData icon,
-  ) {
+    IconData icon, {
+    VoidCallback? onAction,
+  }) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Icon(icon, color: const Color(0xFF6366F1), size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              message,
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                ),
-                child: Text(buttonText),
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(icon, color: AppColors.primaryOlive, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTypography.headingMedium(fontSize: 18),
               ),
-            ],
+            ),
+          ],
+        ),
+        content: Text(message, style: AppTypography.body()),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onAction?.call();
+            },
+            child: Text(buttonText),
           ),
+        ],
+      ),
     );
   }
 
@@ -243,73 +293,54 @@ class DayListScreen extends StatelessWidget {
   ) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Day Already Completed! 🎉',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              'You\'ve already completed Day $day. What would you like to do?',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Navigate to details if completion exists
-                  if (completion != null) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (_) => DayDetailsScreen(
-                              userId: userId,
-                              dayNumber: day,
-                              completion: completion,
-                              progress: progress,
-                            ),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('View Details'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Navigate to re-record
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder:
-                          (_) => BlocProvider(
-                            create:
-                                (_) =>
-                                    sl<DailyChallengeBloc>()..add(
-                                      DayLoaded(userId: userId, dayNumber: day),
-                                    ),
-                            child: DayChallengeOverviewScreen(
-                              userId: userId,
-                              dayNumber: day,
-                            ),
-                          ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF22C55E),
-                ),
-                child: const Text('Record Again'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Day $day Completed!',
+          style: AppTypography.headingMedium(fontSize: 19),
+        ),
+        content: Text(
+          "You've already completed Day $day. What would you like to do?",
+          style: AppTypography.body(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (completion != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DayDetailsScreen(
+                      userId: userId,
+                      dayNumber: day,
+                      completion: completion,
+                      progress: progress,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Text('View Details'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => DayChallengeOverviewScreen(
+                    userId: userId,
+                    dayNumber: day,
+                  ),
+                ),
+              );
+            },
+            child: Text('Record Again'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -343,16 +374,15 @@ class _DayCard extends StatelessWidget {
     final isCurrent = day == currentDay + 1 && warmupsComplete && isUnlocked;
 
     Color getBackgroundColor() {
-      if (isComplete) return const Color(0xFF22C55E);
-      if (isCurrent) return Theme.of(context).colorScheme.primary;
-      return const Color(0xFF1E1E2E);
+      if (isComplete) return AppColors.navPill;
+      if (isCurrent) return AppColors.primaryOlive;
+      return AppColors.cardSurface;
     }
 
     Color getBorderColor() {
-      if (isComplete) return const Color(0xFF22C55E);
-      if (isCurrent) return Theme.of(context).colorScheme.primary;
-      if (isUnlocked) return Colors.white24;
-      return Colors.white12;
+      if (isComplete) return AppColors.secondaryGreen;
+      if (isCurrent) return AppColors.primaryOlive;
+      return AppColors.divider;
     }
 
     return GestureDetector(
@@ -360,39 +390,51 @@ class _DayCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: getBackgroundColor(),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: getBorderColor()),
-          boxShadow:
-              isCurrent
-                  ? [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                  : null,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: getBorderColor(),
+            width: isCurrent || isComplete ? 1.6 : 1.1,
+          ),
         ),
         child: Center(
-          child:
-              isComplete
-                  ? const Icon(Icons.check, color: Colors.white, size: 20)
-                  : !isUnlocked
-                  ? const Icon(Icons.lock, color: Colors.white24, size: 18)
+          child: isComplete
+              ? Icon(
+                  Icons.check_rounded,
+                  color: AppColors.secondaryGreen,
+                  size: 20,
+                )
+              : !isUnlocked
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$day',
+                          style: GoogleFonts.manrope(
+                            color: AppColors.mutedText,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.mutedText,
+                          size: 12,
+                        ),
+                      ],
+                    )
                   : Text(
-                    '$day',
-                    style: TextStyle(
-                      color: isCurrent ? Colors.white : Colors.white70,
-                      fontWeight:
-                          isCurrent ? FontWeight.bold : FontWeight.normal,
-                      fontSize: isCurrent ? 16 : 14,
+                      '$day',
+                      style: GoogleFonts.manrope(
+                        color: isCurrent
+                            ? AppColors.background
+                            : AppColors.primaryText,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
-                  ),
         ),
       ),
-    ).animate().fadeIn(delay: (day * 20).ms, duration: 200.ms);
+    );
   }
 }
 
@@ -412,11 +454,17 @@ class _LegendItem extends StatelessWidget {
           height: 12,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(4),
+            shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: Colors.white54, fontSize: 12)),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: AppTypography.bodyStrong(
+            color: AppColors.secondaryText,
+            fontSize: 12.5,
+          ),
+        ),
       ],
     );
   }

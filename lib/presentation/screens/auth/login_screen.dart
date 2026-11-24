@@ -3,15 +3,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:country_code_picker/country_code_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import 'otp_verification_screen.dart';
 import 'email_confirmation_screen.dart';
 
-/// Modern unified login screen with phone and email options.
+/// Unified login screen in the minimalist sage & olive design system.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -61,10 +63,10 @@ class _LoginScreenState extends State<LoginScreen>
   List<Widget> _buildTabs() {
     final tabs = <Widget>[];
     if (AppConfig.enablePhoneAuth) {
-      tabs.add(const Tab(text: 'Phone'));
+      tabs.add(Tab(text: 'Phone'));
     }
     if (AppConfig.enableEmailAuth) {
-      tabs.add(const Tab(text: 'Email'));
+      tabs.add(Tab(text: 'Email'));
     }
     return tabs;
   }
@@ -72,9 +74,8 @@ class _LoginScreenState extends State<LoginScreen>
   void _submitPhone() {
     if (_phoneFormKey.currentState?.validate() ?? false) {
       final rawPhone = _phoneController.text.trim();
-      // Concatenate country code + phone number in E.164 format.
-      // Strip any leading zeros from the local number (e.g., 09876... → 9876...)
-      final localNumber = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
+      final localNumber =
+          rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
       final phone = '$_countryCode$localNumber';
       context.read<AuthBloc>().add(PhoneSubmitted(phone));
     }
@@ -87,12 +88,12 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (_isSignUp) {
         context.read<AuthBloc>().add(
-          EmailSignUpRequested(email: email, password: password),
-        );
+              EmailSignUpRequested(email: email, password: password),
+            );
       } else {
         context.read<AuthBloc>().add(
-          EmailSignInRequested(email: email, password: password),
-        );
+              EmailSignInRequested(email: email, password: password),
+            );
       }
     }
   }
@@ -112,11 +113,10 @@ class _LoginScreenState extends State<LoginScreen>
         if (state is AuthCodeSent) {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder:
-                  (_) => BlocProvider.value(
-                    value: context.read<AuthBloc>(),
-                    child: OtpVerificationScreen(phone: state.phone),
-                  ),
+              builder: (_) => BlocProvider.value(
+                value: context.read<AuthBloc>(),
+                child: OtpVerificationScreen(phone: state.phone),
+              ),
             ),
           );
         } else if (state is EmailConfirmationRequired) {
@@ -130,48 +130,73 @@ class _LoginScreenState extends State<LoginScreen>
         }
       },
       child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0A0A14), Color(0xFF1A1A2E), Color(0xFF16162A)],
-            ),
-          ),
-          child: SafeArea(
-            child: Stack(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Animated background shapes
-                _buildAnimatedBackground(),
+                const SizedBox(height: 16),
 
-                // Main content
-                SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                // Top brand bar + hero arc header
+                _buildHeader(),
+
+                const SizedBox(height: 28),
+
+                // Status banner card
+                SageStatusCard(
+                  title: '30-Day Camera Confidence',
+                  subtitle:
+                      'Daily guided warmups, AI teleprompter scripts, and structured practice',
+                  actionLabel: 'Ready',
+                ),
+
+                const SizedBox(height: 20),
+
+                // Auth card
+                SageCard(
+                  padding: const EdgeInsets.all(22),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 40),
-
-                      // Logo and branding
-                      _buildHeader(),
-
-                      const SizedBox(height: 48),
-
-                      // Tab bar (if multiple auth methods)
-                      if (_getEnabledTabCount() > 1) _buildTabBar(),
-
-                      const SizedBox(height: 24),
-
-                      // Auth forms
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 20,
+                            color: AppColors.primaryOlive,
+                          ),
+                          Text(
+                            'AUTHENTICATION',
+                            style: AppTypography.uppercaseLabel(
+                              fontSize: 11,
+                              color: AppColors.secondaryText,
+                              letterSpacing: 1.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        height: 1.2,
+                        color: AppColors.divider,
+                      ),
+                      const SizedBox(height: 18),
+                      if (_getEnabledTabCount() > 1) ...[
+                        _buildTabBar(),
+                        const SizedBox(height: 20),
+                      ],
                       _buildAuthContent(),
-
-                      const SizedBox(height: 32),
-
-                      // Terms
-                      _buildTerms(),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // Terms
+                _buildTerms(),
               ],
             ),
           ),
@@ -180,144 +205,64 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildAnimatedBackground() {
-    return Stack(
-      children: [
-        Positioned(
-              top: -100,
-              right: -100,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.15),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            )
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .scale(
-              begin: const Offset(1, 1),
-              end: const Offset(1.2, 1.2),
-              duration: 4.seconds,
-            ),
-        Positioned(
-              bottom: 100,
-              left: -50,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Theme.of(
-                        context,
-                      ).colorScheme.secondary.withValues(alpha: 0.1),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            )
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .scale(
-              begin: const Offset(1, 1),
-              end: const Offset(1.3, 1.3),
-              duration: 5.seconds,
-              delay: 1.seconds,
-            ),
-      ],
-    );
-  }
-
   Widget _buildHeader() {
     return Column(
       children: [
-        // App icon
-        Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.secondary,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.videocam_rounded,
-                color: Colors.white,
-                size: 40,
-              ),
-            )
-            .animate()
-            .fadeIn(duration: 500.ms)
-            .scale(begin: const Offset(0.8, 0.8)),
-
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'ConfidentCam',
+              style: AppTypography.headingLarge(fontSize: 24),
+            ),
+            OlivePillBadge(
+              label: '30-Day Program',
+              icon: Icons.videocam_outlined,
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
-
-        Text(
-          'ConfidentCam',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -0.5,
-          ),
-        ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-
-        const SizedBox(height: 8),
-
-        Text(
-          'Build camera confidence in 30 days',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: Colors.white54),
-          textAlign: TextAlign.center,
-        ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
+        OliveArcGauge(
+          progress: 1.0,
+          primaryValue: '30',
+          primaryUnit: 'd',
+          statusLabel: 'CAMERA CONFIDENCE',
+          pillText: 'Daily Practice',
+          size: 224,
+        ).animate().fadeIn(duration: 450.ms),
       ],
     );
   }
 
   Widget _buildTabBar() {
     return Container(
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider, width: 1.2),
       ),
       child: TabBar(
         controller: _tabController,
         tabs: _buildTabs(),
         indicator: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+          color: AppColors.navPill,
           borderRadius: BorderRadius.circular(12),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white54,
+        labelColor: AppColors.primaryText,
+        unselectedLabelColor: AppColors.secondaryText,
+        labelStyle: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelStyle: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         dividerColor: Colors.transparent,
       ),
-    ).animate().fadeIn(delay: 400.ms, duration: 400.ms);
+    );
   }
 
   Widget _buildAuthContent() {
@@ -330,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     return SizedBox(
-      height: AppConfig.enableEmailAuth && _isSignUp ? 400 : 320,
+      height: AppConfig.enableEmailAuth && _isSignUp ? 360 : 290,
       child: TabBarView(
         controller: _tabController,
         children: [
@@ -347,39 +292,67 @@ class _LoginScreenState extends State<LoginScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Phone input card
+          Text(
+            'PHONE NUMBER',
+            style: AppTypography.uppercaseLabel(
+              fontSize: 11,
+              color: AppColors.secondaryText,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              color: AppColors.background,
+              borderRadius: AppRadii.inputBorder,
+              border: Border.all(color: AppColors.divider, width: 1.3),
             ),
             child: Row(
               children: [
                 CountryCodePicker(
-                  onChanged:
-                      (code) =>
-                          setState(() => _countryCode = code.dialCode ?? '+1'),
+                  onChanged: (code) =>
+                      setState(() => _countryCode = code.dialCode ?? '+1'),
                   initialSelection: 'IN',
                   showCountryOnly: false,
                   showOnlyCountryWhenClosed: false,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  textStyle: const TextStyle(color: Colors.white, fontSize: 16),
-                  dialogTextStyle: const TextStyle(color: Colors.black),
-                  searchStyle: const TextStyle(color: Colors.black),
+                  textStyle: GoogleFonts.manrope(
+                    color: AppColors.primaryText,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  dialogBackgroundColor: AppColors.background,
+                  dialogTextStyle: GoogleFonts.inter(
+                    color: AppColors.primaryText,
+                  ),
+                  searchStyle: GoogleFonts.inter(
+                    color: AppColors.primaryText,
+                  ),
                 ),
-                Container(width: 1, height: 30, color: Colors.white12),
+                Container(width: 1.2, height: 28, color: AppColors.divider),
                 Expanded(
                   child: TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                    decoration: const InputDecoration(
+                    style: GoogleFonts.manrope(
+                      color: AppColors.primaryText,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
                       hintText: 'Phone number',
-                      hintStyle: TextStyle(color: Colors.white38),
+                      hintStyle: GoogleFonts.inter(
+                        color: AppColors.mutedText,
+                        fontSize: 15,
+                      ),
+                      filled: false,
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
                         vertical: 16,
                       ),
                     ),
@@ -397,17 +370,15 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
           ),
-
-          const SizedBox(height: 24),
-
+          const SizedBox(height: 22),
           _buildSubmitButton(
             'Continue with Phone',
             _submitPhone,
-            Icons.arrow_forward,
+            Icons.arrow_forward_rounded,
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 500.ms, duration: 400.ms);
+    );
   }
 
   Widget _buildEmailForm() {
@@ -416,7 +387,6 @@ class _LoginScreenState extends State<LoginScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Email input
           _buildTextField(
             controller: _emailController,
             hint: 'Email address',
@@ -432,22 +402,22 @@ class _LoginScreenState extends State<LoginScreen>
               return null;
             },
           ),
-
-          const SizedBox(height: 16),
-
-          // Password input
+          const SizedBox(height: 14),
           _buildTextField(
             controller: _passwordController,
             hint: 'Password',
-            icon: Icons.lock_outline,
+            icon: Icons.lock_outline_rounded,
             obscureText: _obscurePassword,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                color: Colors.white38,
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppColors.secondaryText,
+                size: 20,
               ),
-              onPressed:
-                  () => setState(() => _obscurePassword = !_obscurePassword),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -459,30 +429,29 @@ class _LoginScreenState extends State<LoginScreen>
               return null;
             },
           ),
-
-          const SizedBox(height: 24),
-
+          const SizedBox(height: 20),
           _buildSubmitButton(
             _isSignUp ? 'Create Account' : 'Sign In',
             _submitEmail,
-            _isSignUp ? Icons.person_add : Icons.login,
+            _isSignUp ? Icons.person_add_alt_1_rounded : Icons.login_rounded,
           ),
-
-          const SizedBox(height: 16),
-
-          // Toggle sign up / sign in
+          const SizedBox(height: 10),
           TextButton(
             onPressed: () => setState(() => _isSignUp = !_isSignUp),
             child: Text(
               _isSignUp
                   ? 'Already have an account? Sign In'
                   : "Don't have an account? Sign Up",
-              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              style: GoogleFonts.manrope(
+                color: AppColors.secondaryGreen,
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 500.ms, duration: 400.ms);
+    );
   }
 
   Widget _buildTextField({
@@ -496,24 +465,33 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        color: AppColors.background,
+        borderRadius: AppRadii.inputBorder,
+        border: Border.all(color: AppColors.divider, width: 1.3),
       ),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: GoogleFonts.inter(
+          color: AppColors.primaryText,
+          fontSize: 15.5,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: Icon(icon, color: Colors.white38),
+          hintStyle: GoogleFonts.inter(color: AppColors.mutedText),
+          prefixIcon: Icon(icon, color: AppColors.secondaryText, size: 20),
           suffixIcon: suffixIcon,
+          filled: false,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 16,
+            vertical: 15,
           ),
         ),
         validator: validator,
@@ -526,48 +504,30 @@ class _LoginScreenState extends State<LoginScreen>
     VoidCallback onPressed,
     IconData icon,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.secondary,
-          ],
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryOlive,
+        foregroundColor: AppColors.background,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadii.buttonBorder,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              text,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            text,
+            style: GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.background,
             ),
-            const SizedBox(width: 8),
-            Icon(icon, color: Colors.white, size: 20),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Icon(icon, color: AppColors.background, size: 19),
+        ],
       ),
     );
   }
@@ -575,40 +535,36 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildTerms() {
     return Text(
       'By continuing, you agree to our Terms of Service and Privacy Policy',
-      style: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(color: Colors.white38),
+      style: AppTypography.body(
+        fontSize: 12.5,
+        color: AppColors.mutedText,
+      ),
       textAlign: TextAlign.center,
-    ).animate().fadeIn(delay: 600.ms, duration: 400.ms);
+    );
   }
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.redAccent, size: 28),
-                SizedBox(width: 12),
-                Text('Error', style: TextStyle(color: Colors.white)),
-              ],
-            ),
-            content: Text(
-              message,
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: AppColors.error, size: 24),
+            const SizedBox(width: 10),
+            Text('Sign In Issue', style: AppTypography.headingMedium()),
+          ],
+        ),
+        content: Text(
+          message,
+          style: AppTypography.body(color: AppColors.secondaryText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('OK'),
           ),
+        ],
+      ),
     );
   }
 }

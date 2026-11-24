@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Reusable option card widget
+import '../../../../core/theme/app_theme.dart';
+
+/// Reusable option card widget in the sage & olive design system.
 class OptionCard extends StatelessWidget {
   final String text;
   final String? subtitle;
@@ -9,6 +11,7 @@ class OptionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const OptionCard({
+    super.key,
     required this.text,
     this.subtitle,
     required this.isSelected,
@@ -20,20 +23,16 @@ class OptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
-                  : const Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? AppColors.olivePillFill : AppColors.cardSurface,
+          borderRadius: AppRadii.cardBorder,
           border: Border.all(
             color:
-                isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.white12,
-            width: isSelected ? 2 : 1,
+                isSelected ? AppColors.primaryOlive : AppColors.divider,
+            width: isSelected ? 1.8 : 1.2,
           ),
         ),
         child: Row(
@@ -43,25 +42,26 @@ class OptionCard extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
+                  color: isSelected
+                      ? AppColors.primaryOlive
+                      : AppColors.background,
+                  borderRadius: BorderRadius.circular(7),
                   border: Border.all(
-                    color:
-                        isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white38,
-                    width: 2,
+                    color: isSelected
+                        ? AppColors.primaryOlive
+                        : AppColors.secondaryText,
+                    width: 1.6,
                   ),
                 ),
-                child:
-                    isSelected
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : null,
+                child: isSelected
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: AppColors.background,
+                      )
+                    : null,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
             ],
             Expanded(
               child: Column(
@@ -69,19 +69,19 @@ class OptionCard extends StatelessWidget {
                 children: [
                   Text(
                     text,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                    style: AppTypography.bodyStrong(
+                      fontSize: 15.5,
+                      color: AppColors.primaryText,
                     ),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       subtitle!,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.white38),
+                      style: AppTypography.body(
+                        fontSize: 13,
+                        color: AppColors.secondaryText,
+                      ),
                     ),
                   ],
                 ],
@@ -89,8 +89,9 @@ class OptionCard extends StatelessWidget {
             ),
             if (!showCheckbox && isSelected)
               Icon(
-                Icons.check_circle,
-                color: Theme.of(context).colorScheme.primary,
+                Icons.check_circle_rounded,
+                color: AppColors.primaryOlive,
+                size: 22,
               ),
           ],
         ),

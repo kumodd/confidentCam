@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/repositories/video_repository.dart';
 import '../../bloc/daily_challenge/daily_challenge_bloc.dart';
 import '../../bloc/daily_challenge/daily_challenge_event.dart';
@@ -72,7 +72,6 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
         setState(() => _isInitialized = true);
       }
     } catch (e) {
-      debugPrint('Error initializing video: $e');
       if (mounted) {
         EasyLoading.showError('Failed to load video preview');
         setState(() => _isInitialized = false);
@@ -104,7 +103,6 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
       return;
     }
 
-    // Pause the video if deleting the currently playing take
     if (index == _selectedTakeIndex && _controller != null) {
       _controller!.pause();
       setState(() {});
@@ -112,42 +110,39 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
 
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Delete Take?'),
-            content: const Text('This cannot be undone.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Resume playing if user cancelled and it was paused
-                  if (index == _selectedTakeIndex && _controller != null) {
-                    _controller!.play();
-                    setState(() {});
-                  }
-                },
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  // Dispose controller if deleting current take to prevent resource issues
-                  if (index == _selectedTakeIndex) {
-                    _controller?.dispose();
-                    _controller = null;
-                    _isInitialized = false;
-                  }
-                  context.read<DailyChallengeBloc>().add(
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Take?'),
+        content: Text('This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (index == _selectedTakeIndex && _controller != null) {
+                _controller!.play();
+                setState(() {});
+              }
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (index == _selectedTakeIndex) {
+                _controller?.dispose();
+                _controller = null;
+                _isInitialized = false;
+              }
+              context.read<DailyChallengeBloc>().add(
                     TakeDeleted(_takes[index].path),
                   );
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
+        ],
+      ),
     );
   }
 
@@ -159,73 +154,62 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder:
-            (_) => BlocProvider.value(
-              value: context.read<DailyChallengeBloc>(),
-              child: DayChecklistScreen(dayNumber: widget.dayNumber),
-            ),
+        builder: (_) => BlocProvider.value(
+          value: context.read<DailyChallengeBloc>(),
+          child: DayChecklistScreen(dayNumber: widget.dayNumber),
+        ),
       ),
     );
   }
 
   void _handleBack() {
-    // Reload day data to restore Ready state before popping
     context.read<DailyChallengeBloc>().add(
-      DayLoaded(userId: widget.userId, dayNumber: widget.dayNumber),
-    );
+          DayLoaded(userId: widget.userId, dayNumber: widget.dayNumber),
+        );
     Navigator.of(context).pop();
   }
 
   Future<void> _recordAnotherTake() async {
-    // Pause video if playing
     if (_controller?.value.isPlaying == true) {
       await _controller?.pause();
     }
+    if (!mounted) return;
 
-    // Show warning dialog
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.primaryOlive,
+              size: 26,
             ),
-            title: const Row(
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  color: Color(0xFFFBBF24),
-                  size: 28,
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Record New Take?',
-                    style: TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'You already have ${_takes.length} take(s) for Day ${widget.dayNumber}.\n\n'
-              'Recording another take will add to your collection. Do you want to continue?',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Record New Take?',
+                style: AppTypography.headingMedium(fontSize: 18),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                ),
-                child: const Text('Record New Take'),
-              ),
-            ],
+            ),
+          ],
+        ),
+        content: Text(
+          'You already have ${_takes.length} take(s) for Day ${widget.dayNumber}.\n\n'
+          'Recording another take will add to your collection. Do you want to continue?',
+          style: AppTypography.body(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Record New Take'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true || !mounted) return;
@@ -240,26 +224,23 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
 
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => BlocProvider.value(
-              value: context.read<DailyChallengeBloc>(),
-              child: WarmupRecordingScreen.dailyChallenge(
-                userId: widget.userId,
-                dayNumber: widget.dayNumber,
-                script: script,
-              ),
-            ),
+        builder: (_) => BlocProvider.value(
+          value: context.read<DailyChallengeBloc>(),
+          child: WarmupRecordingScreen.dailyChallenge(
+            userId: widget.userId,
+            dayNumber: widget.dayNumber,
+            script: script,
+          ),
+        ),
       ),
     );
 
-    // Handle returned video path from recording
     if (result != null && result is String && mounted) {
       context.read<DailyChallengeBloc>().add(RecordingStopped(result));
     }
 
-    // Reload takes when returning from recording
     if (mounted) {
-      context.read<DailyChallengeBloc>().add(const PreviewTakesRequested());
+      context.read<DailyChallengeBloc>().add(PreviewTakesRequested());
     }
   }
 
@@ -278,78 +259,78 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          title: Text('Day ${widget.dayNumber} - Review'),
+          title: Text('Day ${widget.dayNumber} • Review'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
+            icon: Icon(Icons.arrow_back_rounded),
             onPressed: _handleBack,
           ),
         ),
         body: SafeArea(
           child: Column(
             children: [
-              // Video preview
               Expanded(
                 flex: 3,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child:
-                        _isInitialized && _controller != null
-                            ? GestureDetector(
-                              onTap: () {
-                                if (_controller!.value.isPlaying) {
-                                  _controller!.pause();
-                                } else {
-                                  _controller!.play();
-                                }
-                                setState(() {});
-                              },
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  AspectRatio(
-                                    aspectRatio: _controller!.value.aspectRatio,
-                                    child: VideoPlayer(_controller!),
-                                  ),
-                                  if (!_controller!.value.isPlaying)
-                                    Container(
-                                      width: 64,
-                                      height: 64,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        shape: BoxShape.circle,
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardSurface,
+                      borderRadius: AppRadii.cardLargeBorder,
+                      border: Border.all(color: AppColors.divider, width: 1.5),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _isInitialized && _controller != null
+                        ? GestureDetector(
+                            onTap: () {
+                              if (_controller!.value.isPlaying) {
+                                _controller!.pause();
+                              } else {
+                                _controller!.play();
+                              }
+                              setState(() {});
+                            },
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: _controller!.value.aspectRatio,
+                                  child: VideoPlayer(_controller!),
+                                ),
+                                if (!_controller!.value.isPlaying)
+                                  Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background.withValues(
+                                        alpha: 0.9,
                                       ),
-                                      child: const Icon(
-                                        Icons.play_arrow,
-                                        color: Colors.white,
-                                        size: 40,
-                                      ),
+                                      shape: BoxShape.circle,
                                     ),
-                                ],
-                              ),
-                            )
-                            : const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
+                                    child: Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: AppColors.primaryOlive,
+                                      size: 38,
+                                    ),
+                                  ),
+                              ],
                             ),
+                          )
+                        : Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primaryOlive,
+                            ),
+                          ),
                   ),
                 ),
               ),
-
-              // Takes list
               if (_takes.length > 1)
                 SizedBox(
-                  height: 100,
+                  height: 92,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     itemCount: _takes.length,
                     itemBuilder: (context, index) {
                       final take = _takes[index];
@@ -359,103 +340,88 @@ class _DayReviewScreenState extends State<DayReviewScreen> {
                         onTap: () => _selectTake(index),
                         onLongPress: () => _deleteTake(index),
                         child: Container(
-                          width: 80,
+                          width: 82,
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E2E),
-                            borderRadius: BorderRadius.circular(12),
+                            color: isSelected
+                                ? AppColors.olivePillFill
+                                : AppColors.cardSurface,
+                            borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color:
-                                  isSelected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.white12,
-                              width: isSelected ? 2 : 1,
+                              color: isSelected
+                                  ? AppColors.primaryOlive
+                                  : AppColors.divider,
+                              width: isSelected ? 1.8 : 1.2,
                             ),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.videocam,
-                                color:
-                                    isSelected ? Colors.white : Colors.white54,
+                                Icons.videocam_outlined,
+                                color: isSelected
+                                    ? AppColors.primaryOlive
+                                    : AppColors.secondaryText,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'Take ${take.takeNumber}',
-                                style: TextStyle(
-                                  color:
-                                      isSelected
-                                          ? Colors.white
-                                          : Colors.white54,
-                                  fontSize: 12,
+                                style: AppTypography.bodyStrong(
+                                  color: isSelected
+                                      ? AppColors.primaryOlive
+                                      : AppColors.secondaryText,
+                                  fontSize: 12.5,
                                 ),
                               ),
                             ],
                           ),
-                        ).animate().fadeIn(delay: (50 * index).ms),
+                        ),
                       );
                     },
                   ),
                 ),
-
-              // Actions
               Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Happy with this take?',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ).animate().fadeIn(duration: 400.ms),
-                    const SizedBox(height: 8),
-                    if (_takes.length > 1)
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 22),
+                child: SageCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
                       Text(
-                        'Long-press a take to delete it',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.white38),
+                        'Happy with this take?',
+                        style: AppTypography.headingMedium(fontSize: 19),
                       ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _recordAnotherTake,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add),
-                                SizedBox(width: 8),
-                                Text('New Take'),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _continueToChecklist,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF22C55E),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Use This'),
-                                SizedBox(width: 8),
-                                Icon(Icons.arrow_forward),
-                              ],
-                            ),
-                          ),
+                      if (_takes.length > 1) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Long-press a take to delete it',
+                          style: AppTypography.body(fontSize: 12.5),
                         ),
                       ],
-                    ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
-                  ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _recordAnotherTake,
+                              icon: Icon(Icons.add_rounded, size: 19),
+                              label: Text('New Take'),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _continueToChecklist,
+                              icon: Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 19,
+                              ),
+                              label: Text('Use This'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
