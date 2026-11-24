@@ -80,3 +80,34 @@ class EmailSignInRequested extends AuthEvent {
   @override
   List<Object?> get props => [email, password];
 }
+
+/// Request OTP code sent to email
+class EmailOtpRequested extends AuthEvent {
+  final String email;
+
+  const EmailOtpRequested(this.email);
+
+  @override
+  List<Object?> get props => [email];
+}
+
+/// Submit email OTP code for verification
+class EmailOtpSubmitted extends AuthEvent {
+  final String email;
+  final String otp;
+
+  const EmailOtpSubmitted({required this.email, required this.otp});
+
+  @override
+  List<Object?> get props => [email, otp];
+}
+
+/// Request to resend email OTP
+class ResendEmailOtpRequested extends AuthEvent {
+  final String email;
+
+  const ResendEmailOtpRequested(this.email);
+
+  @override
+  List<Object?> get props => [email];
+}

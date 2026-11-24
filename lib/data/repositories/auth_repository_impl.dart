@@ -89,6 +89,69 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> sendEmailOtp(String email) async {
+    if (!await networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      await remoteDataSource.sendEmailOtp(email);
+      return const Right(null);
+    } on AuthException catch (e) {
+      logger.e('Auth error sending Email OTP', e);
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      logger.e('Server error sending Email OTP', e);
+      return Left(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      logger.e('Unexpected error sending Email OTP', e);
+      return const Left(
+        ServerFailure(message: 'Failed to send verification code'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, (User, bool)>> verifyEmailOtp(
+    String email,
+    String otp,
+  ) async {
+    if (!await networkInfo.isConnected) {
+      return const Left(NetworkFailure());
+    }
+
+    try {
+      final (userData, isNewUser) = await remoteDataSource.verifyEmailOtp(
+        email,
+        otp,
+      );
+      final user = UserModel.fromJson(userData);
+
+      await localDataSource.saveSession(
+        userId: user.id,
+        phone: user.phone ?? '',
+        displayName: user.displayName,
+        email: user.email ?? email,
+        createdAt: user.createdAt,
+      );
+
+      return Right((user, isNewUser));
+    } on AuthException catch (e) {
+      logger.e('Auth error verifying Email OTP', e);
+      if (e.code == 'auth/otp-expired') {
+        return Left(AuthFailure.otpExpired());
+      }
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      logger.e('Server error verifying Email OTP', e);
+      return Left(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      logger.e('Unexpected error verifying Email OTP', e);
+      return Left(AuthFailure.invalidOtp());
+    }
+  }
+
+  @override
   Future<Either<Failure, User>> checkSession() async {
     try {
       // First check Supabase session if online

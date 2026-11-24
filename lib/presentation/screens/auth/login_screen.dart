@@ -34,8 +34,9 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
-  bool _isSignUp = false;
-  bool _obscurePassword = true;
+  final bool _isSignUp = false;
+  // ignore: unused_field
+  final bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -84,17 +85,7 @@ class _LoginScreenState extends State<LoginScreen>
   void _submitEmail() {
     if (_emailFormKey.currentState?.validate() ?? false) {
       final email = _emailController.text.trim();
-      final password = _passwordController.text;
-
-      if (_isSignUp) {
-        context.read<AuthBloc>().add(
-              EmailSignUpRequested(email: email, password: password),
-            );
-      } else {
-        context.read<AuthBloc>().add(
-              EmailSignInRequested(email: email, password: password),
-            );
-      }
+      context.read<AuthBloc>().add(EmailOtpRequested(email));
     }
   }
 
@@ -103,9 +94,7 @@ class _LoginScreenState extends State<LoginScreen>
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthLoading) {
-          EasyLoading.show(
-            status: _isSignUp ? 'Creating account...' : 'Signing in...',
-          );
+          EasyLoading.show(status: 'Sending verification code...');
         } else {
           EasyLoading.dismiss();
         }
@@ -115,7 +104,10 @@ class _LoginScreenState extends State<LoginScreen>
             MaterialPageRoute(
               builder: (_) => BlocProvider.value(
                 value: context.read<AuthBloc>(),
-                child: OtpVerificationScreen(phone: state.phone),
+                child: OtpVerificationScreen(
+                  phone: state.phone,
+                  isEmail: state.isEmail,
+                ),
               ),
             ),
           );
@@ -387,9 +379,18 @@ class _LoginScreenState extends State<LoginScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            'EMAIL ADDRESS',
+            style: AppTypography.uppercaseLabel(
+              fontSize: 11,
+              color: AppColors.secondaryText,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
           _buildTextField(
             controller: _emailController,
-            hint: 'Email address',
+            hint: 'Enter your email address',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
@@ -402,52 +403,19 @@ class _LoginScreenState extends State<LoginScreen>
               return null;
             },
           ),
-          const SizedBox(height: 14),
-          _buildTextField(
-            controller: _passwordController,
-            hint: 'Password',
-            icon: Icons.lock_outline_rounded,
-            obscureText: _obscurePassword,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: AppColors.secondaryText,
-                size: 20,
-              ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
+          const SizedBox(height: 10),
+          Text(
+            'We will send a 6-digit verification code to your email',
+            style: AppTypography.body(
+              fontSize: 12.5,
+              color: AppColors.secondaryText,
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter password';
-              }
-              if (value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
           ),
           const SizedBox(height: 20),
           _buildSubmitButton(
-            _isSignUp ? 'Create Account' : 'Sign In',
+            'Continue with Email',
             _submitEmail,
-            _isSignUp ? Icons.person_add_alt_1_rounded : Icons.login_rounded,
-          ),
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: () => setState(() => _isSignUp = !_isSignUp),
-            child: Text(
-              _isSignUp
-                  ? 'Already have an account? Sign In'
-                  : "Don't have an account? Sign Up",
-              style: GoogleFonts.manrope(
-                color: AppColors.secondaryGreen,
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-              ),
-            ),
+            Icons.arrow_forward_rounded,
           ),
         ],
       ),

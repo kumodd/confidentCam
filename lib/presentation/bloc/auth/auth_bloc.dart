@@ -20,6 +20,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AccountDeletionRequested>(_onDeleteAccount);
     on<EmailSignUpRequested>(_onEmailSignUp);
     on<EmailSignInRequested>(_onEmailSignIn);
+    on<EmailOtpRequested>(_onEmailOtpRequested);
+    on<EmailOtpSubmitted>(_onEmailOtpSubmitted);
+    on<ResendEmailOtpRequested>(_onResendEmailOtp);
   }
 
   Future<void> _onSessionCheck(
@@ -200,6 +203,67 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final (user, isNewUser) = data;
         logger.i('Email sign in successful. New user: $isNewUser');
         emit(AuthSuccess(user: user, isNewUser: isNewUser));
+      },
+    );
+  }
+
+  Future<void> _onEmailOtpRequested(
+    EmailOtpRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await authRepository.sendEmailOtp(event.email);
+
+    result.fold(
+      (failure) {
+        logger.e('Failed to send Email OTP: ${failure.message}');
+        emit(AuthFailure(message: failure.message));
+      },
+      (_) {
+        logger.i('Email OTP sent to ${event.email}');
+        emit(AuthCodeSent(phone: event.email, isEmail: true));
+      },
+    );
+  }
+
+  Future<void> _onEmailOtpSubmitted(
+    EmailOtpSubmitted event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthVerifying());
+
+    final result = await authRepository.verifyEmailOtp(event.email, event.otp);
+
+    result.fold(
+      (failure) {
+        logger.e('Email OTP verification failed: ${failure.message}');
+        emit(AuthFailure(message: failure.message, previousPhone: event.email));
+      },
+      (data) {
+        final (user, isNewUser) = data;
+        logger.i('Email OTP verified. New user: $isNewUser');
+        emit(AuthSuccess(user: user, isNewUser: isNewUser));
+      },
+    );
+  }
+
+  Future<void> _onResendEmailOtp(
+    ResendEmailOtpRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await authRepository.sendEmailOtp(event.email);
+
+    result.fold(
+      (failure) {
+        logger.e('Failed to resend Email OTP: ${failure.message}');
+        emit(AuthFailure(message: failure.message, previousPhone: event.email));
+      },
+      (_) {
+        logger.i('Email OTP resent to ${event.email}');
+        emit(AuthCodeSent(phone: event.email, isEmail: true));
       },
     );
   }

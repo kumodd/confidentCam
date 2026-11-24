@@ -17,6 +17,15 @@ abstract class AuthRepository {
     String otp,
   );
 
+  /// Send OTP to email address.
+  Future<Either<Failure, void>> sendEmailOtp(String email);
+
+  /// Verify email OTP code.
+  Future<Either<Failure, (User, bool isNewUser)>> verifyEmailOtp(
+    String email,
+    String otp,
+  );
+
   /// Check if user session is valid.
   /// Returns [Right(User)] if session valid, [Left(Failure)] if not.
   Future<Either<Failure, User>> checkSession();

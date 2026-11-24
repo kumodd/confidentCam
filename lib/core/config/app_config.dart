@@ -54,7 +54,7 @@ class AppConfig {
   static const int otpLockoutMinutes = 15;
 
   // Auth Methods (enable/disable)
-  static const bool enablePhoneAuth = true;
+  static const bool enablePhoneAuth = false;
   static const bool enableEmailAuth = true;
 
   // Challenge Settings

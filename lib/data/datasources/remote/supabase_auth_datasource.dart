@@ -13,6 +13,13 @@ abstract class SupabaseAuthDataSource {
   /// Returns (user data, isNewUser).
   Future<(Map<String, dynamic>, bool)> verifyOtp(String phone, String otp);
 
+  /// Send OTP to email address.
+  Future<void> sendEmailOtp(String email);
+
+  /// Verify email OTP code.
+  /// Returns (user data, isNewUser).
+  Future<(Map<String, dynamic>, bool)> verifyEmailOtp(String email, String otp);
+
   /// Sign up with email and password.
   Future<(Map<String, dynamic>, bool)> signUpWithEmail(
     String email,
@@ -133,6 +140,120 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       rethrow;
     } catch (e) {
       logger.e('Error verifying OTP', e);
+      throw app.ServerException(
+        message: 'Verification failed',
+        originalError: e,
+      );
+    }
+  }
+
+  @override
+  Future<void> sendEmailOtp(String email) async {
+    try {
+      logger.i('Sending Email OTP to $email');
+      await client.auth
+          .signInWithOtp(email: email, shouldCreateUser: true)
+          .timeout(AppConfig.apiTimeout);
+      logger.i('Email OTP sent successfully to $email');
+    } on AuthException catch (e) {
+      logger.e('Auth error sending Email OTP', e);
+      throw app.AuthException(
+        message: e.message,
+        code: e.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      logger.e('Error sending Email OTP', e);
+      throw app.ServerException(
+        message: 'Failed to send verification code to email',
+        originalError: e,
+      );
+    }
+  }
+
+  @override
+  Future<(Map<String, dynamic>, bool)> verifyEmailOtp(
+    String email,
+    String otp,
+  ) async {
+    try {
+      logger.i('Verifying Email OTP for $email');
+      AuthResponse response;
+      try {
+        response = await client.auth
+            .verifyOTP(email: email, token: otp, type: OtpType.email)
+            .timeout(AppConfig.apiTimeout);
+      } on AuthException {
+        try {
+          response = await client.auth
+              .verifyOTP(email: email, token: otp, type: OtpType.signup)
+              .timeout(AppConfig.apiTimeout);
+        } on AuthException {
+          response = await client.auth
+              .verifyOTP(email: email, token: otp, type: OtpType.magiclink)
+              .timeout(AppConfig.apiTimeout);
+        }
+      }
+
+      if (response.user == null) {
+        throw const app.AuthException(
+          message: 'Verification failed',
+          code: 'auth/verification-failed',
+        );
+      }
+
+      final user = response.user!;
+      final isNewAuthUser = user.createdAt == user.updatedAt;
+      logger.i('Email OTP verified for ${user.id}. New auth user: $isNewAuthUser');
+
+      final existingUser = await client
+          .from('users')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle()
+          .timeout(AppConfig.apiTimeout);
+
+      if (existingUser != null) {
+        return (existingUser, isNewAuthUser);
+      }
+
+      logger.i('Creating user record for verified email user');
+      final userData = {
+        'id': user.id,
+        'email': email,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      await client
+          .from('users')
+          .upsert(userData, onConflict: 'id')
+          .timeout(AppConfig.apiTimeout);
+      try {
+        await client
+            .from('user_progress')
+            .upsert({'user_id': user.id}, onConflict: 'user_id')
+            .timeout(AppConfig.apiTimeout);
+      } catch (e) {
+        logger.w('user_progress upsert notice: $e');
+      }
+
+      return (userData, true);
+    } on AuthException catch (e) {
+      logger.e('Auth error verifying Email OTP', e);
+      if (e.message.toLowerCase().contains('expired')) {
+        throw const app.AuthException(
+          message: 'Code expired. Please request a new one.',
+          code: 'auth/otp-expired',
+        );
+      }
+      throw app.AuthException(
+        message: e.message,
+        code: e.statusCode,
+        originalError: e,
+      );
+    } on app.AuthException {
+      rethrow;
+    } catch (e) {
+      logger.e('Error verifying Email OTP', e);
       throw app.ServerException(
         message: 'Verification failed',
         originalError: e,

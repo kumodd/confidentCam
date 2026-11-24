@@ -20,14 +20,15 @@ class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-/// OTP has been sent to phone
+/// OTP has been sent to phone or email
 class AuthCodeSent extends AuthState {
   final String phone;
+  final bool isEmail;
 
-  const AuthCodeSent({required this.phone});
+  const AuthCodeSent({required this.phone, this.isEmail = false});
 
   @override
-  List<Object?> get props => [phone];
+  List<Object?> get props => [phone, isEmail];
 }
 
 /// Verifying OTP code

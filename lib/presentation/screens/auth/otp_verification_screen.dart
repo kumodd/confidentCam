@@ -17,8 +17,13 @@ import '../../bloc/auth/auth_state.dart';
 /// OTP verification screen in the minimalist sage & olive design system.
 class OtpVerificationScreen extends StatefulWidget {
   final String phone;
+  final bool isEmail;
 
-  const OtpVerificationScreen({super.key, required this.phone});
+  const OtpVerificationScreen({
+    super.key,
+    required this.phone,
+    this.isEmail = false,
+  });
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -65,7 +70,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   void _verifyOtp(String otp) {
     if (_isLocked) return;
     if (otp.length == AppConfig.otpLength) {
-      context.read<AuthBloc>().add(OtpSubmitted(phone: widget.phone, otp: otp));
+      if (widget.isEmail) {
+        context
+            .read<AuthBloc>()
+            .add(EmailOtpSubmitted(email: widget.phone, otp: otp));
+      } else {
+        context
+            .read<AuthBloc>()
+            .add(OtpSubmitted(phone: widget.phone, otp: otp));
+      }
     }
   }
 
@@ -183,7 +196,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   void _resendOtp() {
     if (_resendTimer == 0) {
-      context.read<AuthBloc>().add(ResendOtpRequested(widget.phone));
+      if (widget.isEmail) {
+        context.read<AuthBloc>().add(ResendEmailOtpRequested(widget.phone));
+      } else {
+        context.read<AuthBloc>().add(ResendOtpRequested(widget.phone));
+      }
       _startResendTimer();
     }
   }
@@ -296,7 +313,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       Container(height: 1.2, color: AppColors.divider),
                       const SizedBox(height: 18),
                       Text(
-                        'Verify your number',
+                        widget.isEmail
+                            ? 'Verify your email'
+                            : 'Verify your number',
                         style: AppTypography.headingLarge(fontSize: 24),
                       ),
                       const SizedBox(height: 8),
@@ -307,7 +326,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       const SizedBox(height: 8),
                       OlivePillBadge(
                         label: widget.phone,
-                        icon: Icons.phone_outlined,
+                        icon: widget.isEmail
+                            ? Icons.email_outlined
+                            : Icons.phone_outlined,
                       ),
                       const SizedBox(height: 28),
                       Center(

@@ -284,6 +284,7 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
   void _showSettingsSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.background,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
