@@ -38,10 +38,11 @@ class _RecordTabState extends State<RecordTab> {
   int _recordingSeconds = 0;
 
   double _currentSpeed = 0.6;
-  double _currentHeight = 0.30;
-  double _currentOpacity = 0.85;
+  double _currentHeight = 0.25;
+  double _currentOpacity = 0.35;
   double _currentFontSize = 16.0;
-  Color _currentTextColor = AppColors.primaryText;
+  Color _currentTextColor = const Color(0xFFF7F8F0);
+  bool _isScriptVisible = true;
 
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
@@ -72,17 +73,17 @@ class _RecordTabState extends State<RecordTab> {
   Color _getColorFromString(String colorName) {
     switch (colorName.toLowerCase()) {
       case 'white':
-        return AppColors.primaryText;
+        return const Color(0xFFF7F8F0);
       case 'yellow':
-        return AppColors.primaryOlive;
+        return const Color(0xFFE5DF7A);
       case 'cyan':
-        return AppColors.secondaryGreen;
+        return const Color(0xFF8CE0A2);
       case 'green':
-        return AppColors.success;
+        return const Color(0xFF75D488);
       case 'pink':
-        return AppColors.error;
+        return const Color(0xFFFF8A8A);
       default:
-        return AppColors.primaryText;
+        return const Color(0xFFF7F8F0);
     }
   }
 
@@ -258,11 +259,30 @@ class _RecordTabState extends State<RecordTab> {
   String _formatDuration(int s) =>
       '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 
+  Widget _buildCameraPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (!controller.value.isInitialized || previewSize == null) {
+      return CameraPreview(controller);
+    }
+
+    return ClipRect(
+      child: OverflowBox(
+        maxWidth: double.infinity,
+        maxHeight: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.height,
+            height: previewSize.width,
+            child: CameraPreview(controller),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final teleprompterHeight =
-        MediaQuery.of(context).size.height * _currentHeight;
-
     return BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
       builder: (context, state) {
         ContentScript? selectedScript;
@@ -274,265 +294,363 @@ class _RecordTabState extends State<RecordTab> {
           padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.primaryText,
+              color: const Color(0xFF121512),
               borderRadius: AppRadii.cardLargeBorder,
               border: Border.all(color: AppColors.divider, width: 1.5),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (!_isInitializing && _recordingService.controller != null)
-                  CameraPreview(_recordingService.controller!)
-                else
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
-                          color: AppColors.background,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Preparing camera...',
-                          style: AppTypography.body(color: AppColors.background),
-                        ),
-                      ],
-                    ),
-                  ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final teleprompterHeight = (constraints.maxHeight *
+                        _currentHeight.clamp(0.15, 0.52))
+                    .clamp(110.0, constraints.maxHeight * 0.46);
 
-                if (!_showingCountdown && !_isRecording)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: GestureDetector(
-                      onTap: () => _showSettingsSheet(context),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.background.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: Icon(
-                          Icons.tune_rounded,
-                          color: AppColors.primaryText,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (!_showingCountdown && selectedScript != null)
-                  Positioned(
-                    top: 62,
-                    left: 12,
-                    right: 12,
-                    height: teleprompterHeight,
-                    child: _buildTeleprompter(selectedScript),
-                  ),
-
-                if (!_showingCountdown &&
-                    selectedScript == null &&
-                    !_isRecording)
-                  Positioned(
-                    top: 62,
-                    left: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.background.withValues(alpha: 0.94),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            color: AppColors.primaryOlive,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'No script selected. Go to Scripts tab to select one.',
-                              style: AppTypography.bodyStrong(fontSize: 13.5),
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (!_isInitializing &&
+                        _recordingService.controller != null)
+                      _buildCameraPreview(_recordingService.controller!)
+                    else
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(
+                              color: Color(0xFFF7F8F0),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (_isRecording)
-                  Positioned(
-                    top: 14,
-                    left: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatDuration(_recordingSeconds),
-                            style: AppTypography.bodyStrong(
-                              color: AppColors.background,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (_isRecording && selectedScript != null)
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.background.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () => _adjustSpeed(-0.25),
-                            child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.remove,
-                                color: AppColors.primaryText,
-                                size: 18,
+                            const SizedBox(height: 16),
+                            Text(
+                              'Preparing camera...',
+                              style: AppTypography.body(
+                                color: const Color(0xFFF7F8F0),
                               ),
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text(
-                              '${_currentSpeed.toStringAsFixed(1)}x',
-                              style: AppTypography.bodyStrong(fontSize: 13),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => _adjustSpeed(0.25),
-                            child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.add,
-                                color: AppColors.primaryText,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (_showingCountdown)
-                  Center(
-                    child: Container(
-                      width: 116,
-                      height: 116,
-                      decoration: BoxDecoration(
-                        color: AppColors.background.withValues(alpha: 0.94),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.primaryOlive,
-                          width: 3,
+                          ],
                         ),
                       ),
-                      child: Center(
-                        child: Text(
-                          '$_countdown',
-                          style: AppTypography.displayMetric(
-                            fontSize: 52,
-                            color: AppColors.primaryOlive,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
 
-                Positioned(
-                  bottom: 26,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: _isRecording
-                        ? GestureDetector(
-                            onTap: _stopRecording,
-                            child: Container(
-                              width: 78,
-                              height: 78,
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.error,
-                                  width: 4,
+                    if (!_showingCountdown && !_isRecording)
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (selectedScript != null) ...[
+                              GestureDetector(
+                                onTap: () => setState(
+                                  () => _isScriptVisible = !_isScriptVisible,
                                 ),
-                              ),
-                              child: Center(
                                 child: Container(
-                                  width: 30,
-                                  height: 30,
+                                  width: 40,
+                                  height: 40,
                                   decoration: BoxDecoration(
-                                    color: AppColors.error,
-                                    borderRadius: BorderRadius.circular(7),
+                                    color: const Color(0xFF121512)
+                                        .withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.22),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    _isScriptVisible
+                                        ? Icons.subtitles_outlined
+                                        : Icons.subtitles_off_outlined,
+                                    color: const Color(0xFFF7F8F0),
+                                    size: 20,
                                   ),
                                 ),
                               ),
-                            ),
-                          )
-                        : GestureDetector(
-                            onTap: _isInitializing ? null : _startCountdown,
-                            child: Container(
-                              width: 78,
-                              height: 78,
-                              decoration: BoxDecoration(
-                                color: _isInitializing
-                                    ? AppColors.mutedText
-                                    : AppColors.primaryOlive,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.background,
-                                  width: 3.5,
+                              const SizedBox(width: 8),
+                            ],
+                            GestureDetector(
+                              onTap: () => _showSettingsSheet(context),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF121512)
+                                      .withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.tune_rounded,
+                                  color: Color(0xFFF7F8F0),
+                                  size: 20,
                                 ),
                               ),
-                              child: Icon(
-                                Icons.videocam_rounded,
-                                color: AppColors.background,
-                                size: 34,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (!_showingCountdown &&
+                        selectedScript != null &&
+                        _isScriptVisible)
+                      Positioned(
+                        top: 62,
+                        left: 12,
+                        right: 12,
+                        height: teleprompterHeight,
+                        child: _buildTeleprompter(selectedScript),
+                      ),
+
+                    if (!_showingCountdown &&
+                        selectedScript == null &&
+                        !_isRecording)
+                      Positioned(
+                        top: 62,
+                        left: 12,
+                        right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121512)
+                                .withValues(alpha: 0.52),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.20),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline_rounded,
+                                color: Color(0xFFD8D478),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'No script selected. Go to Scripts tab to select one.',
+                                  style: AppTypography.bodyStrong(
+                                    fontSize: 13.5,
+                                    color: const Color(0xFFF7F8F0),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    if (_isRecording)
+                      Positioned(
+                        top: 14,
+                        left: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF7F8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatDuration(_recordingSeconds),
+                                style: AppTypography.bodyStrong(
+                                  color: const Color(0xFFF7F8F0),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    if (_isRecording && selectedScript != null)
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () => setState(
+                                () => _isScriptVisible = !_isScriptVisible,
+                              ),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF121512)
+                                      .withValues(alpha: 0.58),
+                                  borderRadius: BorderRadius.circular(13),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Icon(
+                                  _isScriptVisible
+                                      ? Icons.subtitles_outlined
+                                      : Icons.subtitles_off_outlined,
+                                  color: const Color(0xFFF7F8F0),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF121512)
+                                    .withValues(alpha: 0.58),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _adjustSpeed(-0.25),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.remove,
+                                        color: Color(0xFFF7F8F0),
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    child: Text(
+                                      '${_currentSpeed.toStringAsFixed(1)}x',
+                                      style: AppTypography.bodyStrong(
+                                        fontSize: 13,
+                                        color: const Color(0xFFF7F8F0),
+                                      ),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => _adjustSpeed(0.25),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.add,
+                                        color: Color(0xFFF7F8F0),
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (_showingCountdown)
+                      Center(
+                        child: Container(
+                          width: 116,
+                          height: 116,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121512)
+                                .withValues(alpha: 0.72),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFD8D478),
+                              width: 3,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$_countdown',
+                              style: AppTypography.displayMetric(
+                                fontSize: 52,
+                                color: const Color(0xFFF7F8F0),
                               ),
                             ),
                           ),
-                  ),
-                ),
-              ],
+                        ),
+                      ),
+
+                    Positioned(
+                      bottom: 26,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _isRecording
+                            ? GestureDetector(
+                                onTap: _stopRecording,
+                                child: Container(
+                                  width: 78,
+                                  height: 78,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF7F8F0),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.error,
+                                      width: 4,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error,
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap: _isInitializing ? null : _startCountdown,
+                                child: Container(
+                                  width: 78,
+                                  height: 78,
+                                  decoration: BoxDecoration(
+                                    color: _isInitializing
+                                        ? AppColors.mutedText
+                                        : AppColors.primaryOlive,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFF7F8F0),
+                                      width: 3.5,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.videocam_rounded,
+                                    color: Color(0xFFF7F8F0),
+                                    size: 34,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         );
@@ -541,49 +659,85 @@ class _RecordTabState extends State<RecordTab> {
   }
 
   Widget _buildTeleprompter(ContentScript script) {
+    final bgAlpha = (_currentOpacity * 0.65).clamp(0.06, 0.62);
+    final headerAlpha = (bgAlpha + 0.12).clamp(0.14, 0.68);
+    const onGlassText = Color(0xFFF7F8F0);
+    const glassShadows = [
+      Shadow(color: Color(0xCC000000), blurRadius: 6, offset: Offset(0, 1)),
+    ];
+    final resolvedTextColor = _currentTextColor == AppColors.primaryText
+        ? onGlassText
+        : _currentTextColor;
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(
-          alpha: _currentOpacity.clamp(0.75, 0.96),
-        ),
-        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFF121512).withValues(alpha: bgAlpha),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: _isRecording ? AppColors.error : AppColors.divider,
-          width: 1.5,
+          color: _isRecording
+              ? AppColors.error.withValues(alpha: 0.85)
+              : Colors.white.withValues(alpha: 0.22),
+          width: 1.2,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: const Color(0xFF121512).withValues(alpha: headerAlpha),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     script.title,
-                    style: AppTypography.bodyStrong(fontSize: 13.5),
+                    style: AppTypography.bodyStrong(
+                      fontSize: 13,
+                      color: onGlassText,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
-                OlivePillBadge(
-                  label: _isRecording
-                      ? '${_currentSpeed.toStringAsFixed(1)}x'
-                      : 'Script',
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _isRecording
+                        ? AppColors.error
+                        : Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _isRecording
+                          ? AppColors.error
+                          : const Color(0xFFD8D478).withValues(alpha: 0.55),
+                    ),
+                  ),
+                  child: Text(
+                    _isRecording
+                        ? '${_currentSpeed.toStringAsFixed(1)}x'
+                        : 'Script',
+                    style: GoogleFonts.manrope(
+                      color:
+                          _isRecording ? onGlassText : const Color(0xFFD8D478),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          Container(height: 1.2, color: AppColors.divider),
+          Container(height: 1.0, color: Colors.white.withValues(alpha: 0.12)),
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,21 +745,27 @@ class _RecordTabState extends State<RecordTab> {
                   _buildScriptSection(
                     title: 'HOOK',
                     content: script.part1,
-                    color: AppColors.primaryOlive,
+                    color: const Color(0xFFE5DF7A),
+                    textColor: resolvedTextColor,
+                    shadows: glassShadows,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   _buildScriptSection(
                     title: 'CONTENT',
                     content: script.part2,
-                    color: AppColors.secondaryGreen,
+                    color: const Color(0xFF8CE0A2),
+                    textColor: resolvedTextColor,
+                    shadows: glassShadows,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   _buildScriptSection(
                     title: 'ENDING',
                     content: script.part3,
-                    color: AppColors.primaryOlive,
+                    color: const Color(0xFFE5DF7A),
+                    textColor: resolvedTextColor,
+                    shadows: glassShadows,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
                 ],
               ),
             ),
@@ -619,25 +779,40 @@ class _RecordTabState extends State<RecordTab> {
     required String title,
     required String content,
     required Color color,
+    required Color textColor,
+    required List<Shadow> shadows,
   }) {
     if (content.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OlivePillBadge(
-          label: title,
-          textColor: color,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.50)),
+          ),
+          child: Text(
+            title,
+            style: AppTypography.uppercaseLabel(
+              color: color,
+              fontSize: 10,
+              letterSpacing: 1.3,
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         RichText(
           text: TextSpan(
             children: _parseMarkdown(content),
             style: GoogleFonts.inter(
-              color: _currentTextColor,
+              color: textColor,
               fontSize: _currentFontSize,
               height: 1.65,
               fontWeight: FontWeight.w500,
+              shadows: shadows,
             ),
           ),
         ),
@@ -676,7 +851,7 @@ class _RecordTabState extends State<RecordTab> {
             text: match.group(1),
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: AppColors.primaryOlive,
+              color: const Color(0xFFE5DF7A),
               fontSize: _currentFontSize,
             ),
           ),
@@ -752,9 +927,9 @@ class _RecordTabState extends State<RecordTab> {
                       const Divider(height: 20),
                       _buildSliderRow(
                         label: 'HEIGHT',
-                        value: _currentHeight * 100,
+                        value: (_currentHeight * 100).clamp(15.0, 55.0),
                         min: 15,
-                        max: 80,
+                        max: 55,
                         suffix: '%',
                         onChanged: (v) {
                           setSheetState(() => _currentHeight = v / 100);
@@ -764,9 +939,9 @@ class _RecordTabState extends State<RecordTab> {
                       const Divider(height: 20),
                       _buildSliderRow(
                         label: 'OPACITY',
-                        value: _currentOpacity * 100,
-                        min: 20,
-                        max: 100,
+                        value: (_currentOpacity * 100).clamp(10.0, 85.0),
+                        min: 10,
+                        max: 85,
                         suffix: '%',
                         onChanged: (v) {
                           setSheetState(() => _currentOpacity = v / 100);

@@ -84,57 +84,63 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Use high-readability sage/cream card surface over camera preview
+    // Smoked translucent camera-glass surface so live video stays visible behind script
     final resolvedTextColor = (widget.textColor == null ||
-            widget.textColor == Colors.white)
-        ? AppColors.primaryText
+            widget.textColor == Colors.white ||
+            widget.textColor == AppColors.primaryText)
+        ? const Color(0xFFF7F8F0)
         : widget.textColor!;
+    final bgAlpha = (widget.opacity * 0.65).clamp(0.06, 0.62);
+    final headerAlpha = (bgAlpha + 0.12).clamp(0.14, 0.68);
+    const onGlassText = Color(0xFFF7F8F0);
+    const pillOliveText = Color(0xFFD8D478);
+    const glassShadows = [
+      Shadow(color: Color(0xCC000000), blurRadius: 6, offset: Offset(0, 1)),
+    ];
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(
-          alpha: widget.opacity.clamp(0.75, 0.96),
-        ),
-        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFF121512).withValues(alpha: bgAlpha),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: widget.isRecording ? AppColors.error : AppColors.divider,
-          width: 1.5,
+          color: widget.isRecording
+              ? AppColors.error.withValues(alpha: 0.85)
+              : Colors.white.withValues(alpha: 0.22),
+          width: 1.2,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              color: const Color(0xFF121512).withValues(alpha: headerAlpha),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
-                    vertical: 4,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: widget.isRecording
                         ? AppColors.error
-                        : AppColors.olivePillFill,
+                        : Colors.white.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: widget.isRecording
                           ? AppColors.error
-                          : AppColors.olivePillBorder,
+                          : pillOliveText.withValues(alpha: 0.55),
                     ),
                   ),
                   child: Text(
                     widget.title,
                     style: GoogleFonts.manrope(
-                      color: widget.isRecording
-                          ? AppColors.background
-                          : AppColors.primaryOlive,
-                      fontSize: 11.5,
+                      color: widget.isRecording ? onGlassText : pillOliveText,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -146,13 +152,15 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppColors.background,
+                        color: Colors.white.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.divider),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.remove,
-                        color: AppColors.primaryText,
+                        color: onGlassText,
                         size: 14,
                       ),
                     ),
@@ -162,7 +170,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                     child: Text(
                       '${widget.scrollSpeed.toStringAsFixed(1)}x',
                       style: GoogleFonts.manrope(
-                        color: AppColors.primaryText,
+                        color: onGlassText,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                       ),
@@ -173,13 +181,15 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppColors.background,
+                        color: Colors.white.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.divider),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.add,
-                        color: AppColors.primaryText,
+                        color: onGlassText,
                         size: 14,
                       ),
                     ),
@@ -190,8 +200,8 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                   widget.isRecording ? 'READING' : 'YOUR SCRIPT',
                   style: AppTypography.uppercaseLabel(
                     color: widget.isRecording
-                        ? AppColors.error
-                        : AppColors.secondaryGreen,
+                        ? const Color(0xFFFF8A8A)
+                        : const Color(0xFFA6E3B4),
                     fontSize: 10.5,
                     letterSpacing: 1.4,
                   ),
@@ -199,7 +209,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
               ],
             ),
           ),
-          Container(height: 1.2, color: AppColors.divider),
+          Container(height: 1.0, color: Colors.white.withValues(alpha: 0.12)),
           Expanded(
             child: ShaderMask(
               shaderCallback: (Rect bounds) {
@@ -217,7 +227,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
               blendMode: BlendMode.dstIn,
               child: SingleChildScrollView(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 34),
                 physics: widget.isRecording
                     ? const NeverScrollableScrollPhysics()
                     : const BouncingScrollPhysics(),
@@ -228,6 +238,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget> {
                     fontSize: widget.fontSize,
                     height: 1.6,
                     fontWeight: FontWeight.w500,
+                    shadows: glassShadows,
                   ),
                 ),
               ),

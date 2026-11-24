@@ -45,8 +45,8 @@ class AppConstants {
   static const double defaultScrollSpeed = 1.0;
   static const String defaultFontSize = 'medium';
   static const String defaultTextColor = 'white';
-  static const double defaultTeleprompterHeight = 0.25; // 25% of screen
-  static const double defaultTeleprompterOpacity = 0.85;
+  static const double defaultTeleprompterHeight = 0.24; // 24% of viewport
+  static const double defaultTeleprompterOpacity = 0.35;
 
   // Font Size Mapping (points)
   static const Map<String, double> fontSizeMap = {
@@ -79,7 +79,7 @@ class AppConstants {
   ];
 
   // Opacity Options
-  static const List<double> opacityOptions = [0.6, 0.7, 0.8, 0.85, 0.9, 0.95];
+  static const List<double> opacityOptions = [0.15, 0.25, 0.35, 0.5, 0.65, 0.8];
 
   // Supabase Tables
   static const String usersTable = 'users';

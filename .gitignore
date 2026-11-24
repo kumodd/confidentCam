@@ -47,3 +47,4 @@ app.*.map.json
 
 # Play Store listing assets
 /playstore_assets/
+/Jks-key/

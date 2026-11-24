@@ -159,15 +159,16 @@ class TeleprompterOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor = textColor ?? AppColors.primaryText;
+    final resolvedColor = textColor ?? const Color(0xFFF7F8F0);
+    final bgAlpha = (opacity * 0.6).clamp(0.06, 0.62);
     return Container(
-      color: AppColors.background.withValues(alpha: opacity * 0.8),
+      color: const Color(0xFF121512).withValues(alpha: bgAlpha),
       child: Teleprompter(
         key: teleprompterKey,
         text: text,
         scrollSpeed: scrollSpeed,
         fontSize: fontSize,
-        textColor: resolvedColor.withValues(alpha: opacity),
+        textColor: resolvedColor,
         isPlaying: isPlaying,
       ),
     );

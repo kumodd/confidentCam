@@ -300,9 +300,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _SliderTile(
                               icon: Icons.height_outlined,
                               title: 'Display Height',
-                              value: settings.teleprompterHeight * 100,
+                              value: (settings.teleprompterHeight * 100)
+                                  .clamp(15.0, 55.0),
                               min: 15,
-                              max: 80,
+                              max: 55,
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
@@ -314,9 +315,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _SliderTile(
                               icon: Icons.opacity_outlined,
                               title: 'Background Opacity',
-                              value: settings.teleprompterOpacity * 100,
-                              min: 20,
-                              max: 100,
+                              value: (settings.teleprompterOpacity * 100)
+                                  .clamp(10.0, 85.0),
+                              min: 10,
+                              max: 85,
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
@@ -347,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               title: 'Text Color',
                               value: settings.teleprompterTextColor,
                               options: {
-                                'white': 'Charcoal',
+                                'white': 'Warm White',
                                 'yellow': 'Olive',
                                 'cyan': 'Sage Green',
                                 'green': 'Forest Green',

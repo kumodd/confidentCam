@@ -93,10 +93,11 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
   String? _cachedCustomScript;
 
   double _currentSpeed = 1.0;
-  double _currentHeight = 0.25;
-  double _currentOpacity = 0.85;
+  double _currentHeight = 0.24;
+  double _currentOpacity = 0.35;
   double _currentFontSize = 16.0;
-  Color _currentTextColor = AppColors.primaryText;
+  Color _currentTextColor = const Color(0xFFF7F8F0);
+  bool _isScriptVisible = true;
 
   @override
   void initState() {
@@ -126,17 +127,17 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
   Color _getColorFromString(String colorName) {
     switch (colorName.toLowerCase()) {
       case 'white':
-        return AppColors.primaryText;
+        return const Color(0xFFF7F8F0);
       case 'yellow':
-        return AppColors.primaryOlive;
+        return const Color(0xFFE5DF7A);
       case 'cyan':
-        return AppColors.secondaryGreen;
+        return const Color(0xFF8CE0A2);
       case 'green':
-        return AppColors.success;
+        return const Color(0xFF75D488);
       case 'pink':
-        return AppColors.error;
+        return const Color(0xFFFF8A8A);
       default:
-        return AppColors.primaryText;
+        return const Color(0xFFF7F8F0);
     }
   }
 
@@ -357,214 +358,280 @@ class _WarmupRecordingScreenState extends State<WarmupRecordingScreen> {
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  Widget _buildCameraPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (!controller.value.isInitialized || previewSize == null) {
+      return CameraPreview(controller);
+    }
+
+    return ClipRect(
+      child: OverflowBox(
+        maxWidth: double.infinity,
+        maxHeight: double.infinity,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.height,
+            height: previewSize.width,
+            child: CameraPreview(controller),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final teleprompterHeight = screenHeight * _currentHeight;
-
     return Scaffold(
-      backgroundColor: AppColors.primaryText,
+      backgroundColor: const Color(0xFF121512),
       body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Camera preview
-            if (!_isInitializing && _recordingService.controller != null)
-              CameraPreview(_recordingService.controller!)
-            else
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(
-                      color: AppColors.background,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Preparing camera...',
-                      style: AppTypography.body(color: AppColors.background),
-                    ),
-                  ],
-                ),
-              ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final teleprompterHeight = (constraints.maxHeight *
+                    _currentHeight.clamp(0.15, 0.50))
+                .clamp(115.0, constraints.maxHeight * 0.46);
 
-            // Top bar with sage/cream pill controls
-            Positioned(
-              top: 8,
-              left: 12,
-              right: 12,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: _handleClose,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.background.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: AppColors.primaryText,
-                        size: 21,
-                      ),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // Aspect-preserving full-bleed camera preview
+                if (!_isInitializing && _recordingService.controller != null)
+                  _buildCameraPreview(_recordingService.controller!)
+                else
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          color: Color(0xFFF7F8F0),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Preparing camera...',
+                          style: AppTypography.body(
+                            color: const Color(0xFFF7F8F0),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (_isRecording)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              shape: BoxShape.circle,
+
+                // Top bar with smoked-glass pill controls
+                Positioned(
+                  top: 8,
+                  left: 12,
+                  right: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: _handleClose,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121512).withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatDuration(_recordingSeconds),
-                            style: AppTypography.bodyStrong(
-                              color: AppColors.background,
-                              fontSize: 13.5,
-                            ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFFF7F8F0),
+                            size: 21,
                           ),
-                        ],
-                      ),
-                    ),
-                  if (!_isRecording && !_showingCountdown)
-                    GestureDetector(
-                      onTap: _showSettingsSheet,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.background.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: Icon(
-                          Icons.tune_rounded,
-                          color: AppColors.primaryText,
-                          size: 20,
                         ),
                       ),
-                    )
-                  else
-                    const SizedBox(width: 40),
-                ],
-              ),
-            ),
+                      if (_isRecording)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF7F8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatDuration(_recordingSeconds),
+                                style: AppTypography.bodyStrong(
+                                  color: const Color(0xFFF7F8F0),
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (!_showingCountdown)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () => setState(
+                                () => _isScriptVisible = !_isScriptVisible,
+                              ),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF121512)
+                                      .withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Icon(
+                                  _isScriptVisible
+                                      ? Icons.subtitles_outlined
+                                      : Icons.subtitles_off_outlined,
+                                  color: const Color(0xFFF7F8F0),
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            if (!_isRecording) ...[
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: _showSettingsSheet,
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF121512)
+                                        .withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.22),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.tune_rounded,
+                                    color: Color(0xFFF7F8F0),
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      else
+                        const SizedBox(width: 40),
+                    ],
+                  ),
+                ),
 
-            // TELEPROMPTER AT TOP
-            if (!_showingCountdown)
-              Positioned(
-                top: 58,
-                left: 12,
-                right: 12,
-                height: teleprompterHeight,
-                child: widget.mode == RecordingMode.warmup
-                    ? BlocBuilder<WarmupBloc, WarmupState>(
-                        builder: (context, state) {
-                          if (state is WarmupInProgress &&
-                              state.customScriptText != null) {
-                            _cachedCustomScript = state.customScriptText;
-                          } else if (state is WarmupRecording &&
-                              state.customScriptText != null) {
-                            _cachedCustomScript = state.customScriptText;
-                          }
+                // TELEPROMPTER AT TOP
+                if (!_showingCountdown && _isScriptVisible)
+                  Positioned(
+                    top: 58,
+                    left: 12,
+                    right: 12,
+                    height: teleprompterHeight,
+                    child: widget.mode == RecordingMode.warmup
+                        ? BlocBuilder<WarmupBloc, WarmupState>(
+                            builder: (context, state) {
+                              if (state is WarmupInProgress &&
+                                  state.customScriptText != null) {
+                                _cachedCustomScript = state.customScriptText;
+                              } else if (state is WarmupRecording &&
+                                  state.customScriptText != null) {
+                                _cachedCustomScript = state.customScriptText;
+                              }
 
-                          final scriptText = _cachedCustomScript ??
-                              _getFallbackWarmupScript();
+                              final scriptText = _cachedCustomScript ??
+                                  _getFallbackWarmupScript();
 
-                          return TeleprompterWidget(
-                            script: scriptText,
-                            title: _warmup?.title ?? 'Day ${widget.dayNumber}',
+                              return TeleprompterWidget(
+                                script: scriptText,
+                                title: _warmup?.title ?? 'Day ${widget.dayNumber}',
+                                isRecording: _isRecording,
+                                scrollSpeed: _currentSpeed,
+                                opacity: _currentOpacity,
+                                fontSize: _currentFontSize,
+                                textColor: _currentTextColor,
+                                onSpeedChange: _adjustSpeed,
+                              );
+                            },
+                          )
+                        : TeleprompterWidget(
+                            script: widget.script ?? 'No script found',
+                            title: 'Day ${widget.dayNumber}',
                             isRecording: _isRecording,
                             scrollSpeed: _currentSpeed,
                             opacity: _currentOpacity,
                             fontSize: _currentFontSize,
                             textColor: _currentTextColor,
                             onSpeedChange: _adjustSpeed,
-                          );
-                        },
-                      )
-                    : TeleprompterWidget(
-                        script: widget.script ?? 'No script found',
-                        title: 'Day ${widget.dayNumber}',
-                        isRecording: _isRecording,
-                        scrollSpeed: _currentSpeed,
-                        opacity: _currentOpacity,
-                        fontSize: _currentFontSize,
-                        textColor: _currentTextColor,
-                        onSpeedChange: _adjustSpeed,
+                          ),
+                  ),
+
+                // COACH TIPS AT BOTTOM
+                if (!_isRecording && !_showingCountdown)
+                  const Positioned(
+                    bottom: 126,
+                    left: 12,
+                    right: 12,
+                    child: CoachTipsCard(isRecording: false),
+                  ),
+
+                // Countdown overlay
+                if (_showingCountdown)
+                  Center(
+                    child: Container(
+                      width: 118,
+                      height: 118,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF121512).withValues(alpha: 0.72),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFD8D478),
+                          width: 3,
+                        ),
                       ),
-              ),
-
-            // COACH TIPS AT BOTTOM
-            if (!_isRecording && !_showingCountdown)
-              Positioned(
-                bottom: 132,
-                left: 12,
-                right: 12,
-                child: CoachTipsCard(isRecording: false),
-              ),
-
-            // Countdown overlay
-            if (_showingCountdown)
-              Center(
-                child: Container(
-                  width: 118,
-                  height: 118,
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withValues(alpha: 0.94),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.primaryOlive,
-                      width: 3,
+                      child: Center(
+                        child: Text(
+                          '$_countdown',
+                          style: AppTypography.displayMetric(
+                            fontSize: 54,
+                            color: const Color(0xFFF7F8F0),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Center(
-                    child: Text(
-                      '$_countdown',
-                      style: AppTypography.displayMetric(
-                        fontSize: 54,
-                        color: AppColors.primaryOlive,
-                      ),
-                    ),
+
+                // Bottom controls
+                Positioned(
+                  bottom: 24,
+                  left: 0,
+                  right: 0,
+                  child: RecordingControls(
+                    isRecording: _isRecording,
+                    isInitializing: _isInitializing,
+                    recordingSeconds: _recordingSeconds,
+                    mode: widget.mode,
+                    warmup: _warmup,
+                    onStartCountdown: _startCountdown,
+                    onStopRecording: _stopRecording,
                   ),
                 ),
-              ),
-
-            // Bottom controls
-            Positioned(
-              bottom: 28,
-              left: 0,
-              right: 0,
-              child: RecordingControls(
-                isRecording: _isRecording,
-                isInitializing: _isInitializing,
-                recordingSeconds: _recordingSeconds,
-                mode: widget.mode,
-                warmup: _warmup,
-                onStartCountdown: _startCountdown,
-                onStopRecording: _stopRecording,
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

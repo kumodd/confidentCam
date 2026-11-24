@@ -31,9 +31,9 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
   @override
   void initState() {
     super.initState();
-    _currentSpeed = widget.initialSpeed;
-    _currentHeight = widget.initialHeight;
-    _currentOpacity = widget.initialOpacity;
+    _currentSpeed = widget.initialSpeed.clamp(0.5, 3.0);
+    _currentHeight = widget.initialHeight.clamp(0.15, 0.55);
+    _currentOpacity = widget.initialOpacity.clamp(0.10, 0.85);
   }
 
   @override
@@ -79,18 +79,18 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
                 const Divider(height: 24),
                 _buildSliderRow(
                   label: 'HEIGHT',
-                  value: _currentHeight * 100,
+                  value: (_currentHeight * 100).clamp(15.0, 55.0),
                   min: 15,
-                  max: 80,
+                  max: 55,
                   suffix: '%',
                   onChanged: (v) => setState(() => _currentHeight = v / 100),
                 ),
                 const Divider(height: 24),
                 _buildSliderRow(
                   label: 'OPACITY',
-                  value: _currentOpacity * 100,
-                  min: 50,
-                  max: 100,
+                  value: (_currentOpacity * 100).clamp(10.0, 85.0),
+                  min: 10,
+                  max: 85,
                   suffix: '%',
                   onChanged: (v) => setState(() => _currentOpacity = v / 100),
                 ),

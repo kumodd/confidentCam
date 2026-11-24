@@ -32,12 +32,12 @@ class AppConfig {
 
   // App Settings
   static const String appName = 'Confident Creator';
-  static const String appVersion = '1.1.4';
+  static const String appVersion = '1.2.0';
 
   // Developer Settings
   /// When true, bypasses day unlock restrictions (all days accessible)
   /// Set to false for production
-  static const bool devMode = true;
+  static const bool devMode = false;
 
   /// Premium users can access next challenge without waiting
   static const bool isPremiumUser = false;
@@ -58,8 +58,8 @@ class AppConfig {
   static const bool enableEmailAuth = true;
 
   // Challenge Settings
-  static const int totalDays = 3;
-  static const int totalWarmups = 1;
+  static const int totalDays = 30;
+  static const int totalWarmups = 3;
   static const int segmentedDaysEnd = 5; // Days 1-5 are segmented
 
   // Cache Settings

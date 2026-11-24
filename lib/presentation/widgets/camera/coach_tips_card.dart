@@ -78,38 +78,39 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
     return GestureDetector(
       onTap: _nextTip,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.background.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(20),
+          color: const Color(0xFF121512).withValues(alpha: 0.48),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color:
-                widget.isRecording ? AppColors.error : AppColors.divider,
-            width: 1.3,
+            color: widget.isRecording
+                ? AppColors.error.withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.20),
+            width: 1.1,
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: widget.isRecording
-                    ? AppColors.errorTint
-                    : AppColors.olivePillFill,
-                borderRadius: BorderRadius.circular(14),
+                    ? AppColors.error.withValues(alpha: 0.22)
+                    : Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: widget.isRecording
-                      ? AppColors.error.withValues(alpha: 0.4)
-                      : AppColors.olivePillBorder,
+                      ? AppColors.error.withValues(alpha: 0.45)
+                      : Colors.white.withValues(alpha: 0.18),
                 ),
               ),
               child: Icon(
                 tip.icon,
                 color: widget.isRecording
-                    ? AppColors.error
-                    : AppColors.primaryOlive,
-                size: 22,
+                    ? const Color(0xFFFF8A8A)
+                    : const Color(0xFFD8D478),
+                size: 20,
               ),
             ),
             const SizedBox(width: 12),
@@ -122,18 +123,26 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
                     tip.category,
                     style: AppTypography.uppercaseLabel(
                       color: widget.isRecording
-                          ? AppColors.error
-                          : AppColors.secondaryGreen,
-                      fontSize: 10.5,
+                          ? const Color(0xFFFF8A8A)
+                          : const Color(0xFFA6E3B4),
+                      fontSize: 10,
                       letterSpacing: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     tip.text,
                     style: AppTypography.bodyStrong(
-                      color: AppColors.primaryText,
-                      fontSize: 13.5,
+                      color: const Color(0xFFF7F8F0),
+                      fontSize: 13,
+                    ).copyWith(
+                      shadows: const [
+                        Shadow(
+                          color: Color(0xCC000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -141,8 +150,8 @@ class _CoachTipsCardState extends State<CoachTipsCard> {
             ),
             Icon(
               Icons.touch_app_outlined,
-              color: AppColors.mutedText,
-              size: 17,
+              color: Colors.white.withValues(alpha: 0.65),
+              size: 16,
             ),
           ],
         ),
