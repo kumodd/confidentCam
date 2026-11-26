@@ -76,6 +76,48 @@ class ScriptGenerated extends ContentCreatorState {
   List<Object?> get props => [script];
 }
 
+/// Refining an existing script using AI
+class ScriptRefining extends ContentCreatorState {
+  final ContentScript script;
+  final String instruction;
+
+  const ScriptRefining({required this.script, required this.instruction});
+
+  @override
+  List<Object?> get props => [script, instruction];
+}
+
+/// Script refined successfully
+class ScriptRefined extends ContentCreatorState {
+  final ContentScript script;
+
+  const ScriptRefined(this.script);
+
+  @override
+  List<Object?> get props => [script];
+}
+
+/// Expanding a raw spoken STT idea into a structured content brief via AI
+class IdeaEnhancing extends ContentCreatorState {
+  final String rawTranscript;
+
+  const IdeaEnhancing(this.rawTranscript);
+
+  @override
+  List<Object?> get props => [rawTranscript];
+}
+
+/// Spoken idea expanded into a structured content brief
+class IdeaEnhanced extends ContentCreatorState {
+  final EnhancedScriptIdea idea;
+  final bool autoGenerating;
+
+  const IdeaEnhanced({required this.idea, this.autoGenerating = false});
+
+  @override
+  List<Object?> get props => [idea, autoGenerating];
+}
+
 /// Error state
 class ContentCreatorError extends ContentCreatorState {
   final String message;

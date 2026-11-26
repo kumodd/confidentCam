@@ -83,13 +83,13 @@ class DailyChallengeBloc
       }
 
       try {
-        // Generate this week's scripts
+        // Generate this week's scripts using resolved human-readable goal + saved language & answers
         final weekScripts = await openAiService.generateWeeklyScripts(
           weekNumber: weekNumber,
           firstName: userData.firstName,
           age: userData.age,
           location: userData.location,
-          goal: userData.customGoal ?? userData.goalKey,
+          goal: userData.displayGoal,
           onboardingAnswers: userData.answers.map((k, v) => MapEntry(k, v)),
           language: userData.languagePreference,
         );

@@ -105,6 +105,8 @@ class OnboardingInProgress extends OnboardingState {
       location: location ?? '',
       goalKey: selectedGoal?.key ?? '',
       customGoal: customGoal,
+      resolvedGoalText: selectedGoal?.text,
+      languagePreference: selectedLanguage?.code ?? 'en',
       answers: answers,
     );
   }

@@ -19,7 +19,13 @@ class MyScriptsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ContentCreatorBloc, ContentCreatorState>(
       builder: (context, state) {
-        if (state is ContentCreatorLoading) {
+        if (state is ContentCreatorLoading ||
+            state is IdeaEnhancing ||
+            state is IdeaEnhanced ||
+            state is ScriptGenerating ||
+            state is ScriptRefining ||
+            state is ScriptGenerated ||
+            state is ScriptRefined) {
           return Center(
             child: CircularProgressIndicator(color: AppColors.primaryOlive),
           );
@@ -468,10 +474,26 @@ class _ScriptCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.secondaryText,
-                    size: 22,
+                  Semantics(
+                    label: 'Quick Record ${script.title}',
+                    button: true,
+                    child: GestureDetector(
+                      onTap: onRecord,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.olivePillFill,
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(color: AppColors.olivePillBorder),
+                        ),
+                        child: Icon(
+                          Icons.videocam_rounded,
+                          color: AppColors.primaryOlive,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

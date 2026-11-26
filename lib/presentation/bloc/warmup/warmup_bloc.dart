@@ -108,9 +108,12 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
 
     emit(const WarmupLoading());
 
-    // Try to fetch custom script from repository
+    // Try to fetch custom script from repository (user-scoped local + remote)
     String? customScriptText;
-    final result = await scriptRepository.getWarmupScript(event.warmupIndex);
+    final result = await scriptRepository.getWarmupScript(
+      _userId ?? '',
+      event.warmupIndex,
+    );
     result.fold(
       (failure) => logger.w('Failed to get custom warmup script: ${failure.message}'),
       (scriptData) {

@@ -250,34 +250,40 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       final languageCode = current.selectedLanguage?.code ?? 'en';
       logger.i('Generating scripts in language: $languageCode');
 
-      // Generate ONLY Week 1 scripts (on-demand generation for remaining weeks)
+      // Generate Week 1 scripts (required) and Warmups (resilient — won't abort
+      // onboarding if warmups hit a transient blip).
       emit(
         const OnboardingGeneratingScripts(
           message: 'Creating your Week 1 scripts...',
         ),
       );
 
-      final results = await Future.wait([
-        openAiService.generateWeeklyScripts(
-          weekNumber: 1,
-          firstName: personalInfo.firstName,
-          age: personalInfo.age,
-          location: personalInfo.location,
-          goal: goal,
-          onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
-          language: languageCode,
-          promptMode: current.promptMode,
-          humanTouch: current.humanTouchLevel,
-          culture: current.audienceCulture,
-        ),
-        openAiService.generateWarmupScripts(
-          firstName: personalInfo.firstName,
-          location: personalInfo.location,
-          goal: goal,
-          language: languageCode,
-        ),
-      ]);
+      final week1Future = openAiService.generateWeeklyScripts(
+        weekNumber: 1,
+        firstName: personalInfo.firstName,
+        age: personalInfo.age,
+        location: personalInfo.location,
+        goal: goal,
+        onboardingAnswers: personalInfo.answers.map((k, v) => MapEntry(k, v)),
+        language: languageCode,
+        promptMode: current.promptMode,
+        humanTouch: current.humanTouchLevel,
+        culture: current.audienceCulture,
+      );
 
+      final warmupFuture = openAiService
+          .generateWarmupScripts(
+            firstName: personalInfo.firstName,
+            location: personalInfo.location,
+            goal: goal,
+            language: languageCode,
+          )
+          .catchError((e) {
+            logger.w('Warmup generation failed transiently (non-fatal): $e');
+            return <Map<String, dynamic>>[];
+          });
+
+      final results = await Future.wait([week1Future, warmupFuture]);
       final week1Scripts = results[0];
       final warmupScripts = results[1];
 
@@ -306,11 +312,17 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         },
       );
 
-      final saveWarmupResult = await scriptRepository.saveWarmupScripts(warmupScripts);
-      saveWarmupResult.fold(
-        (failure) => logger.e('Failed to save warmup scripts: ${failure.message}'),
-        (_) => logger.i('Warmup scripts saved successfully!'),
-      );
+      if (warmupScripts.isNotEmpty) {
+        final saveWarmupResult = await scriptRepository.saveWarmupScripts(
+          current.userId,
+          warmupScripts,
+        );
+        saveWarmupResult.fold(
+          (failure) =>
+              logger.e('Failed to save warmup scripts: ${failure.message}'),
+          (_) => logger.i('Warmup scripts saved successfully!'),
+        );
+      }
 
       logger.i(
         'Onboarding complete - ${week1Scripts.length} scripts generated and saved',

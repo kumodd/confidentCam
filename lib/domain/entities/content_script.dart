@@ -48,6 +48,28 @@ class ContentScript extends Equatable {
     return [part1, part2, part3].where((part) => part.isNotEmpty).toList();
   }
 
+  /// Alternative hooks returned by the script pipeline (stored in questionnaire JSONB).
+  List<String> get hookAlternatives {
+    final raw = questionnaire?['hookAlternatives'];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).where((s) => s.trim().isNotEmpty).toList();
+    }
+    return const [];
+  }
+
+  int? get wordCount => (questionnaire?['wordCount'] as num?)?.toInt();
+
+  int? get estimatedSeconds =>
+      (questionnaire?['estimatedSeconds'] as num?)?.toInt();
+
+  String? get languageCode => questionnaire?['languageCode'] as String?;
+
+  String? get lengthKey => questionnaire?['length'] as String?;
+
+  String? get platformKey => questionnaire?['platform'] as String?;
+
+  String? get scriptStyle => questionnaire?['scriptStyle'] as String?;
+
   /// Create a copy with updated fields
   ContentScript copyWith({
     String? id,
@@ -140,4 +162,74 @@ enum PromptTemplate {
   final String description;
 
   const PromptTemplate(this.displayName, this.description);
+
+  static PromptTemplate fromKey(String? raw) {
+    final key = (raw ?? '').trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+    switch (key) {
+      case 'educational':
+      case 'education':
+      case 'explainer':
+      case 'howto':
+      case 'how_to':
+      case 'tutorial':
+        return PromptTemplate.educational;
+      case 'story':
+      case 'storytelling':
+      case 'personal_story':
+        return PromptTemplate.story;
+      case 'review':
+      case 'productreview':
+      case 'product_review':
+        return PromptTemplate.productReview;
+      case 'dayinlife':
+      case 'day_in_life':
+      case 'vlog':
+        return PromptTemplate.dayInLife;
+      case 'custom':
+        return PromptTemplate.custom;
+      case 'tips':
+      case 'listicle':
+      case 'mythbuster':
+      default:
+        return PromptTemplate.tips;
+    }
+  }
+}
+
+/// Structured content brief expanded by AI from a raw Speech-to-Text voice idea.
+class EnhancedScriptIdea extends Equatable {
+  final String rawTranscript;
+  final String topic;
+  final String audience;
+  final String coreMessage;
+  final PromptTemplate suggestedTemplate;
+  final String suggestedTone;
+  final String suggestedLength;
+  final String suggestedPlatform;
+  final String summaryNote;
+
+  const EnhancedScriptIdea({
+    required this.rawTranscript,
+    required this.topic,
+    required this.audience,
+    required this.coreMessage,
+    required this.suggestedTemplate,
+    required this.suggestedTone,
+    required this.suggestedLength,
+    required this.suggestedPlatform,
+    this.summaryNote = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    rawTranscript,
+    topic,
+    audience,
+    coreMessage,
+    suggestedTemplate,
+    suggestedTone,
+    suggestedLength,
+    suggestedPlatform,
+    summaryNote,
+  ];
 }

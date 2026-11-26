@@ -20,6 +20,9 @@ abstract class SupabaseOnboardingDataSource {
 
   /// Fetch saved onboarding data for a user (for on-demand script generation).
   Future<UserPersonalInfo?> getOnboardingData(String userId);
+
+  /// Sync updated script language preference to Supabase user_profiles.
+  Future<void> updateLanguagePreference(String userId, String languageCode);
 }
 
 class SupabaseOnboardingDataSourceImpl implements SupabaseOnboardingDataSource {
@@ -175,25 +178,71 @@ class SupabaseOnboardingDataSourceImpl implements SupabaseOnboardingDataSource {
         return null;
       }
 
-      // Parse answers from JSON if stored
+      // Parse answers from JSON (prefer canonical 'onboarding_answers' column,
+      // fallback to legacy 'answers' key if present)
       Map<String, List<String>> answers = {};
-      if (response['answers'] != null) {
-        final answersMap = response['answers'] as Map<String, dynamic>;
-        answers = answersMap.map((k, v) => MapEntry(k, List<String>.from(v)));
+      final rawAnswers = response['onboarding_answers'] ?? response['answers'];
+      if (rawAnswers is Map) {
+        answers = rawAnswers.map((k, v) {
+          final list = v is List
+              ? v.map((e) => e.toString()).toList()
+              : <String>[v.toString()];
+          return MapEntry(k.toString(), list);
+        });
+      }
+
+      // Prefer canonical 'goal_category' column written by UserPersonalInfo.toJson()
+      final goalKey =
+          (response['goal_category'] as String?)?.trim().isNotEmpty == true
+              ? response['goal_category'] as String
+              : (response['goal'] as String? ?? '');
+      final customGoal = response['custom_goal'] as String?;
+
+      // Resolve human-readable goal_text for non-custom goals so Week 2-5 prompts
+      // receive meaningful goal descriptions instead of raw slugs like '10k_followers'
+      String? resolvedGoalText;
+      if ((customGoal == null || customGoal.trim().isEmpty) &&
+          goalKey.isNotEmpty) {
+        try {
+          final goalRow =
+              await client
+                  .from('goal_options')
+                  .select('goal_text')
+                  .eq('goal_key', goalKey)
+                  .maybeSingle();
+          resolvedGoalText = goalRow?['goal_text'] as String?;
+        } catch (_) {}
       }
 
       return UserPersonalInfo(
         firstName: response['first_name'] as String? ?? '',
         age: response['age'] as int? ?? 25,
         location: response['location'] as String? ?? '',
-        goalKey: response['goal'] as String? ?? '',
-        customGoal: response['custom_goal'] as String?,
+        goalKey: goalKey,
+        customGoal: customGoal,
+        resolvedGoalText: resolvedGoalText,
         languagePreference: response['language_preference'] as String? ?? 'en',
         answers: answers,
       );
     } catch (e) {
       logger.e('Error fetching onboarding data', e);
       return null;
+    }
+  }
+
+  @override
+  Future<void> updateLanguagePreference(
+    String userId,
+    String languageCode,
+  ) async {
+    try {
+      await client
+          .from('user_profiles')
+          .update({'language_preference': languageCode})
+          .eq('user_id', userId);
+      logger.i('Synced language_preference=$languageCode to Supabase for $userId');
+    } catch (e) {
+      logger.w('Failed to sync language_preference to Supabase: $e');
     }
   }
 }

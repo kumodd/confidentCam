@@ -14,6 +14,7 @@ class ContentCreatorBloc
   final VideoStorageService videoStorageService;
 
   String? _currentUserId;
+  ContentCreatorLoaded? _lastLoadedState;
 
   ContentCreatorBloc({
     required this.repository,
@@ -21,6 +22,8 @@ class ContentCreatorBloc
   }) : super(ContentCreatorInitial()) {
     on<LoadScripts>(_onLoadScripts);
     on<GenerateScript>(_onGenerateScript);
+    on<RefineScript>(_onRefineScript);
+    on<EnhanceSpokenIdea>(_onEnhanceSpokenIdea);
     on<SaveScript>(_onSaveScript);
     on<UpdateScript>(_onUpdateScript);
     on<DeleteScript>(_onDeleteScript);
@@ -43,7 +46,20 @@ class ContentCreatorBloc
 
     scriptsResult.fold(
       (failure) => emit(ContentCreatorError(failure.message)),
-      (scripts) => emit(ContentCreatorLoaded(scripts: scripts, videos: videos)),
+      (scripts) {
+        final prevSelected = _lastLoadedState?.selectedScript;
+        final resolvedSelected =
+            prevSelected != null && scripts.any((s) => s.id == prevSelected.id)
+                ? scripts.firstWhere((s) => s.id == prevSelected.id)
+                : (scripts.isNotEmpty ? scripts.first : null);
+        final loaded = ContentCreatorLoaded(
+          scripts: scripts,
+          videos: videos,
+          selectedScript: resolvedSelected,
+        );
+        _lastLoadedState = loaded;
+        emit(loaded);
+      },
     );
   }
 
@@ -52,6 +68,9 @@ class ContentCreatorBloc
     Emitter<ContentCreatorState> emit,
   ) async {
     _currentUserId = event.userId;
+    final previousLoaded = state is ContentCreatorLoaded
+        ? state as ContentCreatorLoaded
+        : _lastLoadedState;
     emit(ScriptGenerating(event.template));
 
     final result = await repository.generateScript(
@@ -61,23 +80,216 @@ class ContentCreatorBloc
       message: event.message,
       tone: event.tone,
       language: event.language,
+      languageCode: event.languageCode,
       template: event.template,
+      length: event.length,
+      platform: event.platform,
+      scriptStyle: event.scriptStyle,
+      ctaStyle: event.ctaStyle,
       customPrompt: event.customPrompt,
     );
 
     await result.fold(
-      (failure) async => emit(ContentCreatorError(failure.message)),
+      (failure) async {
+        emit(ContentCreatorError(failure.message));
+        if (previousLoaded != null) {
+          emit(previousLoaded);
+        }
+      },
       (script) async {
-        // First emit the generated script for the dialog
+        // First emit the generated script for the preview/refine dialog
         emit(ScriptGenerated(script));
-        
-        // Then reload all scripts so the list is updated
+
+        // Immediately keep loaded state fresh even before remote reload finishes
+        if (previousLoaded != null) {
+          final optimistic = previousLoaded.copyWith(
+            scripts: [
+              script,
+              ...previousLoaded.scripts.where((s) => s.id != script.id),
+            ],
+          );
+          _lastLoadedState = optimistic;
+        }
+
+        // Then reload all scripts so the library stays fresh
         final scriptsResult = await repository.getScripts(event.userId);
         final videos = await _loadContentVideos();
-        
+
         scriptsResult.fold(
-          (failure) => emit(ContentCreatorError(failure.message)),
-          (scripts) => emit(ContentCreatorLoaded(scripts: scripts, videos: videos)),
+          (failure) {
+            if (_lastLoadedState != null) {
+              emit(_lastLoadedState!);
+            } else {
+              emit(ContentCreatorError(failure.message));
+            }
+          },
+          (scripts) {
+            final loaded = ContentCreatorLoaded(
+              scripts: scripts,
+              videos: videos,
+              selectedScript: _lastLoadedState?.selectedScript,
+            );
+            _lastLoadedState = loaded;
+            emit(loaded);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _onRefineScript(
+    RefineScript event,
+    Emitter<ContentCreatorState> emit,
+  ) async {
+    final previousLoaded = state is ContentCreatorLoaded
+        ? state as ContentCreatorLoaded
+        : _lastLoadedState;
+    emit(
+      ScriptRefining(script: event.script, instruction: event.instruction),
+    );
+
+    final result = await repository.refineScript(
+      script: event.script,
+      instruction: event.instruction,
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(ContentCreatorError(failure.message));
+        if (previousLoaded != null) {
+          emit(previousLoaded);
+        }
+      },
+      (refined) async {
+        emit(ScriptRefined(refined));
+
+        final uid = _currentUserId ?? refined.userId;
+        final scriptsResult = await repository.getScripts(uid);
+        final videos = await _loadContentVideos();
+        scriptsResult.fold(
+          (_) {
+            if (previousLoaded != null) {
+              final updated = previousLoaded.copyWith(
+                scripts: previousLoaded.scripts
+                    .map((s) => s.id == refined.id ? refined : s)
+                    .toList(),
+                selectedScript: previousLoaded.selectedScript?.id == refined.id
+                    ? refined
+                    : previousLoaded.selectedScript,
+              );
+              _lastLoadedState = updated;
+              emit(updated);
+            }
+          },
+          (scripts) {
+            final selected = previousLoaded?.selectedScript?.id == refined.id
+                ? refined
+                : previousLoaded?.selectedScript;
+            final loaded = ContentCreatorLoaded(
+              scripts: scripts,
+              videos: videos,
+              selectedScript: selected,
+            );
+            _lastLoadedState = loaded;
+            emit(loaded);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _onEnhanceSpokenIdea(
+    EnhanceSpokenIdea event,
+    Emitter<ContentCreatorState> emit,
+  ) async {
+    _currentUserId = event.userId;
+    final previousLoaded =
+        state is ContentCreatorLoaded
+            ? state as ContentCreatorLoaded
+            : _lastLoadedState;
+
+    emit(IdeaEnhancing(event.transcript));
+
+    final ideaResult = await repository.enhanceSpokenIdea(
+      transcript: event.transcript,
+      languageCode: event.languageCode,
+      languageText: event.language,
+      toneHint: event.toneHint,
+      lengthHint: event.lengthHint,
+      platformHint: event.platformHint,
+    );
+
+    await ideaResult.fold(
+      (failure) async {
+        emit(ContentCreatorError(failure.message));
+        if (previousLoaded != null) {
+          emit(previousLoaded);
+        }
+      },
+      (idea) async {
+        emit(IdeaEnhanced(idea: idea, autoGenerating: event.autoGenerate));
+
+        if (!event.autoGenerate) {
+          if (previousLoaded != null) {
+            emit(previousLoaded);
+          }
+          return;
+        }
+
+        // Seamless voice-to-script workflow: immediately generate full script
+        // from the AI-enhanced structured brief!
+        emit(ScriptGenerating(idea.suggestedTemplate));
+        final scriptResult = await repository.generateScript(
+          userId: event.userId,
+          topic: idea.topic,
+          audience: idea.audience,
+          message: idea.coreMessage,
+          tone: idea.suggestedTone,
+          language: event.language,
+          languageCode: event.languageCode,
+          template: idea.suggestedTemplate,
+          length: idea.suggestedLength,
+          platform: idea.suggestedPlatform,
+          scriptStyle: event.scriptStyle,
+        );
+
+        await scriptResult.fold(
+          (failure) async {
+            emit(ContentCreatorError(failure.message));
+            if (previousLoaded != null) {
+              emit(previousLoaded);
+            }
+          },
+          (script) async {
+            emit(ScriptGenerated(script));
+
+            final scriptsResult = await repository.getScripts(event.userId);
+            final videos = await _loadContentVideos();
+            scriptsResult.fold(
+              (_) {
+                if (previousLoaded != null) {
+                  final updated = previousLoaded.copyWith(
+                    scripts: [
+                      script,
+                      ...previousLoaded.scripts.where((s) => s.id != script.id),
+                    ],
+                    selectedScript: script,
+                  );
+                  _lastLoadedState = updated;
+                  emit(updated);
+                }
+              },
+              (scripts) {
+                final loaded = ContentCreatorLoaded(
+                  scripts: scripts,
+                  videos: videos,
+                  selectedScript: script,
+                );
+                _lastLoadedState = loaded;
+                emit(loaded);
+              },
+            );
+          },
         );
       },
     );
@@ -163,14 +375,25 @@ class ContentCreatorBloc
   }
 
   void _onSelectScript(SelectScript event, Emitter<ContentCreatorState> emit) {
-    final currentState = state;
-    if (currentState is ContentCreatorLoaded) {
-      emit(
-        currentState.copyWith(
-          selectedScript: event.script,
-          clearSelectedScript: event.script == null,
-        ),
+    final baseState =
+        state is ContentCreatorLoaded
+            ? state as ContentCreatorLoaded
+            : _lastLoadedState;
+    if (baseState != null) {
+      final updated = baseState.copyWith(
+        selectedScript: event.script,
+        clearSelectedScript: event.script == null,
       );
+      _lastLoadedState = updated;
+      emit(updated);
+    } else if (event.script != null) {
+      final loaded = ContentCreatorLoaded(
+        scripts: [event.script!],
+        videos: const [],
+        selectedScript: event.script,
+      );
+      _lastLoadedState = loaded;
+      emit(loaded);
     }
   }
 
@@ -224,6 +447,7 @@ class ContentCreatorBloc
 
   void _onReset(ResetContentCreator event, Emitter<ContentCreatorState> emit) {
     _currentUserId = null;
+    _lastLoadedState = null;
     emit(ContentCreatorInitial());
   }
 }

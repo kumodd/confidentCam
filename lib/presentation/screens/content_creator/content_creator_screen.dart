@@ -31,6 +31,7 @@ class ContentCreatorTabController extends InheritedWidget {
   }
 
   void switchToTab(int index) {
+    FocusManager.instance.primaryFocus?.unfocus();
     tabController.animateTo(index);
   }
 
@@ -64,6 +65,12 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index != 0) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -84,14 +91,21 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
           isRecordingNotifier: _isRecordingNotifier,
           child: Scaffold(
             backgroundColor: AppColors.background,
+            resizeToAvoidBottomInset: _tabController.index == 0,
             body: SafeArea(
               child: ValueListenableBuilder<bool>(
                 valueListenable: _isRecordingNotifier,
                 builder: (context, isRecording, child) {
+                  final isLandscape =
+                      MediaQuery.of(context).orientation ==
+                      Orientation.landscape;
+                  final hideChrome =
+                      isRecording ||
+                      (isLandscape && _tabController.index == 2);
                   return Column(
                     children: [
-                      if (!isRecording) _buildHeader(context),
-                      if (!isRecording) _buildTabBar(),
+                      if (!hideChrome) _buildHeader(context),
+                      if (!hideChrome) _buildTabBar(),
                       Expanded(
                         child: BlocBuilder<
                           ContentCreatorBloc,

@@ -39,12 +39,18 @@ abstract class ScriptRepository {
   /// Check if scripts exist in remote Supabase database.
   Future<bool> hasRemoteScripts(String userId);
 
-  /// Clear cached scripts.
-  Future<void> clearCache();
+  /// Clear cached scripts (scoped to [userId] when provided).
+  Future<void> clearCache({String? userId});
 
-  /// Save generated warmup scripts locally.
-  Future<Either<Failure, void>> saveWarmupScripts(List<Map<String, dynamic>> scripts);
+  /// Save generated warmup scripts locally and sync to Supabase.
+  Future<Either<Failure, void>> saveWarmupScripts(
+    String userId,
+    List<Map<String, dynamic>> scripts,
+  );
 
-  /// Get warmup script for a specific index.
-  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(int index);
+  /// Get warmup script for [userId] and [index] (local cache -> remote fallback).
+  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(
+    String userId,
+    int index,
+  );
 }

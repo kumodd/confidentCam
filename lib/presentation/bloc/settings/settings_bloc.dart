@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../data/datasources/local/hive_settings_datasource.dart';
+import '../../../data/datasources/remote/supabase_onboarding_datasource.dart';
 import '../../../domain/entities/settings.dart';
 import '../../../services/notification_service.dart';
 import 'settings_event.dart';
@@ -31,6 +33,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<TeleprompterHeightUpdated>(_onHeightUpdated);
     on<TeleprompterOpacityUpdated>(_onOpacityUpdated);
     on<AutoScrollToggled>(_onAutoScrollToggled);
+    on<VoiceSyncToggled>(_onVoiceSyncToggled);
+    on<TeleprompterMirrorToggled>(_onMirrorToggled);
+    on<RecordingLayoutTemplateUpdated>(_onLayoutTemplateUpdated);
+    on<RecordingCountdownUpdated>(_onCountdownUpdated);
+    on<SilenceNotificationsToggled>(_onSilenceNotificationsToggled);
+    on<PreferredMicDeviceUpdated>(_onPreferredMicUpdated);
     on<DefaultCameraUpdated>(_onCameraUpdated);
     on<LanguagePreferenceUpdated>(_onLanguageUpdated);
   }
@@ -86,7 +94,23 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
           teleprompterOpacity:
               (data[AppConstants.teleprompterOpacityKey] as num?)?.toDouble() ??
               AppConstants.defaultTeleprompterOpacity,
-          autoScrollEnabled: data['auto_scroll_enabled'] as bool? ?? true,
+          autoScrollEnabled:
+              data[AppConstants.autoScrollEnabledKey] as bool? ?? true,
+          voiceSyncEnabled:
+              data[AppConstants.voiceSyncEnabledKey] as bool? ?? false,
+          teleprompterMirrorText:
+              data[AppConstants.teleprompterMirrorTextKey] as bool? ?? false,
+          recordingLayoutTemplate:
+              data[AppConstants.recordingLayoutTemplateKey] as String? ??
+              'classic_overlay',
+          recordingCountdownSeconds:
+              (data[AppConstants.recordingCountdownSecondsKey] as num?)
+                  ?.toInt() ??
+              3,
+          silenceNotificationsDuringRecording:
+              data[AppConstants.silenceNotificationsKey] as bool? ?? true,
+          preferredMicDeviceId:
+              (data[AppConstants.preferredMicDeviceIdKey] as num?)?.toInt(),
           defaultCamera:
               data[AppConstants.defaultCameraKey] as String? ?? 'front',
           videoQuality:
@@ -105,21 +129,31 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final timeStr =
         '${event.time.hour.toString().padLeft(2, '0')}:${event.time.minute.toString().padLeft(2, '0')}';
     await settingsDataSource.saveSetting(AppConstants.reminderTimeKey, timeStr);
-    
+
     // Schedule the daily notification
     try {
       final notificationService = sl<NotificationService>();
       final hasPermission = await notificationService.requestPermissions();
       if (!hasPermission) {
-        emit(SettingsNotificationError(_currentSettings.copyWith(reminderTime: event.time)));
+        emit(
+          SettingsNotificationError(
+            _currentSettings.copyWith(reminderTime: event.time),
+          ),
+        );
       } else {
         await notificationService.scheduleDailyReminder(event.time);
       }
     } catch (e) {
-      emit(SettingsNotificationError(_currentSettings.copyWith(reminderTime: event.time)));
+      emit(
+        SettingsNotificationError(
+          _currentSettings.copyWith(reminderTime: event.time),
+        ),
+      );
     }
-    
-    emit(SettingsLoadSuccess(_currentSettings.copyWith(reminderTime: event.time)));
+
+    emit(
+      SettingsLoadSuccess(_currentSettings.copyWith(reminderTime: event.time)),
+    );
   }
 
   Future<void> _onSpeedUpdated(
@@ -187,9 +221,84 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     await _updateAndEmit(
-      'auto_scroll_enabled',
+      AppConstants.autoScrollEnabledKey,
       event.enabled,
       (s) => s.copyWith(autoScrollEnabled: event.enabled),
+      emit,
+    );
+  }
+
+  Future<void> _onVoiceSyncToggled(
+    VoiceSyncToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.voiceSyncEnabledKey,
+      event.enabled,
+      (s) => s.copyWith(voiceSyncEnabled: event.enabled),
+      emit,
+    );
+  }
+
+  Future<void> _onMirrorToggled(
+    TeleprompterMirrorToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.teleprompterMirrorTextKey,
+      event.enabled,
+      (s) => s.copyWith(teleprompterMirrorText: event.enabled),
+      emit,
+    );
+  }
+
+  Future<void> _onLayoutTemplateUpdated(
+    RecordingLayoutTemplateUpdated event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.recordingLayoutTemplateKey,
+      event.templateKey,
+      (s) => s.copyWith(recordingLayoutTemplate: event.templateKey),
+      emit,
+    );
+  }
+
+  Future<void> _onCountdownUpdated(
+    RecordingCountdownUpdated event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.recordingCountdownSecondsKey,
+      event.seconds,
+      (s) => s.copyWith(recordingCountdownSeconds: event.seconds),
+      emit,
+    );
+  }
+
+  Future<void> _onSilenceNotificationsToggled(
+    SilenceNotificationsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.silenceNotificationsKey,
+      event.enabled,
+      (s) => s.copyWith(silenceNotificationsDuringRecording: event.enabled),
+      emit,
+    );
+  }
+
+  Future<void> _onPreferredMicUpdated(
+    PreferredMicDeviceUpdated event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await _updateAndEmit(
+      AppConstants.preferredMicDeviceIdKey,
+      event.deviceId,
+      (s) => s.copyWith(
+        preferredMicDeviceId: event.deviceId,
+        clearPreferredMicDevice: event.deviceId == null,
+      ),
       emit,
     );
   }
@@ -216,5 +325,19 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       (s) => s.copyWith(languagePreference: event.language),
       emit,
     );
+
+    // Also sync updated script language to Supabase user_profiles so on-demand
+    // Weeks 2-5 generation respects the user's new preference.
+    try {
+      final userId = sl.isRegistered<SupabaseClient>()
+          ? sl<SupabaseClient>().auth.currentUser?.id
+          : null;
+      if (userId != null && sl.isRegistered<SupabaseOnboardingDataSource>()) {
+        await sl<SupabaseOnboardingDataSource>().updateLanguagePreference(
+          userId,
+          event.language,
+        );
+      }
+    } catch (_) {}
   }
 }

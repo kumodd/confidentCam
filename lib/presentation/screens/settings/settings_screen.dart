@@ -61,12 +61,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _currentDisplayName = authState.user.displayName;
 
       final result = await sl<UserRepository>().getProfile(authState.user.id);
-      result.fold(
-        (_) {},
-        (profile) {
-          if (mounted) setState(() => _currentProfile = profile);
-        },
-      );
+      result.fold((_) {}, (profile) {
+        if (mounted) setState(() => _currentProfile = profile);
+      });
     }
   }
 
@@ -74,11 +71,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_currentUserId == null) return;
     final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => EditProfileScreen(
-          userId: _currentUserId!,
-          currentDisplayName: _currentDisplayName,
-          currentProfile: _currentProfile,
-        ),
+        builder:
+            (_) => EditProfileScreen(
+              userId: _currentUserId!,
+              currentDisplayName: _currentDisplayName,
+              currentProfile: _currentProfile,
+            ),
       ),
     );
     if (updated == true) _loadProfile();
@@ -122,9 +120,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: SafeArea(
             child: BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, state) {
-                final settings = (state is SettingsLoadSuccess)
-                    ? state.settings
-                    : (state is SettingsNotificationError)
+                final settings =
+                    (state is SettingsLoadSuccess)
+                        ? state.settings
+                        : (state is SettingsNotificationError)
                         ? state.settings
                         : Settings.defaults();
 
@@ -140,9 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Settings',
                               style: AppTypography.headingLarge(fontSize: 25),
                             ),
-                            OlivePillBadge(
-                              label: 'v${AppConfig.appVersion}',
-                            ),
+                            OlivePillBadge(label: 'v${AppConfig.appVersion}'),
                           ],
                         ),
                       ),
@@ -213,10 +210,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 TextButton.icon(
                                   onPressed: _openEditProfile,
-                                  icon: Icon(
-                                    Icons.edit_outlined,
-                                    size: 16,
-                                  ),
+                                  icon: Icon(Icons.edit_outlined, size: 16),
                                   label: Text('Edit'),
                                 ),
                               ],
@@ -234,9 +228,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   icon: Icons.folder_outlined,
                                   iconColor: AppColors.primaryOlive,
                                   label: 'STORAGE',
-                                  value: _loadingStorage
-                                      ? '...'
-                                      : _formatBytes(_storageBytes),
+                                  value:
+                                      _loadingStorage
+                                          ? '...'
+                                          : _formatBytes(_storageBytes),
                                   onTap: _clearAllVideos,
                                 ),
                               ),
@@ -247,9 +242,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   iconColor: AppColors.secondaryGreen,
                                   label: 'REMINDER',
                                   value: _formatTime(settings.reminderTime),
-                                  onTap: () => _pickReminderTime(
-                                    settings.reminderTime,
-                                  ),
+                                  onTap:
+                                      () => _pickReminderTime(
+                                        settings.reminderTime,
+                                      ),
                                 ),
                               ),
                             ],
@@ -278,8 +274,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               activeTrackColor: AppColors.navPill,
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      AutoScrollToggled(v),
-                                    );
+                                  AutoScrollToggled(v),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            SwitchListTile(
+                              secondary: Icon(
+                                Icons.mic_none_rounded,
+                                color: AppColors.primaryOlive,
+                              ),
+                              title: Text(
+                                'Voice-Following Scroll',
+                                style: AppTypography.bodyStrong(),
+                              ),
+                              subtitle: Text(
+                                'Follow spoken sentences to auto-scroll smoothly',
+                                style: AppTypography.body(fontSize: 12.5),
+                              ),
+                              value: settings.voiceSyncEnabled,
+                              activeThumbColor: AppColors.secondaryGreen,
+                              activeTrackColor: AppColors.navPill,
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  VoiceSyncToggled(v),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            SwitchListTile(
+                              secondary: Icon(
+                                Icons.flip_rounded,
+                                color: AppColors.primaryOlive,
+                              ),
+                              title: Text(
+                                'Mirror Text (Beam Splitter)',
+                                style: AppTypography.bodyStrong(),
+                              ),
+                              subtitle: Text(
+                                'Flip script horizontally for physical mirror teleprompters',
+                                style: AppTypography.body(fontSize: 12.5),
+                              ),
+                              value: settings.teleprompterMirrorText,
+                              activeThumbColor: AppColors.secondaryGreen,
+                              activeTrackColor: AppColors.navPill,
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  TeleprompterMirrorToggled(v),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _DropdownTile(
+                              icon: Icons.view_agenda_outlined,
+                              title: 'Recording Layout',
+                              value: settings.recordingLayoutTemplate,
+                              options: {
+                                for (final t in RecordingLayoutTemplate.values)
+                                  t.key: t.label,
+                              },
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  RecordingLayoutTemplateUpdated(v),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            _DropdownTile(
+                              icon: Icons.timer_outlined,
+                              title: 'Record Countdown',
+                              value: '${settings.recordingCountdownSeconds}',
+                              options: const {
+                                '0': 'Instant (0s)',
+                                '3': '3 Seconds',
+                                '5': '5 Seconds',
+                              },
+                              onChanged: (v) {
+                                final secs = int.tryParse(v) ?? 3;
+                                context.read<SettingsBloc>().add(
+                                  RecordingCountdownUpdated(secs),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
+                            SwitchListTile(
+                              secondary: Icon(
+                                Icons.notifications_off_outlined,
+                                color: AppColors.primaryOlive,
+                              ),
+                              title: Text(
+                                'Silence Alerts While Recording',
+                                style: AppTypography.bodyStrong(),
+                              ),
+                              subtitle: Text(
+                                'Mute notification pings and system sounds during takes',
+                                style: AppTypography.body(fontSize: 12.5),
+                              ),
+                              value: settings.silenceNotificationsDuringRecording,
+                              activeThumbColor: AppColors.secondaryGreen,
+                              activeTrackColor: AppColors.navPill,
+                              onChanged: (v) {
+                                context.read<SettingsBloc>().add(
+                                  SilenceNotificationsToggled(v),
+                                );
                               },
                             ),
                             const Divider(height: 1),
@@ -292,38 +389,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               suffix: 'x',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      TeleprompterSpeedUpdated(v),
-                                    );
+                                  TeleprompterSpeedUpdated(v),
+                                );
                               },
                             ),
                             const Divider(height: 1),
                             _SliderTile(
                               icon: Icons.height_outlined,
                               title: 'Display Height',
-                              value: (settings.teleprompterHeight * 100)
-                                  .clamp(15.0, 55.0),
+                              value: (settings.teleprompterHeight * 100).clamp(
+                                15.0,
+                                55.0,
+                              ),
                               min: 15,
                               max: 55,
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      TeleprompterHeightUpdated(v / 100),
-                                    );
+                                  TeleprompterHeightUpdated(v / 100),
+                                );
                               },
                             ),
                             const Divider(height: 1),
                             _SliderTile(
                               icon: Icons.opacity_outlined,
                               title: 'Background Opacity',
-                              value: (settings.teleprompterOpacity * 100)
-                                  .clamp(10.0, 85.0),
+                              value: (settings.teleprompterOpacity * 100).clamp(
+                                10.0,
+                                85.0,
+                              ),
                               min: 10,
                               max: 85,
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      TeleprompterOpacityUpdated(v / 100),
-                                    );
+                                  TeleprompterOpacityUpdated(v / 100),
+                                );
                               },
                             ),
                             const Divider(height: 1),
@@ -339,8 +440,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      TeleprompterFontSizeUpdated(v),
-                                    );
+                                  TeleprompterFontSizeUpdated(v),
+                                );
                               },
                             ),
                             const Divider(height: 1),
@@ -357,8 +458,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      TeleprompterTextColorUpdated(v),
-                                    );
+                                  TeleprompterTextColorUpdated(v),
+                                );
                               },
                             ),
                           ],
@@ -371,9 +472,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _SettingsTile(
                               icon: Icons.folder_outlined,
                               title: 'Storage Used',
-                              subtitle: _loadingStorage
-                                  ? 'Calculating...'
-                                  : _formatBytes(_storageBytes),
+                              subtitle:
+                                  _loadingStorage
+                                      ? 'Calculating...'
+                                      : _formatBytes(_storageBytes),
                               onTap: () {},
                             ),
                             const Divider(height: 1),
@@ -400,8 +502,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      DefaultCameraUpdated(v),
-                                    );
+                                  DefaultCameraUpdated(v),
+                                );
                               },
                             ),
                             const Divider(height: 1),
@@ -416,8 +518,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(
-                                      LanguagePreferenceUpdated(v),
-                                    );
+                                  LanguagePreferenceUpdated(v),
+                                );
                                 _showLanguageChangeWarning(context);
                               },
                             ),
@@ -426,9 +528,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: Icons.alarm_outlined,
                               title: 'Daily Reminder',
                               subtitle: _formatTime(settings.reminderTime),
-                              onTap: () => _pickReminderTime(
-                                settings.reminderTime,
-                              ),
+                              onTap:
+                                  () =>
+                                      _pickReminderTime(settings.reminderTime),
                             ),
                           ],
                         ),
@@ -444,8 +546,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        AppIntroOnboardingScreen(),
+                                    builder: (_) => AppIntroOnboardingScreen(),
                                   ),
                                 );
                               },
@@ -462,27 +563,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: Icons.help_outline_rounded,
                               title: 'Help Center',
                               subtitle: 'Get help via email',
-                              onTap: () => _launchUrl(
-                                'mailto:support@confidentcam.app?subject=Help%20Request',
-                              ),
+                              onTap:
+                                  () => _launchUrl(
+                                    'mailto:support@confidentcam.app?subject=Help%20Request',
+                                  ),
                             ),
                             const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.privacy_tip_outlined,
                               title: 'Privacy Policy',
                               subtitle: 'How we handle your data',
-                              onTap: () => _launchUrl(
-                                'https://confidentcam.app/privacy-policy.html',
-                              ),
+                              onTap:
+                                  () => _launchUrl(
+                                    'https://confidentcam.app/privacy-policy.html',
+                                  ),
                             ),
                             const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.description_outlined,
                               title: 'Terms of Service',
                               subtitle: 'Usage terms and conditions',
-                              onTap: () => _launchUrl(
-                                'https://confidentcam.app/terms-of-service.html',
-                              ),
+                              onTap:
+                                  () => _launchUrl(
+                                    'https://confidentcam.app/terms-of-service.html',
+                                  ),
                             ),
                           ],
                         ),
@@ -595,26 +699,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _clearAllVideos() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Clear All Videos'),
-        content: Text(
-          'This will delete ALL your warmup and daily challenge videos. '
-          'This cannot be undone. Are you sure?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Delete All',
-              style: TextStyle(color: AppColors.error),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Clear All Videos'),
+            content: Text(
+              'This will delete ALL your warmup and daily challenge videos. '
+              'This cannot be undone. Are you sure?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  'Delete All',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -629,23 +734,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _logout() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Logout'),
-        content: Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Logout'),
+            content: Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.read<AuthBloc>().add(LogoutRequested());
+                },
+                child: Text('Logout'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(LogoutRequested());
-            },
-            child: Text('Logout'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -653,69 +759,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final firstConfirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.error,
-              size: 26,
+      builder:
+          (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.error,
+                  size: 26,
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Delete Account',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ],
             ),
-            SizedBox(width: 10),
-            Text(
-              'Delete Account',
-              style: TextStyle(color: AppColors.error),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This will permanently delete:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('• Your Supabase account & authentication'),
+                Text('• All your scripts (30-day challenge scripts)'),
+                Text('• All your progress & streaks'),
+                Text('• All settings and preferences'),
+                Text('• Your user profile and personalization'),
+                SizedBox(height: 12),
+                Text(
+                  'What will NOT be deleted:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondaryGreen,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text('• Recorded videos (saved on your device)'),
+                SizedBox(height: 12),
+                Text(
+                  'This action CANNOT be undone.',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This will permanently delete:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text('• Your Supabase account & authentication'),
-            Text('• All your scripts (30-day challenge scripts)'),
-            Text('• All your progress & streaks'),
-            Text('• All settings and preferences'),
-            Text('• Your user profile and personalization'),
-            SizedBox(height: 12),
-            Text(
-              'What will NOT be deleted:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.secondaryGreen,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel'),
               ),
-            ),
-            SizedBox(height: 6),
-            Text('• Recorded videos (saved on your device)'),
-            SizedBox(height: 12),
-            Text(
-              'This action CANNOT be undone.',
-              style: TextStyle(
-                color: AppColors.error,
-                fontWeight: FontWeight.bold,
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  'Continue',
+                  style: TextStyle(color: AppColors.error),
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel'),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Continue',
-              style: TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
     );
 
     if (firstConfirm != true || !mounted) return;
@@ -724,45 +831,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final finalConfirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Final Confirmation'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Type DELETE to confirm account deletion:'),
-              const SizedBox(height: 16),
-              TextField(
-                autofocus: true,
-                onChanged: (value) => setDialogState(() => typedText = value),
-                decoration: InputDecoration(
-                  hintText: 'Type DELETE',
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: Text('Final Confirmation'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Type DELETE to confirm account deletion:'),
+                      const SizedBox(height: 16),
+                      TextField(
+                        autofocus: true,
+                        onChanged:
+                            (value) => setDialogState(() => typedText = value),
+                        decoration: InputDecoration(hintText: 'Type DELETE'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        if (typedText.toUpperCase() == 'DELETE') {
+                          Navigator.pop(ctx, true);
+                        } else {
+                          EasyLoading.showError(
+                            'Please type DELETE to confirm',
+                          );
+                        }
+                      },
+                      child: Text(
+                        'Delete Forever',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (typedText.toUpperCase() == 'DELETE') {
-                  Navigator.pop(ctx, true);
-                } else {
-                  EasyLoading.showError('Please type DELETE to confirm');
-                }
-              },
-              child: Text(
-                'Delete Forever',
-                style: TextStyle(color: AppColors.error),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
 
     if (finalConfirm != true || !mounted) return;
@@ -840,23 +950,17 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      leading: Icon(
-        icon,
-        color: iconColor ?? AppColors.primaryOlive,
-        size: 21,
-      ),
+      leading: Icon(icon, color: iconColor ?? AppColors.primaryOlive, size: 21),
       title: Text(
         title,
         style: AppTypography.bodyStrong(
           color: iconColor ?? AppColors.primaryText,
         ),
       ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              style: AppTypography.body(fontSize: 12.5),
-            )
-          : null,
+      subtitle:
+          subtitle != null
+              ? Text(subtitle!, style: AppTypography.body(fontSize: 12.5))
+              : null,
       trailing: Icon(
         Icons.chevron_right_rounded,
         color: AppColors.secondaryText,
@@ -964,8 +1068,14 @@ class _DropdownTile extends StatelessWidget {
         children: [
           Icon(icon, color: AppColors.primaryOlive, size: 20),
           const SizedBox(width: 12),
-          Text(title, style: AppTypography.bodyStrong()),
-          const Spacer(),
+          Expanded(
+            child: Text(
+              title,
+              style: AppTypography.bodyStrong(),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 12),
           DropdownButton<String>(
             value: options.containsKey(value) ? value : options.keys.first,
             dropdownColor: AppColors.background,
@@ -974,19 +1084,20 @@ class _DropdownTile extends StatelessWidget {
               Icons.keyboard_arrow_down_rounded,
               color: AppColors.secondaryText,
             ),
-            items: options.entries.map((e) {
-              return DropdownMenuItem(
-                value: e.key,
-                child: Text(
-                  e.value,
-                  style: GoogleFonts.manrope(
-                    color: AppColors.secondaryGreen,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              );
-            }).toList(),
+            items:
+                options.entries.map((e) {
+                  return DropdownMenuItem(
+                    value: e.key,
+                    child: Text(
+                      e.value,
+                      style: GoogleFonts.manrope(
+                        color: AppColors.secondaryGreen,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  );
+                }).toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
             },

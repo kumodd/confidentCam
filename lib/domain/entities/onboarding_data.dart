@@ -132,6 +132,7 @@ class UserPersonalInfo extends Equatable {
   final String location;
   final String goalKey;
   final String? customGoal;
+  final String? resolvedGoalText;
   final String languagePreference;
   final Map<String, List<String>> answers; // question_key -> selected options
 
@@ -141,11 +142,20 @@ class UserPersonalInfo extends Equatable {
     required this.location,
     required this.goalKey,
     this.customGoal,
+    this.resolvedGoalText,
     this.languagePreference = 'en',
     this.answers = const {},
   });
 
-  String get displayGoal => customGoal ?? goalKey;
+  String get displayGoal {
+    if (customGoal != null && customGoal!.trim().isNotEmpty) {
+      return customGoal!.trim();
+    }
+    if (resolvedGoalText != null && resolvedGoalText!.trim().isNotEmpty) {
+      return resolvedGoalText!.trim();
+    }
+    return goalKey.isNotEmpty ? goalKey : 'build camera confidence';
+  }
 
   Map<String, dynamic> toJson() => {
     'first_name': firstName,
@@ -163,6 +173,7 @@ class UserPersonalInfo extends Equatable {
     String? location,
     String? goalKey,
     String? customGoal,
+    String? resolvedGoalText,
     String? languagePreference,
     Map<String, List<String>>? answers,
   }) {
@@ -172,6 +183,7 @@ class UserPersonalInfo extends Equatable {
       location: location ?? this.location,
       goalKey: goalKey ?? this.goalKey,
       customGoal: customGoal ?? this.customGoal,
+      resolvedGoalText: resolvedGoalText ?? this.resolvedGoalText,
       languagePreference: languagePreference ?? this.languagePreference,
       answers: answers ?? this.answers,
     );
@@ -184,6 +196,7 @@ class UserPersonalInfo extends Equatable {
     location,
     goalKey,
     customGoal,
+    resolvedGoalText,
     languagePreference,
     answers,
   ];

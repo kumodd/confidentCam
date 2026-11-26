@@ -122,11 +122,12 @@ class PromptConfigFactory {
 
   static String _forbidden() {
     return '''
-- No advice
-- No motivation
-- No teaching
-- No clean conclusions
+- No advice or lecturing
+- No loud motivational slogans or hype
+- No teaching tone
+- No clean fake-profound conclusions
 - No confidence claims
+- No AI tells ("It's not X, it's Y", "Here's the thing", "Let that sink in", em dashes, or buzzwords like unlock/elevate/journey)
 ''';
   }
 

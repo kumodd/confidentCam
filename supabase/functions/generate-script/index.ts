@@ -1,39 +1,288 @@
 // Supabase Edge Function: generate-script
-// Securely proxies OpenAI API calls for script generation
-// Deploy this via Supabase Dashboard -> Edge Functions
+// Unified Structured Outputs handler for Content Creator (generate + refine),
+// 30-Day Challenge weekly batches (weekly), and personalized Warmups (warmup).
 
-// Deno TypeScript for Supabase Edge Functions
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import {
+    OPENAI_MODEL,
+    BUILTIN_PROMPT_VERSION,
+    SCRIPT_JSON_SCHEMA,
+    WEEKLY_SCRIPTS_JSON_SCHEMA,
+    WARMUP_SCRIPTS_JSON_SCHEMA,
+    ENHANCE_IDEA_JSON_SCHEMA,
+    LENGTH_CONFIG,
+    GenerateRequest,
+    PromptTemplateRecord,
+    RawScriptOutput,
+    RawWeeklyScriptsOutput,
+    RawWarmupScriptsOutput,
+    RawEnhancedIdeaOutput,
+    normalizeTemplate,
+    normalizeTone,
+    normalizeLength,
+    normalizePlatform,
+    validateRequest,
+    buildSystemPrompt,
+    buildGenerateUserPrompt,
+    buildLengthExpansionPrompt,
+    buildRefineUserPrompt,
+    buildWeeklyChallengeSystemPrompt,
+    buildWeeklyChallengeUserPrompt,
+    buildWarmupUserPrompt,
+    buildIdeaEnhancerSystemPrompt,
+    buildIdeaEnhancerUserPrompt,
+    countWords,
+    joinBodyBeats,
+    sanitizeAndEnrich,
+    sanitizeWeeklyScripts,
+    sanitizeWarmupScripts,
+    sanitizeEnhancedIdea,
+    redactSecrets,
+} from "./pipeline.ts"
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
-const OPENAI_MODEL = 'gpt-4o-mini'
+const OPENAI_TIMEOUT_MS = 45_000
+const CACHE_TTL_MS = 5 * 60 * 1000
 
-const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://your-domain.com'
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '*')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+function getCorsHeaders(req: Request): Record<string, string> {
+    const origin = req.headers.get('Origin') ?? ''
+    const allowAll = allowedOrigins.includes('*')
+    const isAllowed = allowAll || (origin !== '' && allowedOrigins.includes(origin))
+    return {
+        'Access-Control-Allow-Origin': isAllowed ? (origin || '*') : (allowedOrigins[0] || '*'),
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    }
 }
 
-interface GenerateRequest {
-    template: string
-    topic: string
-    audience?: string
-    tone: string
-    length: string
-    customPrompt?: string
-    languageText?: string
-    markdownMode?: boolean
+let cachedWorkingKey: string | null = null
+let cacheTimestamp = 0
+
+let cachedPromptTemplates: Record<string, PromptTemplateRecord> | null = null
+let promptCacheTimestamp = 0
+
+async function getPromptTemplates(): Promise<Record<string, PromptTemplateRecord>> {
+    const now = Date.now()
+    if (cachedPromptTemplates && (now - promptCacheTimestamp) < CACHE_TTL_MS) {
+        return cachedPromptTemplates
+    }
+
+    try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (supabaseUrl && supabaseServiceKey) {
+            const supabase = createClient(supabaseUrl, supabaseServiceKey)
+            const { data, error } = await supabase
+                .from('prompt_templates')
+                .select('prompt_key, version, system_prompt, user_prompt_template')
+                .eq('is_active', true)
+
+            if (!error && Array.isArray(data) && data.length > 0) {
+                const map: Record<string, PromptTemplateRecord> = {}
+                for (const row of data) {
+                    if (row?.prompt_key) {
+                        map[String(row.prompt_key)] = {
+                            prompt_key: String(row.prompt_key),
+                            version: Number(row.version ?? 1),
+                            system_prompt: row.system_prompt ? String(row.system_prompt) : null,
+                            user_prompt_template: row.user_prompt_template ? String(row.user_prompt_template) : '',
+                        }
+                    }
+                }
+                cachedPromptTemplates = map
+                promptCacheTimestamp = now
+                return map
+            }
+        }
+    } catch (dbErr) {
+        console.warn('prompt_templates lookup warning:', dbErr instanceof Error ? dbErr.message : dbErr)
+    }
+
+    return cachedPromptTemplates ?? {}
+}
+
+async function getCandidateApiKeys(): Promise<string[]> {
+    const now = Date.now()
+    if (cachedWorkingKey && (now - cacheTimestamp) < CACHE_TTL_MS) {
+        return [cachedWorkingKey]
+    }
+
+    const candidates: string[] = []
+
+    // Priority 1: app_config table (currently managed by Admin Dashboard & Flutter)
+    try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (supabaseUrl && supabaseServiceKey) {
+            const supabase = createClient(supabaseUrl, supabaseServiceKey)
+            const { data, error } = await supabase
+                .from('app_config')
+                .select('value')
+                .eq('key', 'openai_api_key')
+                .single()
+
+            if (!error && data?.value) {
+                const val = String(data.value).trim()
+                if (val && !candidates.includes(val)) candidates.push(val)
+            }
+        }
+    } catch (dbErr) {
+        console.warn('app_config lookup warning:', dbErr instanceof Error ? dbErr.message : dbErr)
+    }
+
+    // Priority 2: OPENAI_API_KEY Edge Function secret
+    const envKey = Deno.env.get('OPENAI_API_KEY')?.trim()
+    if (envKey && !candidates.includes(envKey)) {
+        candidates.push(envKey)
+    }
+
+    return candidates
+}
+
+class UpstreamError extends Error {
+    status: number
+    constructor(status: number, message: string) {
+        super(message)
+        this.status = status
+    }
+}
+
+async function callOpenAiSingleKey<T>(
+    apiKey: string,
+    systemPrompt: string,
+    userPrompt: string,
+    jsonSchema: Record<string, unknown>,
+    temperature: number,
+    maxTokens: number,
+    isNonEmpty: (parsed: T) => boolean,
+): Promise<T> {
+    const maxAttempts = 2
+    let lastError: Error | null = null
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS)
+
+        try {
+            const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: OPENAI_MODEL,
+                    temperature,
+                    max_tokens: maxTokens,
+                    response_format: {
+                        type: 'json_schema',
+                        json_schema: jsonSchema,
+                    },
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                }),
+            })
+
+            clearTimeout(timer)
+
+            if (!resp.ok) {
+                const errBody = await resp.json().catch(() => ({}))
+                const rawMsg = errBody?.error?.message || `HTTP ${resp.status}`
+                const safeMsg = redactSecrets(rawMsg)
+                if ((resp.status === 429 || resp.status >= 500) && attempt < maxAttempts) {
+                    await new Promise((r) => setTimeout(r, 700))
+                    continue
+                }
+                throw new UpstreamError(resp.status, `OpenAI API error (${resp.status}): ${safeMsg}`)
+            }
+
+            const data = await resp.json()
+            const content = data?.choices?.[0]?.message?.content
+            if (!content || typeof content !== 'string') {
+                throw new Error('Empty completion from OpenAI')
+            }
+
+            const parsed = JSON.parse(content) as T
+            if (!isNonEmpty(parsed)) {
+                if (attempt < maxAttempts) continue
+                throw new Error('Generated script content was empty')
+            }
+            return parsed
+        } catch (err) {
+            clearTimeout(timer)
+            lastError = err instanceof Error ? err : new Error(String(err))
+            const retryable = lastError.name === 'AbortError' || lastError instanceof SyntaxError
+            if (retryable && attempt < maxAttempts) {
+                await new Promise((r) => setTimeout(r, 500))
+                continue
+            }
+            throw lastError
+        }
+    }
+
+    throw lastError ?? new Error('Script generation failed')
+}
+
+async function callOpenAiWithKeyFailover<T>(
+    apiKeys: string[],
+    systemPrompt: string,
+    userPrompt: string,
+    jsonSchema: Record<string, unknown>,
+    temperature: number,
+    maxTokens: number,
+    isNonEmpty: (parsed: T) => boolean,
+): Promise<T> {
+    let lastError: Error | null = null
+    for (const key of apiKeys) {
+        try {
+            const output = await callOpenAiSingleKey<T>(
+                key,
+                systemPrompt,
+                userPrompt,
+                jsonSchema,
+                temperature,
+                maxTokens,
+                isNonEmpty,
+            )
+            cachedWorkingKey = key
+            cacheTimestamp = Date.now()
+            return output
+        } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err))
+            if (err instanceof UpstreamError && (err.status === 401 || err.status === 403)) {
+                cachedWorkingKey = null
+                cacheTimestamp = 0
+                continue
+            }
+            throw err
+        }
+    }
+    throw lastError ?? new UpstreamError(502, 'All configured OpenAI keys rejected authentication')
 }
 
 serve(async (req) => {
-    // Handle CORS preflight
+    const corsHeaders = getCorsHeaders(req)
+
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders })
     }
 
+    if (req.method !== 'POST') {
+        return new Response(
+            JSON.stringify({ error: 'Method not allowed' }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+    }
+
     try {
-        // Verify authentication
         const authHeader = req.headers.get('Authorization')
         if (!authHeader) {
             return new Response(
@@ -42,156 +291,206 @@ serve(async (req) => {
             )
         }
 
-        // Parse request body
-        const { template, topic, audience, tone, length, customPrompt, languageText, markdownMode }: GenerateRequest = await req.json()
-
-        if (!topic) {
+        let body: GenerateRequest
+        try {
+            body = await req.json()
+        } catch {
             return new Response(
-                JSON.stringify({ error: 'Topic is required' }),
+                JSON.stringify({ error: 'Invalid JSON request body' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 
-        // Build the prompt
-        const prompt = buildPrompt({ template, topic, audience, tone, length, customPrompt, languageText, markdownMode })
-
-        // Call OpenAI
-        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: OPENAI_MODEL,
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a viral content scriptwriter. You write scripts meant to be SPOKEN, not read. Always respond with valid JSON only.'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                max_tokens: 1000,
-                temperature: 0.8
-            })
-        })
-
-        if (!openaiResponse.ok) {
-            const error = await openaiResponse.json()
-            console.error('OpenAI API error:', error)
+        const validationError = validateRequest(body)
+        if (validationError) {
             return new Response(
-                JSON.stringify({ error: 'Failed to generate script' }),
+                JSON.stringify({ error: validationError }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        const apiKeys = await getCandidateApiKeys()
+        if (apiKeys.length === 0) {
+            return new Response(
+                JSON.stringify({ error: 'Server configuration error: OpenAI API key is missing.' }),
                 { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 
-        const data = await openaiResponse.json()
-        const content = data.choices[0].message.content
+        const action = body.action ?? 'generate'
+        const promptTemplates = await getPromptTemplates()
 
-        // Parse the JSON response
-        const script = parseScriptResponse(content)
+        // --- Action 1: 30-Day Challenge Weekly Batch ---
+        if (action === 'weekly') {
+            const sysTpl = promptTemplates['system_scriptwriter'] ?? null
+            const usrTpl = promptTemplates['weekly_script'] ?? null
+            const sysPrompt = buildWeeklyChallengeSystemPrompt(sysTpl)
+            const usrPrompt = buildWeeklyChallengeUserPrompt(body, usrTpl)
+            const rawWeekly = await callOpenAiWithKeyFailover<RawWeeklyScriptsOutput>(
+                apiKeys,
+                sysPrompt,
+                usrPrompt,
+                WEEKLY_SCRIPTS_JSON_SCHEMA,
+                0.8,
+                6500,
+                (p) => Array.isArray(p.scripts) && p.scripts.length > 0,
+            )
+            const payload = sanitizeWeeklyScripts(rawWeekly, body)
+            return new Response(
+                JSON.stringify({
+                    ...payload,
+                    meta: {
+                        promptSource: (sysTpl || usrTpl) ? 'db' : 'fallback',
+                        promptVersion: usrTpl?.version ?? sysTpl?.version ?? BUILTIN_PROMPT_VERSION,
+                    },
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
 
-        return new Response(
-            JSON.stringify(script),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        // --- Action 2: Personalized Warmup Scripts ---
+        if (action === 'warmup') {
+            const sysTpl = promptTemplates['system_scriptwriter'] ?? null
+            const usrTpl = promptTemplates['warmup_script'] ?? null
+            const sysPrompt = buildWeeklyChallengeSystemPrompt(sysTpl)
+            const usrPrompt = buildWarmupUserPrompt(body, usrTpl)
+            const rawWarmups = await callOpenAiWithKeyFailover<RawWarmupScriptsOutput>(
+                apiKeys,
+                sysPrompt,
+                usrPrompt,
+                WARMUP_SCRIPTS_JSON_SCHEMA,
+                0.8,
+                2200,
+                (p) => Array.isArray(p.scripts) && p.scripts.length > 0,
+            )
+            const payload = sanitizeWarmupScripts(rawWarmups, body)
+            return new Response(
+                JSON.stringify({
+                    ...payload,
+                    meta: {
+                        promptSource: (sysTpl || usrTpl) ? 'db' : 'fallback',
+                        promptVersion: usrTpl?.version ?? sysTpl?.version ?? BUILTIN_PROMPT_VERSION,
+                    },
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // --- Action 2.5: Voice-to-Script STT Idea Enhancer ---
+        if (action === 'enhance_idea') {
+            const ideaTpl = promptTemplates['idea_enhancer'] ?? null
+            const sysPrompt = buildIdeaEnhancerSystemPrompt(ideaTpl)
+            const usrPrompt = buildIdeaEnhancerUserPrompt(body, ideaTpl)
+            const rawIdea = await callOpenAiWithKeyFailover<RawEnhancedIdeaOutput>(
+                apiKeys,
+                sysPrompt,
+                usrPrompt,
+                ENHANCE_IDEA_JSON_SCHEMA,
+                0.45,
+                900,
+                (p) => Boolean(p.topic?.trim() && p.coreMessage?.trim()),
+            )
+            const payload = sanitizeEnhancedIdea(rawIdea, body, {
+                source: ideaTpl ? 'db' : 'fallback',
+                version: ideaTpl?.version ?? BUILTIN_PROMPT_VERSION,
+            })
+            return new Response(
+                JSON.stringify(payload),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // --- Action 3 & 4: Content Creator Generate & Refine ---
+        const normalized = {
+            template: normalizeTemplate(body.template),
+            tone: normalizeTone(body.tone),
+            length: normalizeLength(body.length),
+            platform: normalizePlatform(body.platform),
+            markdownMode: body.markdownMode !== false,
+        }
+
+        const sysTpl = promptTemplates['system_content_creator'] ?? null
+        const usrTpl = action === 'refine'
+            ? (promptTemplates['content_refine'] ?? null)
+            : (promptTemplates['content_generation'] ?? null)
+
+        const systemPrompt = buildSystemPrompt(normalized.markdownMode, sysTpl)
+        const userPrompt = action === 'refine'
+            ? buildRefineUserPrompt(body, usrTpl)
+            : buildGenerateUserPrompt(body, usrTpl)
+
+        const promptMeta: { source: 'db' | 'fallback'; version: number } = {
+            source: (sysTpl || usrTpl) ? 'db' : 'fallback',
+            version: usrTpl?.version ?? sysTpl?.version ?? BUILTIN_PROMPT_VERSION,
+        }
+
+        const temperature = action === 'refine'
+            ? (body.refineInstruction === 'punchier_hook' ? 0.85 : 0.55)
+            : 0.78
+
+        const maxTokens = normalized.length === 'long' ? 2800 : 2200
+
+        let rawScript = await callOpenAiWithKeyFailover<RawScriptOutput>(
+            apiKeys,
+            systemPrompt,
+            userPrompt,
+            SCRIPT_JSON_SCHEMA,
+            temperature,
+            maxTokens,
+            (p) => Boolean(p.part1?.trim() || (Array.isArray(p.bodyBeats) && p.bodyBeats.length > 0)),
         )
 
-    } catch (error) {
-        console.error('Edge function error:', error)
+        // Single automatic length-repair pass when medium/long generation undershoots < 85% of min target
+        if (action === 'generate' && (normalized.length === 'medium' || normalized.length === 'long')) {
+            const cfg = LENGTH_CONFIG[normalized.length]
+            const draftWords = countWords(
+                `${rawScript.part1 ?? ''} ${joinBodyBeats(rawScript.bodyBeats, normalized.markdownMode)} ${rawScript.part3 ?? ''}`
+            )
+            if (draftWords < Math.round(cfg.min * 0.85)) {
+                try {
+                    const expandPrompt = buildLengthExpansionPrompt(rawScript, body, normalized.length, draftWords)
+                    const expanded = await callOpenAiWithKeyFailover<RawScriptOutput>(
+                        apiKeys,
+                        systemPrompt,
+                        expandPrompt,
+                        SCRIPT_JSON_SCHEMA,
+                        0.72,
+                        2800,
+                        (p) => Boolean(p.part1?.trim() && Array.isArray(p.bodyBeats) && p.bodyBeats.length > 0),
+                    )
+                    const expandedWords = countWords(
+                        `${expanded.part1 ?? ''} ${joinBodyBeats(expanded.bodyBeats, normalized.markdownMode)} ${expanded.part3 ?? ''}`
+                    )
+                    if (expandedWords > draftWords) {
+                        rawScript = expanded
+                    }
+                } catch (expandErr) {
+                    console.warn('Length expansion pass skipped:', expandErr instanceof Error ? expandErr.message : expandErr)
+                }
+            }
+        }
+
+        const responsePayload = sanitizeAndEnrich(rawScript, body, normalized, promptMeta)
+
         return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify(responsePayload),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+    } catch (error) {
+        const rawMsg = error instanceof Error ? error.message : 'Unknown internal error'
+        let message = redactSecrets(rawMsg)
+        const status = error instanceof UpstreamError ? 502 : 500
+
+        if (error instanceof UpstreamError && (error.status === 401 || error.status === 403)) {
+            message = 'AI service authentication error (upstream 401). Please update the OpenAI API key in Supabase secrets.'
+        } else if (error instanceof UpstreamError && error.status === 429) {
+            message = 'AI service is temporarily busy. Please wait a few seconds and try again.'
+        }
+
+        console.error('generate-script error:', message)
+        return new Response(
+            JSON.stringify({ error: message }),
+            { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
 })
-
-function buildPrompt({ template, topic, audience, tone, length, customPrompt, languageText, markdownMode }: GenerateRequest): string {
-    const wordCounts: Record<string, { min: number; max: number }> = {
-        short: { min: 80, max: 120 },
-        medium: { min: 150, max: 250 },
-        long: { min: 300, max: 400 }
-    }
-
-    const templateInstructions: Record<string, string> = {
-        educational: 'Create an educational script that teaches something valuable. Start with a hook that promises value, deliver the lesson clearly, and end with a memorable takeaway.',
-        story: 'Create a story-driven script with a personal narrative. Start with an intriguing situation, build tension with the journey, and conclude with the lesson learned.',
-        tips: 'Create a tips-based script with actionable advice. Open with why this matters, deliver 3-5 quick tips, and close with encouragement to take action.',
-        review: 'Create an authentic review script. Start with your verdict, share specific pros and cons, and end with your recommendation.',
-        dayinlife: 'Create a day-in-the-life style script. Open with what makes today special, share key moments with personality, and close with reflection.',
-        custom: customPrompt || 'Create a compelling video script based on the topic.'
-    }
-
-    const toneDescriptions: Record<string, string> = {
-        casual: 'friendly and conversational, like talking to a friend',
-        professional: 'polished and authoritative, but still approachable',
-        energetic: 'high-energy and enthusiastic, keeping viewers engaged',
-        inspiring: 'motivational and uplifting, encouraging action'
-    }
-
-    const { min, max } = wordCounts[length] || wordCounts.medium
-    const audienceText = audience ? `The target audience is: ${audience}.` : ''
-    const langText = languageText ? `\nLANGUAGE: ${languageText}` : ''
-
-    // Markdown-specific rules
-    const markdownRules = markdownMode !== false ? `
-7. Use **bold** for emphasis on key words or phrases
-8. Use bullet points (- ) or numbered lists where appropriate
-9. Use line breaks to separate thoughts for easier reading on teleprompter` : `
-7. Write as plain text without markdown formatting`
-
-    const outputFormat = markdownMode !== false ? `{
-    "title": "A catchy 3-7 word title for the script",
-    "part1": "The hook in markdown format - use **bold** for emphasis",
-    "part2": "The body in markdown format - use lists, **bold**, line breaks", 
-    "part3": "The close in markdown format - **bold** the call to action"
-}` : `{
-    "title": "A catchy 3-7 word title for the script",
-    "part1": "The hook - plain text, grab attention immediately",
-    "part2": "The body - plain text, deliver the main value", 
-    "part3": "The close - plain text with clear call to action"
-}`
-
-    return `You are an expert video scriptwriter creating content for social media.
-
-TASK: Create a ${length} video script about: "${topic}"
-
-${templateInstructions[template] || templateInstructions.educational}${langText}
-
-TONE: Write in a ${toneDescriptions[tone] || toneDescriptions.casual} tone.
-${audienceText}
-
-WORD COUNT: Between ${min} and ${max} words total.
-
-IMPORTANT RULES:
-1. Write ONLY the words to be spoken aloud - no stage directions, no labels
-2. Use SHORT, punchy sentences - this is spoken word, not an essay
-3. Start with a strong HOOK that stops the scroll
-4. Be conversational - use contractions, questions, direct address ("you")
-5. NO corporate jargon or overly formal language
-6. The close should have a clear call-to-action${markdownRules}
-
-OUTPUT FORMAT:
-Return a JSON object with exactly this structure:
-${outputFormat}
-
-Return ONLY the JSON object, no code blocks or extra text.`
-}
-
-function parseScriptResponse(content: string): Record<string, string> {
-    let cleaned = content.trim()
-
-    // Remove markdown code blocks if present
-    if (cleaned.startsWith('```json')) {
-        cleaned = cleaned.substring(7)
-    } else if (cleaned.startsWith('```')) {
-        cleaned = cleaned.substring(3)
-    }
-    if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3)
-    }
-
-    return JSON.parse(cleaned.trim())
-}

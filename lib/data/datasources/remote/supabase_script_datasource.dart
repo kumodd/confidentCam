@@ -7,10 +7,10 @@ import '../../../core/utils/logger.dart';
 
 /// Remote data source for script operations.
 abstract class SupabaseScriptDataSource {
-  /// Get all scripts for a user.
+  /// Get all scripts for a user (days 1..30).
   Future<List<Map<String, dynamic>>> getScripts(String userId);
 
-  /// Get script for a specific day.
+  /// Get script for a specific day (positive = challenge day, negative = warmup).
   Future<Map<String, dynamic>?> getScriptForDay(String userId, int dayNumber);
 
   /// Save scripts (batch).
@@ -33,6 +33,7 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
           .from(AppConstants.dailyScriptsTable)
           .select()
           .eq('user_id', userId)
+          .gt('day_number', 0)
           .order('day_number')
           .timeout(AppConfig.apiTimeout);
 

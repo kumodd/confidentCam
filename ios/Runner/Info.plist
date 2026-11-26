@@ -43,6 +43,10 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ConfidentCam uses your microphone to record video audio and synchronize the teleprompter with your voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>ConfidentCam uses speech recognition to automatically scroll the teleprompter as you speak your script.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 </dict>

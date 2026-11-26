@@ -45,6 +45,8 @@ import '../../presentation/bloc/settings/settings_bloc.dart';
 import '../../presentation/bloc/warmup/warmup_bloc.dart';
 import '../../services/video_recording_service.dart';
 import '../../services/video_storage_service.dart';
+import '../../services/voice_teleprompter_service.dart';
+import '../../services/recording_audio_service.dart';
 import '../../services/notification_service.dart';
 
 final sl = GetIt.instance;
@@ -217,9 +219,13 @@ void _initRepositories() {
     () => GuideRepositoryImpl(sl()),
   );
 
-  // Content Creator Repository (standalone - uses Supabase for storage and OpenAI for generation)
+  // Content Creator Repository (Supabase Edge Function + Cloud + Hive offline cache)
   sl.registerLazySingleton<ContentCreatorRepository>(
-    () => ContentCreatorRepositoryImpl(remoteDataSource: sl()),
+    () => ContentCreatorRepositoryImpl(
+      remoteDataSource: sl(),
+      localDataSource: sl(),
+      supabaseClient: sl(),
+    ),
   );
 }
 
@@ -230,7 +236,13 @@ void _initServices() {
   sl.registerLazySingleton<VideoRecordingService>(
     () => VideoRecordingServiceImpl(),
   );
-  sl.registerLazySingleton<OpenAiService>(() => OpenAiService());
+  sl.registerFactory<VoiceTeleprompterService>(
+    () => VoiceTeleprompterService(),
+  );
+  sl.registerLazySingleton<RecordingAudioService>(
+    () => RecordingAudioService(),
+  );
+  sl.registerLazySingleton<OpenAiService>(() => OpenAiService(client: sl()));
   sl.registerLazySingleton<NotificationService>(() => NotificationService());
 }
 

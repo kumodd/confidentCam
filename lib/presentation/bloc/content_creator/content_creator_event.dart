@@ -28,7 +28,12 @@ class GenerateScript extends ContentCreatorEvent {
   final String message;
   final String tone;
   final String language;
+  final String? languageCode;
   final PromptTemplate template;
+  final String length;
+  final String platform;
+  final String scriptStyle;
+  final String ctaStyle;
   final String? customPrompt;
 
   const GenerateScript({
@@ -38,7 +43,12 @@ class GenerateScript extends ContentCreatorEvent {
     required this.message,
     required this.tone,
     required this.language,
+    this.languageCode,
     required this.template,
+    this.length = 'medium',
+    this.platform = 'reels_shorts',
+    this.scriptStyle = 'spoken_natural',
+    this.ctaStyle = 'auto',
     this.customPrompt,
   });
 
@@ -50,8 +60,63 @@ class GenerateScript extends ContentCreatorEvent {
     message,
     tone,
     language,
+    languageCode,
     template,
+    length,
+    platform,
+    scriptStyle,
+    ctaStyle,
     customPrompt,
+  ];
+}
+
+/// Refine an existing script with a quick action or custom instruction
+class RefineScript extends ContentCreatorEvent {
+  final ContentScript script;
+  final String instruction;
+
+  const RefineScript({required this.script, required this.instruction});
+
+  @override
+  List<Object?> get props => [script, instruction];
+}
+
+/// Analyze a raw Speech-to-Text spoken idea with AI to produce a structured
+/// content brief, optionally chaining directly into full script generation.
+class EnhanceSpokenIdea extends ContentCreatorEvent {
+  final String userId;
+  final String transcript;
+  final String language;
+  final String? languageCode;
+  final String scriptStyle;
+  final String? toneHint;
+  final String? lengthHint;
+  final String? platformHint;
+  final bool autoGenerate;
+
+  const EnhanceSpokenIdea({
+    required this.userId,
+    required this.transcript,
+    required this.language,
+    this.languageCode,
+    this.scriptStyle = 'spoken_natural',
+    this.toneHint,
+    this.lengthHint,
+    this.platformHint,
+    this.autoGenerate = true,
+  });
+
+  @override
+  List<Object?> get props => [
+    userId,
+    transcript,
+    language,
+    languageCode,
+    scriptStyle,
+    toneHint,
+    lengthHint,
+    platformHint,
+    autoGenerate,
   ];
 }
 

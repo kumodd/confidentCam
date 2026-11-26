@@ -55,9 +55,32 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
           AppConstants.teleprompterOpacityKey,
           defaultValue: AppConstants.defaultTeleprompterOpacity,
         ),
-        'auto_scroll_enabled': settingsBox.get(
-          'auto_scroll_enabled',
+        AppConstants.autoScrollEnabledKey: settingsBox.get(
+          AppConstants.autoScrollEnabledKey,
           defaultValue: true,
+        ),
+        AppConstants.voiceSyncEnabledKey: settingsBox.get(
+          AppConstants.voiceSyncEnabledKey,
+          defaultValue: false,
+        ),
+        AppConstants.teleprompterMirrorTextKey: settingsBox.get(
+          AppConstants.teleprompterMirrorTextKey,
+          defaultValue: false,
+        ),
+        AppConstants.recordingLayoutTemplateKey: settingsBox.get(
+          AppConstants.recordingLayoutTemplateKey,
+          defaultValue: 'classic_overlay',
+        ),
+        AppConstants.recordingCountdownSecondsKey: settingsBox.get(
+          AppConstants.recordingCountdownSecondsKey,
+          defaultValue: 3,
+        ),
+        AppConstants.silenceNotificationsKey: settingsBox.get(
+          AppConstants.silenceNotificationsKey,
+          defaultValue: true,
+        ),
+        AppConstants.preferredMicDeviceIdKey: settingsBox.get(
+          AppConstants.preferredMicDeviceIdKey,
         ),
         AppConstants.defaultCameraKey: settingsBox.get(
           AppConstants.defaultCameraKey,
@@ -90,7 +113,13 @@ class HiveSettingsDataSourceImpl implements HiveSettingsDataSource {
     AppConstants.teleprompterHeightKey: AppConstants.defaultTeleprompterHeight,
     AppConstants.teleprompterOpacityKey:
         AppConstants.defaultTeleprompterOpacity,
-    'auto_scroll_enabled': true,
+    AppConstants.autoScrollEnabledKey: true,
+    AppConstants.voiceSyncEnabledKey: false,
+    AppConstants.teleprompterMirrorTextKey: false,
+    AppConstants.recordingLayoutTemplateKey: 'classic_overlay',
+    AppConstants.recordingCountdownSecondsKey: 3,
+    AppConstants.silenceNotificationsKey: true,
+    AppConstants.preferredMicDeviceIdKey: null,
     AppConstants.defaultCameraKey: 'front',
     AppConstants.videoQualityKey: '1080p',
     AppConstants.languagePreferenceKey: 'en',

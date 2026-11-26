@@ -61,6 +61,48 @@ class AutoScrollToggled extends SettingsEvent {
   List<Object?> get props => [enabled];
 }
 
+class VoiceSyncToggled extends SettingsEvent {
+  final bool enabled;
+  const VoiceSyncToggled(this.enabled);
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class TeleprompterMirrorToggled extends SettingsEvent {
+  final bool enabled;
+  const TeleprompterMirrorToggled(this.enabled);
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class RecordingLayoutTemplateUpdated extends SettingsEvent {
+  final String templateKey;
+  const RecordingLayoutTemplateUpdated(this.templateKey);
+  @override
+  List<Object?> get props => [templateKey];
+}
+
+class RecordingCountdownUpdated extends SettingsEvent {
+  final int seconds;
+  const RecordingCountdownUpdated(this.seconds);
+  @override
+  List<Object?> get props => [seconds];
+}
+
+class SilenceNotificationsToggled extends SettingsEvent {
+  final bool enabled;
+  const SilenceNotificationsToggled(this.enabled);
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class PreferredMicDeviceUpdated extends SettingsEvent {
+  final int? deviceId;
+  const PreferredMicDeviceUpdated(this.deviceId);
+  @override
+  List<Object?> get props => [deviceId];
+}
+
 class DefaultCameraUpdated extends SettingsEvent {
   final String camera;
   const DefaultCameraUpdated(this.camera);

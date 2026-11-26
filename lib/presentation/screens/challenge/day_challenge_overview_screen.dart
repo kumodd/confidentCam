@@ -107,31 +107,24 @@ class _DayChallengeOverviewScreenState
               OlivePillBadge(label: 'Day ${widget.dayNumber}/30'),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
 
-          // Script Card
-          _buildScriptCard(state.script.fullText),
-
-          const SizedBox(height: 20),
-
-          // Tips Section
-          _buildTipsSection(),
-
-          const SizedBox(height: 26),
-
-          // Start Recording Button
+          // Primary 1-tap Start Recording CTA surfaced immediately at top
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () => _startRecording(state),
-              icon: Icon(Icons.videocam_outlined, size: 21),
-              label: Text('Start Recording'),
+              icon: const Icon(Icons.videocam_rounded, size: 21),
+              label: Text(
+                state.takes.isNotEmpty
+                    ? 'Record New Take (${state.takes.length} saved)'
+                    : 'Start Recording Now',
+              ),
             ),
           ),
 
-          const SizedBox(height: 12),
-
           if (state.takes.isNotEmpty) ...[
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -145,14 +138,25 @@ class _DayChallengeOverviewScreenState
                 ),
               ),
             ),
-            const SizedBox(height: 12),
           ],
+
+          const SizedBox(height: 18),
+
+          // Script Card
+          _buildScriptCard(state.script.fullText),
+
+          const SizedBox(height: 20),
+
+          // Tips Section
+          _buildTipsSection(),
+
+          const SizedBox(height: 16),
 
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               onPressed: () => _showFullScript(state.script.fullText),
-              child: Text('View Full Script'),
+              child: const Text('View Full Script'),
             ),
           ),
           const SizedBox(height: 24),
@@ -324,54 +328,9 @@ class _DayChallengeOverviewScreenState
   }
 
   void _startRecording(DayChallengeReady state) {
-    if (state.takes.isNotEmpty) {
-      _showReRecordWarning(state);
-      return;
-    }
-
+    // Simplified recording workflow: launch camera immediately without a
+    // redundant re-record confirmation dialog (previous takes stay preserved).
     _navigateToRecording(state);
-  }
-
-  void _showReRecordWarning(DayChallengeReady state) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.primaryOlive,
-              size: 26,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Re-record Day?',
-                style: AppTypography.headingMedium(fontSize: 18),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'You have already recorded takes for Day ${widget.dayNumber}!\n\n'
-          'Recording again will add another take. Your previous recordings will still be saved.',
-          style: AppTypography.body(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _navigateToRecording(state);
-            },
-            child: Text('Record Anyway'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _navigateToRecording(DayChallengeReady state) {

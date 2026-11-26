@@ -152,9 +152,34 @@ class _WarmupList extends StatelessWidget {
     return c;
   }
 
+  int get _nextWarmupIndex {
+    if (!state.warmup0Done) return 0;
+    if (!state.warmup1Done) return 1;
+    return 2;
+  }
+
+  Future<void> _launchWarmup(BuildContext context, int index) async {
+    context.read<WarmupBloc>().add(WarmupStarted(index));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<WarmupBloc>(),
+          child: WarmupRecordingScreen(
+            warmupIndex: index,
+            userName: userName,
+            userGoal: userGoal,
+            userLocation: userLocation,
+          ),
+        ),
+      ),
+    );
+    onReload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final done = _doneCount;
+    final nextIdx = _nextWarmupIndex;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -174,8 +199,9 @@ class _WarmupList extends StatelessWidget {
           SageStatusCard(
             title: userName != null ? 'Hey $userName!' : 'Before You Start',
             subtitle:
-                'Complete these 3 warmups to unlock your 30-day camera confidence challenge.',
-            actionLabel: '$done/3 Done',
+                'Tap Record to jump straight into Warmup 0${nextIdx + 1} ($done/3 complete).',
+            actionLabel: done < 3 ? 'Record 0${nextIdx + 1}' : '3/3 Done',
+            onActionTap: done < 3 ? () => _launchWarmup(context, nextIdx) : null,
           ),
           const SizedBox(height: 18),
           _WarmupCard(

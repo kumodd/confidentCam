@@ -31,6 +31,15 @@ class AppConstants {
   static const String teleprompterTextColorKey = 'teleprompter_text_color';
   static const String teleprompterHeightKey = 'teleprompter_height';
   static const String teleprompterOpacityKey = 'teleprompter_opacity';
+  static const String autoScrollEnabledKey = 'auto_scroll_enabled';
+  static const String voiceSyncEnabledKey = 'voice_sync_enabled';
+  static const String teleprompterMirrorTextKey = 'teleprompter_mirror_text';
+  static const String recordingLayoutTemplateKey = 'recording_layout_template';
+  static const String recordingCountdownSecondsKey =
+      'recording_countdown_seconds';
+  static const String silenceNotificationsKey =
+      'silence_notifications_recording';
+  static const String preferredMicDeviceIdKey = 'preferred_mic_device_id';
   static const String defaultCameraKey = 'default_camera';
   static const String videoQualityKey = 'video_quality';
   static const String languagePreferenceKey = 'language_preference';

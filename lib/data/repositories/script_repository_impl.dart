@@ -26,9 +26,9 @@ class ScriptRepositoryImpl implements ScriptRepository {
   @override
   Future<Either<Failure, List<DailyScript>>> getScripts(String userId) async {
     try {
-      // Try local cache first
-      if (await localDataSource.hasScripts()) {
-        final cached = await localDataSource.getScripts();
+      // Try local cache first (user-scoped)
+      if (await localDataSource.hasScripts(userId)) {
+        final cached = await localDataSource.getScripts(userId);
         if (cached.isNotEmpty) {
           return Right(
             cached.map((json) => DailyScriptModel.fromJson(json)).toList(),
@@ -41,7 +41,7 @@ class ScriptRepositoryImpl implements ScriptRepository {
         try {
           final data = await remoteDataSource.getScripts(userId);
           if (data.isNotEmpty) {
-            await localDataSource.cacheScripts(data);
+            await localDataSource.cacheScripts(userId, data);
             return Right(
               data.map((json) => DailyScriptModel.fromJson(json)).toList(),
             );
@@ -65,8 +65,8 @@ class ScriptRepositoryImpl implements ScriptRepository {
     int dayNumber,
   ) async {
     try {
-      // Try local cache first
-      final cached = await localDataSource.getScriptForDay(dayNumber);
+      // Try local cache first (user-scoped)
+      final cached = await localDataSource.getScriptForDay(userId, dayNumber);
       if (cached != null) {
         return Right(DailyScriptModel.fromJson(cached));
       }
@@ -75,6 +75,7 @@ class ScriptRepositoryImpl implements ScriptRepository {
       if (await networkInfo.isConnected) {
         final data = await remoteDataSource.getScriptForDay(userId, dayNumber);
         if (data != null) {
+          await localDataSource.cacheScripts(userId, [data]);
           return Right(DailyScriptModel.fromJson(data));
         }
       }
@@ -124,8 +125,8 @@ class ScriptRepositoryImpl implements ScriptRepository {
         }
       }
 
-      // Cache locally
-      await localDataSource.cacheScripts(scripts);
+      // Cache locally (user-scoped)
+      await localDataSource.cacheScripts(userId, scripts);
 
       return Right(
         scripts.map((json) => DailyScriptModel.fromJson(json)).toList(),
@@ -333,7 +334,7 @@ class ScriptRepositoryImpl implements ScriptRepository {
 
   @override
   Future<bool> hasLocalScripts(String userId) async {
-    return await localDataSource.hasScripts();
+    return await localDataSource.hasScripts(userId);
   }
 
   @override
@@ -433,14 +434,8 @@ class ScriptRepositoryImpl implements ScriptRepository {
         logger.d('SaveScripts: Offline, skipping remote save');
       }
 
-      // Cache locally
-      logger.i('========================================');
-      logger.i('>>> STARTING LOCAL CACHE SAVE <<<');
-      logger.i('========================================');
-      await localDataSource.cacheScripts(formattedScripts);
-      logger.i('========================================');
-      logger.i('>>> LOCAL CACHE SAVE COMPLETE <<<');
-      logger.i('========================================');
+      // Cache locally (user-scoped)
+      await localDataSource.cacheScripts(userId, formattedScripts);
 
       return const Right(null);
     } catch (e, stackTrace) {
@@ -451,29 +446,85 @@ class ScriptRepositoryImpl implements ScriptRepository {
   }
 
   @override
-  Future<void> clearCache() async {
-    await localDataSource.clearScripts();
+  Future<void> clearCache({String? userId}) async {
+    await localDataSource.clearScripts(userId: userId);
   }
 
   @override
-  Future<Either<Failure, void>> saveWarmupScripts(List<Map<String, dynamic>> scripts) async {
+  Future<Either<Failure, void>> saveWarmupScripts(
+    String userId,
+    List<Map<String, dynamic>> scripts,
+  ) async {
     try {
       if (scripts.isEmpty) {
         return const Left(ScriptFailure(message: 'No warmup scripts generated'));
       }
-      await localDataSource.cacheWarmupScripts(scripts);
+      await localDataSource.cacheWarmupScripts(userId, scripts);
+
+      // Sync warmups to Supabase daily_scripts using negative day_number (-1..-3)
+      // so personalized warmups survive reinstalls and device switches.
+      if (userId.isNotEmpty && await networkInfo.isConnected) {
+        try {
+          final now = DateTime.now().toIso8601String();
+          final rows = <Map<String, dynamic>>[];
+          for (var i = 0; i < scripts.length; i++) {
+            final s = scripts[i];
+            final wIdx = (s['warmupIndex'] as num?)?.toInt() ?? i;
+            if (wIdx < 0 || wIdx > 2) continue;
+            rows.add({
+              'id': _uuid.v4(),
+              'user_id': userId,
+              'day_number': -(wIdx + 1),
+              'script_type': 'full',
+              'script_json': s,
+              'created_at': now,
+            });
+          }
+          if (rows.isNotEmpty) {
+            await remoteDataSource.saveScripts(rows);
+          }
+        } catch (e) {
+          logger.w('SaveWarmupScripts: remote sync warning: $e');
+        }
+      }
       return const Right(null);
     } catch (e) {
       logger.e('SaveWarmupScripts: Failed to cache local warmup scripts', e);
-      return const Left(ScriptFailure(message: 'Failed to cache warmup scripts'));
+      return const Left(
+        ScriptFailure(message: 'Failed to cache warmup scripts'),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(int index) async {
+  Future<Either<Failure, Map<String, dynamic>?>> getWarmupScript(
+    String userId,
+    int index,
+  ) async {
     try {
-      final script = await localDataSource.getWarmupScript(index);
-      return Right(script);
+      final cached = await localDataSource.getWarmupScript(userId, index);
+      if (cached != null) return Right(cached);
+
+      // Fallback to remote Supabase warmup row (day_number = -(index + 1))
+      if (userId.isNotEmpty && await networkInfo.isConnected) {
+        try {
+          final row = await remoteDataSource.getScriptForDay(
+            userId,
+            -(index + 1),
+          );
+          final scriptJson = row?['script_json'];
+          if (scriptJson is Map<String, dynamic>) {
+            final map = Map<String, dynamic>.from(scriptJson);
+            map['warmupIndex'] ??= index;
+            await localDataSource.cacheWarmupScripts(userId, [map]);
+            return Right(map);
+          }
+        } catch (e) {
+          logger.w('getWarmupScript remote fallback warning: $e');
+        }
+      }
+
+      return const Right(null);
     } catch (e) {
       logger.e('Error getting warmup script for index $index', e);
       return const Right(null);

@@ -9,6 +9,9 @@
 # Play Core / deferred components (referenced optionally by Flutter embedding)
 -dontwarn com.google.android.play.core.**
 
+# speech_to_text plugin classes
+-keep class com.csdcorp.speech_to_text.** { *; }
+
 # flutter_local_notifications & Gson TypeToken reflection
 -keep class com.dexterous.** { *; }
 -keepattributes Signature
