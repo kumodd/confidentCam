@@ -31,6 +31,12 @@ class WarmupBloc extends Bloc<WarmupEvent, WarmupState> {
     on<WarmupChecklistSubmitted>(_onChecklistSubmitted);
     on<WarmupRetryRequested>(_onRetryRequested);
     on<WarmupReloadRequested>(_onReloadRequested);
+    on<WarmupReset>(_onReset);
+  }
+
+  void _onReset(WarmupReset event, Emitter<WarmupState> emit) {
+    _userId = null;
+    emit(const WarmupInitial());
   }
 
   Future<void> _onStatusLoaded(

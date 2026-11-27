@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/daily_completion.dart';
 import '../../../domain/entities/user_progress.dart';
@@ -155,12 +157,16 @@ class DayListScreen extends StatelessWidget {
   void _openDay(BuildContext context, int day, UserProgress? progress) {
     if (progress == null) return;
 
+    final remoteConfig =
+        sl.isRegistered<RemoteConfigService>()
+            ? sl<RemoteConfigService>()
+            : null;
     final warmupsComplete = progress.warmupsComplete;
     final isCompleted = progress.isDayCompleted(day);
     final isUnlocked = progress.isDayUnlocked(
       day,
-      devMode: AppConfig.devMode,
-      isPremium: AppConfig.isPremiumUser,
+      devMode: remoteConfig?.devMode ?? AppConfig.devMode,
+      isPremium: remoteConfig?.isPremiumUser ?? AppConfig.isPremiumUser,
     );
     final currentDay = progress.currentDay;
 
@@ -364,11 +370,15 @@ class _DayCard extends StatelessWidget {
     final warmupsComplete = progress?.warmupsComplete ?? false;
     final isComplete =
         progress?.completedDays.any((c) => c.dayNumber == day) ?? false;
+    final remoteConfig =
+        sl.isRegistered<RemoteConfigService>()
+            ? sl<RemoteConfigService>()
+            : null;
     final isUnlocked =
         progress?.isDayUnlocked(
           day,
-          devMode: AppConfig.devMode,
-          isPremium: AppConfig.isPremiumUser,
+          devMode: remoteConfig?.devMode ?? AppConfig.devMode,
+          isPremium: remoteConfig?.isPremiumUser ?? AppConfig.isPremiumUser,
         ) ??
         false;
     final isCurrent = day == currentDay + 1 && warmupsComplete && isUnlocked;

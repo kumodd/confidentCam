@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/error/failures.dart' show Failure;
 import '../../../core/utils/logger.dart';
 import '../../../domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
@@ -126,17 +127,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     final result = await authRepository.deleteAccount();
 
+    Failure? failure;
     result.fold(
-      (failure) {
-        logger.e('Account deletion failed: ${failure.message}');
-        emit(AuthFailure(message: failure.message));
-      },
-      (_) async {
-        await _clearAllLocalData();
-        logger.i('Account deleted, local data cleared');
-        emit(const AuthLoggedOut());
-      },
+      (f) => failure = f,
+      (_) {},
     );
+
+    if (failure != null) {
+      logger.e('Account deletion failed: ${failure!.message}');
+      emit(AuthFailure(message: failure!.message));
+      return;
+    }
+
+    await _clearAllLocalData();
+    logger.i('Account deleted, local data cleared');
+    emit(const AuthLoggedOut());
   }
 
   Future<void> _onEmailSignUp(
@@ -277,15 +282,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   /// account switches by design.
   Future<void> _clearAllLocalData() async {
     try {
-      final progressBox = Hive.box(AppConstants.progressBox);
-      final scriptsBox = Hive.box(AppConstants.scriptsBox);
-      final settingsBox = Hive.box(AppConstants.settingsBox);
+      final userBoxesToClear = [
+        AppConstants.progressBox,
+        AppConstants.scriptsBox,
+        AppConstants.contentScriptsBox,
+        AppConstants.offlineQueueBox,
+      ];
 
-      await progressBox.clear();
-      await scriptsBox.clear();
-      await settingsBox.clear();
+      for (final boxName in userBoxesToClear) {
+        if (Hive.isBoxOpen(boxName)) {
+          await Hive.box(boxName).clear();
+        }
+      }
 
-      logger.i('All local Hive boxes cleared');
+      // Clear user settings while preserving device-level intro tour flag
+      if (Hive.isBoxOpen(AppConstants.settingsBox)) {
+        final settingsBox = Hive.box(AppConstants.settingsBox);
+        final hasSeenIntro =
+            settingsBox.get(AppConstants.hasSeenIntroOnboardingKey);
+        await settingsBox.clear();
+        if (hasSeenIntro != null) {
+          await settingsBox.put(
+            AppConstants.hasSeenIntroOnboardingKey,
+            hasSeenIntro,
+          );
+        }
+      }
+
+      logger.i('All user-scoped local Hive boxes cleared');
     } catch (e) {
       logger.e('Error clearing local data: $e');
       // Non-fatal: auth session is already cleared by repository

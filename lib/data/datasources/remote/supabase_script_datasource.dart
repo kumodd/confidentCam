@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
 import '../../../core/error/exceptions.dart';
 import '../../../core/utils/logger.dart';
 
@@ -22,8 +23,14 @@ abstract class SupabaseScriptDataSource {
 
 class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
   final SupabaseClient client;
+  final RemoteConfigService? remoteConfig;
 
-  SupabaseScriptDataSourceImpl({required this.client});
+  SupabaseScriptDataSourceImpl({
+    required this.client,
+    this.remoteConfig,
+  });
+
+  Duration get _apiTimeout => remoteConfig?.apiTimeout ?? AppConfig.apiTimeout;
 
   @override
   Future<List<Map<String, dynamic>>> getScripts(String userId) async {
@@ -35,7 +42,7 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
           .eq('user_id', userId)
           .gt('day_number', 0)
           .order('day_number')
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -60,7 +67,7 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
           .eq('user_id', userId)
           .eq('day_number', dayNumber)
           .maybeSingle()
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
 
       return response;
     } catch (e) {
@@ -92,7 +99,7 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
       await client
           .from(AppConstants.dailyScriptsTable)
           .upsert(scripts, onConflict: 'user_id,day_number')
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
 
       logger.i('=== SCRIPTS SAVED TO SUPABASE SUCCESSFULLY ===');
     } catch (e) {
@@ -113,7 +120,7 @@ class SupabaseScriptDataSourceImpl implements SupabaseScriptDataSource {
           .from(AppConstants.dailyScriptsTable)
           .delete()
           .eq('user_id', userId)
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
 
       logger.i('Scripts deleted successfully');
     } catch (e) {

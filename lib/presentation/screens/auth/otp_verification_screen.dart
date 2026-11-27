@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/datasources/local/hive_auth_datasource.dart';
 import '../../../domain/repositories/user_repository.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
@@ -33,32 +35,73 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final _otpController = TextEditingController();
   final _focusNode = FocusNode();
   int _resendTimer = AppConfig.otpResendDelaySeconds;
-  Timer? _timer;
+  Timer? _resendCountdownTimer;
+  Timer? _lockoutCountdownTimer;
   int _attemptCount = 0;
   bool _isLocked = false;
   int _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
+  bool _awaitingVerification = false;
+
+  RemoteConfigService? get _remoteConfig =>
+      sl.isRegistered<RemoteConfigService>() ? sl<RemoteConfigService>() : null;
+
+  HiveAuthDataSource? get _localAuth =>
+      sl.isRegistered<HiveAuthDataSource>() ? sl<HiveAuthDataSource>() : null;
+
+  int get _otpLength => _remoteConfig?.otpLength ?? AppConfig.otpLength;
+  int get _resendDelaySeconds =>
+      _remoteConfig?.otpResendDelaySeconds ?? AppConfig.otpResendDelaySeconds;
+  int get _maxOtpAttempts =>
+      _remoteConfig?.maxOtpAttempts ?? AppConfig.maxOtpAttempts;
+  int get _otpLockoutMinutes =>
+      _remoteConfig?.otpLockoutMinutes ?? AppConfig.otpLockoutMinutes;
 
   @override
   void initState() {
     super.initState();
+    _restorePersistedLockoutState();
     _startResendTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      if (!_isLocked) {
+        _focusNode.requestFocus();
+      }
     });
+  }
+
+  void _restorePersistedLockoutState() {
+    final localAuth = _localAuth;
+    if (localAuth == null) return;
+    _attemptCount = localAuth.getOtpAttempts(widget.phone);
+    final lockoutUntil = localAuth.getOtpLockoutUntil(widget.phone);
+    if (lockoutUntil != null) {
+      final remainingSeconds =
+          lockoutUntil.difference(DateTime.now()).inSeconds;
+      if (remainingSeconds > 0) {
+        _startLockout(remainingSeconds: remainingSeconds, persist: false);
+      } else {
+        _attemptCount = 0;
+        localAuth.clearOtpAttemptState(widget.phone);
+      }
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _resendCountdownTimer?.cancel();
+    _lockoutCountdownTimer?.cancel();
     _otpController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
   void _startResendTimer() {
-    _timer?.cancel();
-    setState(() => _resendTimer = AppConfig.otpResendDelaySeconds);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _resendCountdownTimer?.cancel();
+    setState(() => _resendTimer = _resendDelaySeconds);
+    _resendCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_resendTimer > 0) {
         setState(() => _resendTimer--);
       } else {
@@ -69,7 +112,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   void _verifyOtp(String otp) {
     if (_isLocked) return;
-    if (otp.length == AppConfig.otpLength) {
+    if (otp.length == _otpLength) {
+      _awaitingVerification = true;
       if (widget.isEmail) {
         context
             .read<AuthBloc>()
@@ -82,19 +126,33 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  void _startLockout() {
+  void _startLockout({int? remainingSeconds, bool persist = true}) {
+    final seconds = remainingSeconds ?? (_otpLockoutMinutes * 60);
+    if (persist) {
+      _localAuth?.saveOtpAttemptState(
+        widget.phone,
+        attempts: _attemptCount,
+        lockoutUntil: DateTime.now().add(Duration(seconds: seconds)),
+      );
+    }
     setState(() {
       _isLocked = true;
-      _lockoutTimer = AppConfig.otpLockoutMinutes * 60;
+      _lockoutTimer = seconds;
     });
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_lockoutTimer > 0) {
+    _lockoutCountdownTimer?.cancel();
+    _lockoutCountdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_lockoutTimer > 1) {
         setState(() => _lockoutTimer--);
       } else {
         t.cancel();
+        _localAuth?.clearOtpAttemptState(widget.phone);
         setState(() {
           _isLocked = false;
+          _lockoutTimer = 0;
           _attemptCount = 0;
         });
       }
@@ -166,6 +224,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     try {
                       await sl<UserRepository>()
                           .updateDisplayName(userId, name);
+                      if (context.mounted) {
+                        context.read<AuthBloc>().add(
+                              const SessionCheckRequested(),
+                            );
+                      }
                     } catch (_) {}
                   }
                   if (context.mounted) {
@@ -195,13 +258,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _resendOtp() {
-    if (_resendTimer == 0) {
+    if (_resendTimer == 0 && !_isLocked) {
+      _awaitingVerification = false;
       if (widget.isEmail) {
         context.read<AuthBloc>().add(ResendEmailOtpRequested(widget.phone));
       } else {
         context.read<AuthBloc>().add(ResendOtpRequested(widget.phone));
       }
-      _startResendTimer();
     }
   }
 
@@ -237,35 +300,62 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       listener: (context, state) {
         if (state is AuthVerifying) {
           EasyLoading.show(status: 'Verifying...');
+        } else if (state is AuthLoading) {
+          EasyLoading.show(status: 'Resending code...');
         } else {
           EasyLoading.dismiss();
         }
 
-        if (state is AuthSuccess) {
+        if (state is AuthCodeSent) {
+          _startResendTimer();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Verification code resent!'),
+              backgroundColor: AppColors.secondaryGreen,
+            ),
+          );
+        } else if (state is AuthSuccess) {
+          _awaitingVerification = false;
+          _localAuth?.clearOtpAttemptState(widget.phone);
           if (state.isNewUser) {
             _showNameCollectionSheet(context, state.user.id);
           } else {
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
         } else if (state is AuthFailure) {
-          _otpController.clear();
-          _attemptCount++;
-          final remaining = AppConfig.maxOtpAttempts - _attemptCount;
-          if (remaining <= 0) {
-            _startLockout();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Too many failed attempts. Locked for ${AppConfig.otpLockoutMinutes} minutes.',
+          if (_awaitingVerification) {
+            _awaitingVerification = false;
+            _otpController.clear();
+            _attemptCount++;
+            final remaining = _maxOtpAttempts - _attemptCount;
+            if (remaining <= 0) {
+              _startLockout();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Too many failed attempts. Locked for $_otpLockoutMinutes minutes.',
+                  ),
+                  backgroundColor: AppColors.error,
+                  duration: const Duration(seconds: 5),
                 ),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 5),
-              ),
-            );
+              );
+            } else {
+              _localAuth?.saveOtpAttemptState(
+                widget.phone,
+                attempts: _attemptCount,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${state.message} ($remaining attempts left)'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
           } else {
+            // Failure from resend request — do not burn verification attempts
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${state.message} ($remaining attempts left)'),
+                content: Text(state.message),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -320,7 +410,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter the 6-digit code sent to',
+                        'Enter the $_otpLength-digit code sent to',
                         style: AppTypography.body(),
                       ),
                       const SizedBox(height: 8),
@@ -335,7 +425,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         child: Pinput(
                           controller: _otpController,
                           focusNode: _focusNode,
-                          length: AppConfig.otpLength,
+                          length: _otpLength,
+                          enabled: !_isLocked,
                           defaultPinTheme: defaultPinTheme,
                           focusedPinTheme: focusedPinTheme,
                           submittedPinTheme: defaultPinTheme,

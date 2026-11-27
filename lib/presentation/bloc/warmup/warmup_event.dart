@@ -69,3 +69,8 @@ class WarmupRetryRequested extends WarmupEvent {
 class WarmupReloadRequested extends WarmupEvent {
   const WarmupReloadRequested();
 }
+
+/// Reset warmup BLoC state on logout/account switch
+class WarmupReset extends WarmupEvent {
+  const WarmupReset();
+}

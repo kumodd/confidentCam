@@ -44,18 +44,31 @@ serve(async (req) => {
 
         console.log(`Deleting account for user: ${user.id}`)
 
-        // Delete user_progress first (foreign key dependency)
-        const { error: progressError } = await supabaseAdmin
-            .from('user_progress')
-            .delete()
-            .eq('user_id', user.id)
-
-        if (progressError) {
-            console.error('Error deleting user_progress:', progressError)
-            // Continue anyway - cascade should handle it
+        // Delete user-owned rows across tables without CASCADE FK (e.g., content_scripts has text user_id)
+        const ownedTables = [
+            'content_scripts',
+            'ai_feedback',
+            'achievements',
+            'challenge_extensions',
+            'daily_completions',
+            'daily_scripts',
+            'notification_settings',
+            'premium_status',
+            'user_profiles',
+            'web_sessions',
+            'user_progress',
+        ]
+        for (const table of ownedTables) {
+            const { error: tableErr } = await supabaseAdmin
+                .from(table)
+                .delete()
+                .eq('user_id', user.id)
+            if (tableErr) {
+                console.warn(`Notice deleting from ${table}:`, tableErr.message)
+            }
         }
 
-        // Delete user record (cascade will handle foreign keys)
+        // Delete user record (cascade will handle remaining foreign keys)
         const { error: usersError } = await supabaseAdmin
             .from('users')
             .delete()

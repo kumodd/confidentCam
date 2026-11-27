@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
 import '../../../core/error/exceptions.dart' as app;
 import '../../../core/utils/logger.dart';
 
@@ -48,14 +49,41 @@ abstract class SupabaseAuthDataSource {
 
 class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   final SupabaseClient client;
+  final RemoteConfigService? remoteConfig;
 
-  SupabaseAuthDataSourceImpl({required this.client});
+  SupabaseAuthDataSourceImpl({
+    required this.client,
+    this.remoteConfig,
+  });
+
+  Duration get _apiTimeout => remoteConfig?.apiTimeout ?? AppConfig.apiTimeout;
+
+  /// Determines whether a verified auth user should be treated as a new user.
+  ///
+  /// Because `on_auth_user_created` (`handle_new_user()`) already creates the
+  /// `public.users` row during `signInWithOtp`, checking only
+  /// `existingUser == null` or `user.createdAt == user.updatedAt` misses new
+  /// users once OTP confirmation updates `auth.users.updated_at`.
+  static bool detectIsNewUser({
+    required String? authCreatedAt,
+    required Map<String, dynamic>? existingUser,
+    DateTime? now,
+  }) {
+    if (existingUser == null) return true;
+    final displayName = existingUser['display_name']?.toString().trim() ?? '';
+    if (displayName.isNotEmpty) return false;
+    final created = authCreatedAt != null ? DateTime.tryParse(authCreatedAt) : null;
+    if (created == null) return false;
+    final reference = (now ?? DateTime.now()).toUtc();
+    return reference.difference(created.toUtc()).abs() <=
+        const Duration(minutes: 10);
+  }
 
   @override
   Future<void> sendOtp(String phone) async {
     try {
       logger.i('Sending OTP to $phone');
-      await client.auth.signInWithOtp(phone: phone).timeout(AppConfig.apiTimeout);
+      await client.auth.signInWithOtp(phone: phone).timeout(_apiTimeout);
       logger.i('OTP sent successfully');
     } on AuthException catch (e) {
       logger.e('Auth error sending OTP', e);
@@ -84,7 +112,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         phone: phone,
         token: otp,
         type: OtpType.sms,
-      ).timeout(AppConfig.apiTimeout);
+      ).timeout(_apiTimeout);
 
       if (response.user == null) {
         throw const app.AuthException(
@@ -94,38 +122,49 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       }
 
       final user = response.user!;
-      final isNewUser = user.createdAt == user.updatedAt;
 
-      logger.i('OTP verified. New user: $isNewUser');
-
-      // Check if user exists in users table
+      // Check if user exists in users table (usually created by handle_new_user trigger)
       final existingUser = await client
           .from('users')
           .select()
           .eq('id', user.id)
           .maybeSingle()
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
+
+      final isNewUser = detectIsNewUser(
+        authCreatedAt: user.createdAt,
+        existingUser: existingUser,
+      );
+      logger.i('OTP verified. New user: $isNewUser');
 
       if (existingUser == null) {
-        // Create user record
         logger.i('Creating new user record');
         final userData = {
           'id': user.id,
           'phone': phone,
           'created_at': DateTime.now().toIso8601String(),
         };
-        await client.from('users').insert(userData).timeout(AppConfig.apiTimeout);
+        await client
+            .from('users')
+            .upsert(userData, onConflict: 'id')
+            .timeout(_apiTimeout);
 
-        // Create initial progress record
-        await client.from('user_progress').insert({'user_id': user.id}).timeout(AppConfig.apiTimeout);
+        try {
+          await client
+              .from('user_progress')
+              .upsert({'user_id': user.id}, onConflict: 'user_id')
+              .timeout(_apiTimeout);
+        } catch (e) {
+          logger.w('user_progress upsert notice: $e');
+        }
 
         return (userData, true);
       }
 
-      return (existingUser, false);
+      return (existingUser, isNewUser);
     } on AuthException catch (e) {
       logger.e('Auth error verifying OTP', e);
-      if (e.message.contains('expired')) {
+      if (e.message.toLowerCase().contains('expired')) {
         throw const app.AuthException(
           message: 'Code expired. Please request a new one.',
           code: 'auth/otp-expired',
@@ -153,7 +192,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       logger.i('Sending Email OTP to $email');
       await client.auth
           .signInWithOtp(email: email, shouldCreateUser: true)
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
       logger.i('Email OTP sent successfully to $email');
     } on AuthException catch (e) {
       logger.e('Auth error sending Email OTP', e);
@@ -178,22 +217,11 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   ) async {
     try {
       logger.i('Verifying Email OTP for $email');
-      AuthResponse response;
-      try {
-        response = await client.auth
-            .verifyOTP(email: email, token: otp, type: OtpType.email)
-            .timeout(AppConfig.apiTimeout);
-      } on AuthException {
-        try {
-          response = await client.auth
-              .verifyOTP(email: email, token: otp, type: OtpType.signup)
-              .timeout(AppConfig.apiTimeout);
-        } on AuthException {
-          response = await client.auth
-              .verifyOTP(email: email, token: otp, type: OtpType.magiclink)
-              .timeout(AppConfig.apiTimeout);
-        }
-      }
+      // Single verifyOTP call with OtpType.email (handles both new and existing
+      // users created via signInWithOtp without burning 3 rate-limit attempts).
+      final response = await client.auth
+          .verifyOTP(email: email, token: otp, type: OtpType.email)
+          .timeout(_apiTimeout);
 
       if (response.user == null) {
         throw const app.AuthException(
@@ -203,18 +231,22 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       }
 
       final user = response.user!;
-      final isNewAuthUser = user.createdAt == user.updatedAt;
-      logger.i('Email OTP verified for ${user.id}. New auth user: $isNewAuthUser');
 
       final existingUser = await client
           .from('users')
           .select()
           .eq('id', user.id)
           .maybeSingle()
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
+
+      final isNewUser = detectIsNewUser(
+        authCreatedAt: user.createdAt,
+        existingUser: existingUser,
+      );
+      logger.i('Email OTP verified for ${user.id}. New user: $isNewUser');
 
       if (existingUser != null) {
-        return (existingUser, isNewAuthUser);
+        return (existingUser, isNewUser);
       }
 
       logger.i('Creating user record for verified email user');
@@ -226,12 +258,12 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       await client
           .from('users')
           .upsert(userData, onConflict: 'id')
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
       try {
         await client
             .from('user_progress')
             .upsert({'user_id': user.id}, onConflict: 'user_id')
-            .timeout(AppConfig.apiTimeout);
+            .timeout(_apiTimeout);
       } catch (e) {
         logger.w('user_progress upsert notice: $e');
       }
@@ -264,12 +296,28 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   @override
   Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
-      final session = client.auth.currentSession;
+      var session = client.auth.currentSession;
       if (session == null) return null;
 
+      if (session.isExpired) {
+        try {
+          final refreshed =
+              await client.auth.refreshSession().timeout(_apiTimeout);
+          session = refreshed.session;
+        } catch (e) {
+          logger.w('Session refresh failed: $e');
+          return null;
+        }
+        if (session == null) return null;
+      }
+
       final userId = session.user.id;
-      final user =
-          await client.from('users').select().eq('id', userId).maybeSingle();
+      final user = await client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle()
+          .timeout(_apiTimeout);
 
       return user;
     } catch (e) {
@@ -467,7 +515,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       final response = await client.auth.signInWithPassword(
         email: email,
         password: password,
-      ).timeout(AppConfig.apiTimeout);
+      ).timeout(_apiTimeout);
 
       logger.d('Supabase auth.signInWithPassword response received');
 
@@ -492,7 +540,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
           .select()
           .eq('id', user.id)
           .maybeSingle()
-          .timeout(AppConfig.apiTimeout);
+          .timeout(_apiTimeout);
 
       if (existingUser != null) {
         logger.i('✅ User record found in database');
@@ -500,7 +548,7 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         return (existingUser, false);
       }
 
-      // User exists in auth but not in database - create record
+      // User exists in auth but not in database - upsert record safely
       logger.w('⚠️ User exists in auth but not in database - creating record');
       final userData = {
         'id': user.id,
@@ -508,11 +556,21 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      logger.d('Inserting user record...');
-      await client.from('users').insert(userData);
+      logger.d('Upserting user record...');
+      await client
+          .from('users')
+          .upsert(userData, onConflict: 'id')
+          .timeout(_apiTimeout);
 
-      logger.d('Inserting user_progress record...');
-      await client.from('user_progress').insert({'user_id': user.id});
+      try {
+        logger.d('Upserting user_progress record...');
+        await client
+            .from('user_progress')
+            .upsert({'user_id': user.id}, onConflict: 'user_id')
+            .timeout(_apiTimeout);
+      } catch (e) {
+        logger.w('user_progress upsert notice: $e');
+      }
 
       logger.i('✅ User and progress records created');
       logger.i('🔐 Email signin completed successfully');

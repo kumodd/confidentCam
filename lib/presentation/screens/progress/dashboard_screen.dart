@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/remote_config_service.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/user.dart';
 import '../../../domain/entities/user_progress.dart';
@@ -332,6 +334,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTwoColumnFeatureGrid() {
+    final remoteConfig =
+        sl.isRegistered<RemoteConfigService>()
+            ? sl<RemoteConfigService>()
+            : null;
+    final showContentCreator = remoteConfig?.contentCreatorEnabled ?? true;
+
+    if (!showContentCreator) {
+      return BeginnerChallengeCard(
+        userId: widget.user.id,
+        userName: widget.user.displayName,
+        onChallengeStarted: _onChallengeStarted,
+      );
+    }
+
     return Row(
       children: [
         Expanded(

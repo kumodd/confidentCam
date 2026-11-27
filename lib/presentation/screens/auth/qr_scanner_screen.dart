@@ -565,15 +565,17 @@ class _QrScannerScreenState extends State<QrScannerScreen>
         return;
       }
 
+      final nowUtc = DateTime.now().toUtc().toIso8601String();
       final response = await supabase
           .from('web_sessions')
           .update({
             'user_id': userId,
             'status': 'authenticated',
-            'authenticated_at': DateTime.now().toIso8601String(),
+            'authenticated_at': nowUtc,
           })
           .eq('session_token', sessionToken)
           .eq('status', 'pending')
+          .gt('expires_at', nowUtc)
           .select()
           .maybeSingle();
 

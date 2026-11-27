@@ -114,7 +114,13 @@ async function getCandidateApiKeys(): Promise<string[]> {
 
     const candidates: string[] = []
 
-    // Priority 1: app_config table (currently managed by Admin Dashboard & Flutter)
+    // Priority 1: OPENAI_API_KEY Edge Function secret (never exposed via table RLS)
+    const envKey = Deno.env.get('OPENAI_API_KEY')?.trim()
+    if (envKey && !candidates.includes(envKey)) {
+        candidates.push(envKey)
+    }
+
+    // Priority 2: Fallback to active app_config entry (service role only)
     try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -124,7 +130,8 @@ async function getCandidateApiKeys(): Promise<string[]> {
                 .from('app_config')
                 .select('value')
                 .eq('key', 'openai_api_key')
-                .single()
+                .eq('is_active', true)
+                .maybeSingle()
 
             if (!error && data?.value) {
                 const val = String(data.value).trim()
@@ -133,12 +140,6 @@ async function getCandidateApiKeys(): Promise<string[]> {
         }
     } catch (dbErr) {
         console.warn('app_config lookup warning:', dbErr instanceof Error ? dbErr.message : dbErr)
-    }
-
-    // Priority 2: OPENAI_API_KEY Edge Function secret
-    const envKey = Deno.env.get('OPENAI_API_KEY')?.trim()
-    if (envKey && !candidates.includes(envKey)) {
-        candidates.push(envKey)
     }
 
     return candidates

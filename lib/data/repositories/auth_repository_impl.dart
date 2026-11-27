@@ -154,8 +154,9 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, User>> checkSession() async {
     try {
-      // First check Supabase session if online
-      if (await networkInfo.isConnected) {
+      final isOnline = await networkInfo.isConnected;
+
+      if (isOnline) {
         final userData = await remoteDataSource.getCurrentUser();
         if (userData != null) {
           final user = UserModel.fromJson(userData);
@@ -171,25 +172,29 @@ class AuthRepositoryImpl implements AuthRepository {
 
           return Right(user);
         }
+
+        // Online and Supabase has NO valid active session (expired, revoked, or signed out).
+        // Never log the user in from stale Hive cache without a live JWT.
+        final liveUserId = remoteDataSource.currentUserId;
+        if (liveUserId == null) {
+          await localDataSource.clearSession();
+          return Left(AuthFailure.sessionExpired());
+        }
+
+        // Live JWT exists, but fetching public.users failed transiently:
+        // allow local cache ONLY if it matches the live Supabase user ID.
+        final cachedSession = await localDataSource.getSession();
+        if (cachedSession != null && cachedSession['user_id'] == liveUserId) {
+          return Right(_userFromCachedSession(cachedSession));
+        }
+
+        return Left(AuthFailure.sessionExpired());
       }
 
-      // Fallback to local cache for offline support
+      // Offline only: restore cached session for offline access
       final cachedSession = await localDataSource.getSession();
       if (cachedSession != null && cachedSession['user_id'] != null) {
-        // Restore createdAt from cache, fall back to epoch if missing
-        final createdAtStr = cachedSession['created_at'] as String?;
-        final createdAt = createdAtStr != null
-            ? DateTime.tryParse(createdAtStr) ?? DateTime(2024)
-            : DateTime(2024);
-        return Right(
-          User(
-            id: cachedSession['user_id'] as String,
-            phone: cachedSession['phone'] as String? ?? '',
-            email: cachedSession['email'] as String?,
-            displayName: cachedSession['display_name'] as String?,
-            createdAt: createdAt,
-          ),
-        );
+        return Right(_userFromCachedSession(cachedSession));
       }
 
       return Left(AuthFailure.sessionExpired());
@@ -197,6 +202,20 @@ class AuthRepositoryImpl implements AuthRepository {
       logger.e('Error checking session', e);
       return Left(AuthFailure.sessionExpired());
     }
+  }
+
+  User _userFromCachedSession(Map<String, dynamic> cachedSession) {
+    final createdAtStr = cachedSession['created_at'] as String?;
+    final createdAt = createdAtStr != null
+        ? DateTime.tryParse(createdAtStr) ?? DateTime(2024)
+        : DateTime(2024);
+    return User(
+      id: cachedSession['user_id'] as String,
+      phone: cachedSession['phone'] as String? ?? '',
+      email: cachedSession['email'] as String?,
+      displayName: cachedSession['display_name'] as String?,
+      createdAt: createdAt,
+    );
   }
 
   @override

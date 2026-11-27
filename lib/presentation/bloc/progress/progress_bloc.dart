@@ -23,6 +23,10 @@ class ProgressRefreshed extends ProgressEvent {
   const ProgressRefreshed();
 }
 
+class ProgressReset extends ProgressEvent {
+  const ProgressReset();
+}
+
 // States
 abstract class ProgressState extends Equatable {
   const ProgressState();
@@ -65,6 +69,12 @@ class ProgressBloc extends Bloc<ProgressEvent, ProgressState> {
   }) : super(const ProgressInitial()) {
     on<ProgressLoaded>(_onLoaded);
     on<ProgressRefreshed>(_onRefreshed);
+    on<ProgressReset>(_onReset);
+  }
+
+  void _onReset(ProgressReset event, Emitter<ProgressState> emit) {
+    _userId = null;
+    emit(const ProgressInitial());
   }
 
   Future<void> _onLoaded(

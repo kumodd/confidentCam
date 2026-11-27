@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 
 import '../core/config/app_config.dart';
+import '../core/config/remote_config_service.dart';
 import '../core/utils/logger.dart';
 
 /// Service for video recording operations.
@@ -39,10 +40,13 @@ abstract class VideoRecordingService {
 }
 
 class VideoRecordingServiceImpl implements VideoRecordingService {
+  final RemoteConfigService? remoteConfig;
   CameraController? _controller;
   List<CameraDescription> _cameras = [];
   bool _useFrontCamera = true;
   bool _isRecording = false;
+
+  VideoRecordingServiceImpl({this.remoteConfig});
   ResolutionPreset _currentQuality = ResolutionPreset.high;
   Timer? _autoStopTimer;
 
@@ -142,9 +146,12 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
       logger.i('Recording started');
 
       // Auto-stop after max duration using cancellable timer
+      final maxSeconds =
+          remoteConfig?.maxRecordingDurationSeconds ??
+          AppConfig.maxRecordingDurationSeconds;
       _autoStopTimer?.cancel();
       _autoStopTimer = Timer(
-        Duration(seconds: AppConfig.maxRecordingDurationSeconds),
+        Duration(seconds: maxSeconds),
         () {
           if (_isRecording) {
             logger.i('Auto-stopping recording after max duration');

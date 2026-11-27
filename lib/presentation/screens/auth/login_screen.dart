@@ -6,12 +6,13 @@ import 'package:country_code_picker/country_code_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import 'otp_verification_screen.dart';
-import 'email_confirmation_screen.dart';
 
 /// Unified login screen in the minimalist sage & olive design system.
 class LoginScreen extends StatefulWidget {
@@ -22,8 +23,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
+  RemoteConfigService? _remoteConfig;
+  int _tabCount = 1;
 
   // Phone auth
   final _phoneController = TextEditingController();
@@ -32,41 +35,61 @@ class _LoginScreenState extends State<LoginScreen>
 
   // Email auth
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
-  final bool _isSignUp = false;
-  // ignore: unused_field
-  final bool _obscurePassword = true;
+
+  bool get _enablePhoneAuth =>
+      _remoteConfig?.enablePhoneAuth ?? AppConfig.enablePhoneAuth;
+
+  bool get _enableEmailAuth =>
+      _remoteConfig?.enableEmailAuth ?? AppConfig.enableEmailAuth;
+
+  int get _otpLength => _remoteConfig?.otpLength ?? AppConfig.otpLength;
 
   @override
   void initState() {
     super.initState();
-    final tabCount = _getEnabledTabCount();
-    _tabController = TabController(length: tabCount, vsync: this);
+    if (sl.isRegistered<RemoteConfigService>()) {
+      _remoteConfig = sl<RemoteConfigService>();
+      _remoteConfig!.addListener(_onRemoteConfigChanged);
+    }
+    _tabCount = _getEnabledTabCount();
+    _tabController = TabController(length: _tabCount, vsync: this);
+  }
+
+  void _onRemoteConfigChanged() {
+    if (!mounted) return;
+    final nextCount = _getEnabledTabCount();
+    if (nextCount != _tabCount) {
+      final oldController = _tabController;
+      _tabCount = nextCount;
+      _tabController = TabController(length: _tabCount, vsync: this);
+      oldController.dispose();
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _remoteConfig?.removeListener(_onRemoteConfigChanged);
     _tabController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   int _getEnabledTabCount() {
     int count = 0;
-    if (AppConfig.enablePhoneAuth) count++;
-    if (AppConfig.enableEmailAuth) count++;
+    if (_enablePhoneAuth) count++;
+    if (_enableEmailAuth) count++;
     return count > 0 ? count : 1;
   }
 
   List<Widget> _buildTabs() {
     final tabs = <Widget>[];
-    if (AppConfig.enablePhoneAuth) {
+    if (_enablePhoneAuth) {
       tabs.add(Tab(text: 'Phone'));
     }
-    if (AppConfig.enableEmailAuth) {
+    if (_enableEmailAuth) {
       tabs.add(Tab(text: 'Email'));
     }
     return tabs;
@@ -93,6 +116,12 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
+        // Ignore AuthBloc events while another route (e.g. OtpVerificationScreen)
+        // is pushed on top so resends do not push duplicate OTP screens and
+        // OTP verification failures do not stack hidden dialogs underneath.
+        final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+        if (!isCurrentRoute) return;
+
         if (state is AuthLoading) {
           EasyLoading.show(status: 'Sending verification code...');
         } else {
@@ -109,12 +138,6 @@ class _LoginScreenState extends State<LoginScreen>
                   isEmail: state.isEmail,
                 ),
               ),
-            ),
-          );
-        } else if (state is EmailConfirmationRequired) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => EmailConfirmationScreen(email: state.email),
             ),
           );
         } else if (state is AuthFailure) {
@@ -259,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildAuthContent() {
     if (_getEnabledTabCount() == 1) {
-      if (AppConfig.enablePhoneAuth) {
+      if (_enablePhoneAuth && !_enableEmailAuth) {
         return _buildPhoneForm();
       } else {
         return _buildEmailForm();
@@ -267,12 +290,12 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     return SizedBox(
-      height: AppConfig.enableEmailAuth && _isSignUp ? 360 : 290,
+      height: 290,
       child: TabBarView(
         controller: _tabController,
         children: [
-          if (AppConfig.enablePhoneAuth) _buildPhoneForm(),
-          if (AppConfig.enableEmailAuth) _buildEmailForm(),
+          if (_enablePhoneAuth) _buildPhoneForm(),
+          if (_enableEmailAuth) _buildEmailForm(),
         ],
       ),
     );
@@ -405,7 +428,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 10),
           Text(
-            'We will send a 6-digit verification code to your email',
+            'We will send a $_otpLength-digit verification code to your email',
             style: AppTypography.body(
               fontSize: 12.5,
               color: AppColors.secondaryText,

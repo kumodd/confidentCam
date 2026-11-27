@@ -26,6 +26,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   SettingsBloc({required this.settingsDataSource})
     : super(const SettingsInitial()) {
     on<SettingsLoaded>(_onLoaded);
+    on<SettingsReset>(_onReset);
     on<ReminderTimeUpdated>(_onReminderTimeUpdated);
     on<TeleprompterSpeedUpdated>(_onSpeedUpdated);
     on<TeleprompterFontSizeUpdated>(_onFontSizeUpdated);
@@ -60,6 +61,10 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     await settingsDataSource.saveSetting(key, value);
     emit(SettingsLoadSuccess(updater(_currentSettings)));
+  }
+
+  void _onReset(SettingsReset event, Emitter<SettingsState> emit) {
+    emit(const SettingsInitial());
   }
 
   Future<void> _onLoaded(

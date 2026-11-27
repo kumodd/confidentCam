@@ -4,6 +4,7 @@ import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
+import '../config/remote_config_service.dart';
 import '../constants/app_constants.dart';
 import '../network/network_info.dart';
 import '../../data/datasources/local/hive_auth_datasource.dart';
@@ -120,6 +121,21 @@ Future<void> _initExternal() async {
     instanceName: AppConstants.contentScriptsBox,
   );
 
+  // Remote Config Box (app-wide, preserved across logouts)
+  final remoteConfigBox = await Hive.openBox(AppConstants.remoteConfigBox);
+  sl.registerLazySingleton<Box>(
+    () => remoteConfigBox,
+    instanceName: AppConstants.remoteConfigBox,
+  );
+
+  // Remote Config Service (loads cache immediately, then attempts quick fetch)
+  final remoteConfigService = RemoteConfigService(
+    client: sl<SupabaseClient>(),
+    cacheBox: remoteConfigBox,
+  );
+  sl.registerSingleton<RemoteConfigService>(remoteConfigService);
+  await remoteConfigService.refresh(force: true);
+
   // Internet connection checker
   sl.registerLazySingleton(() => InternetConnectionChecker());
 }
@@ -134,7 +150,10 @@ void _initCore() {
 void _initDataSources() {
   // Remote Data Sources
   sl.registerLazySingleton<SupabaseAuthDataSource>(
-    () => SupabaseAuthDataSourceImpl(client: sl()),
+    () => SupabaseAuthDataSourceImpl(
+      client: sl(),
+      remoteConfig: sl(),
+    ),
   );
   sl.registerLazySingleton<SupabaseUserDataSource>(
     () => SupabaseUserDataSourceImpl(client: sl()),
@@ -143,7 +162,10 @@ void _initDataSources() {
     () => SupabaseProgressDataSourceImpl(client: sl()),
   );
   sl.registerLazySingleton<SupabaseScriptDataSource>(
-    () => SupabaseScriptDataSourceImpl(client: sl()),
+    () => SupabaseScriptDataSourceImpl(
+      client: sl(),
+      remoteConfig: sl(),
+    ),
   );
   sl.registerLazySingleton<SupabaseOnboardingDataSource>(
     () => SupabaseOnboardingDataSourceImpl(client: sl()),
@@ -234,7 +256,7 @@ void _initServices() {
     () => VideoStorageServiceImpl(),
   );
   sl.registerLazySingleton<VideoRecordingService>(
-    () => VideoRecordingServiceImpl(),
+    () => VideoRecordingServiceImpl(remoteConfig: sl()),
   );
   sl.registerFactory<VoiceTeleprompterService>(
     () => VoiceTeleprompterService(),

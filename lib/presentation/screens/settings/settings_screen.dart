@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/remote_config_service.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
@@ -34,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   UserProfile? _currentProfile;
   String? _currentUserId;
   String? _currentDisplayName;
+  bool _deletingAccount = false;
 
   @override
   void initState() {
@@ -88,10 +90,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthLoggedOut) {
+        if (state is AuthDeletingAccount) {
+          _deletingAccount = true;
+        } else if (state is AuthLoggedOut) {
           EasyLoading.dismiss();
-          EasyLoading.showSuccess('Account deleted');
+          if (_deletingAccount) {
+            _deletingAccount = false;
+            EasyLoading.showSuccess('Account deleted');
+          }
         } else if (state is AuthFailure) {
+          _deletingAccount = false;
           EasyLoading.dismiss();
           EasyLoading.showError(state.message);
         }
@@ -551,13 +559,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 );
                               },
                             ),
-                            const Divider(height: 1),
-                            _SettingsTile(
-                              icon: Icons.qr_code_scanner_rounded,
-                              title: 'Web Login',
-                              subtitle: 'Scan QR to login on web portal',
-                              onTap: _openQrScanner,
-                            ),
+                            if (!sl.isRegistered<RemoteConfigService>() ||
+                                sl<RemoteConfigService>().qrLoginEnabled) ...[
+                              const Divider(height: 1),
+                              _SettingsTile(
+                                icon: Icons.qr_code_scanner_rounded,
+                                title: 'Web Login',
+                                subtitle: 'Scan QR to login on web portal',
+                                onTap: _openQrScanner,
+                              ),
+                            ],
                             const Divider(height: 1),
                             _SettingsTile(
                               icon: Icons.help_outline_rounded,
@@ -877,22 +888,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (finalConfirm != true || !mounted) return;
 
+    _deletingAccount = true;
     EasyLoading.show(status: 'Deleting account...');
-
-    try {
-      final videoService = sl<VideoStorageService>();
-      await videoService.clearAllVideos();
-
-      if (!mounted) {
-        EasyLoading.dismiss();
-        return;
-      }
-
-      context.read<AuthBloc>().add(AccountDeletionRequested());
-    } catch (e) {
-      EasyLoading.dismiss();
-      EasyLoading.showError('Failed to delete account');
-    }
+    context.read<AuthBloc>().add(AccountDeletionRequested());
   }
 }
 

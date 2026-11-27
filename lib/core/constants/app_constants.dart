@@ -7,12 +7,15 @@ class AppConstants {
   static const String settingsBox = 'settings_box';
   static const String offlineQueueBox = 'offline_queue_box';
   static const String contentScriptsBox = 'content_scripts_box';
+  static const String remoteConfigBox = 'remote_config_box';
 
   // Hive Keys
   static const String sessionTokenKey = 'session_token';
   static const String userIdKey = 'user_id';
   static const String phoneKey = 'phone';
   static const String displayNameKey = 'display_name';
+  static const String otpAttemptsPrefix = 'otp_attempts_';
+  static const String otpLockoutUntilPrefix = 'otp_lockout_until_';
 
   // Progress Keys
   static const String warmup0Key = 'warmup_0_done';

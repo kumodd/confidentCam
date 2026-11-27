@@ -23,12 +23,31 @@ abstract class HiveAuthDataSource {
 
   /// Get cached user ID.
   String? get userId;
+
+  /// Get persisted OTP failed attempt count for [identifier] (email or phone).
+  int getOtpAttempts(String identifier);
+
+  /// Get persisted OTP lockout expiry timestamp for [identifier], if any.
+  DateTime? getOtpLockoutUntil(String identifier);
+
+  /// Persist OTP failed attempt count and optional lockout expiry.
+  Future<void> saveOtpAttemptState(
+    String identifier, {
+    required int attempts,
+    DateTime? lockoutUntil,
+  });
+
+  /// Clear persisted OTP attempt count and lockout for [identifier].
+  Future<void> clearOtpAttemptState(String identifier);
 }
 
 class HiveAuthDataSourceImpl implements HiveAuthDataSource {
   final Box authBox;
 
   HiveAuthDataSourceImpl({required this.authBox});
+
+  String _normalizeIdentifier(String identifier) =>
+      identifier.trim().toLowerCase();
 
   @override
   Future<void> saveSession({
@@ -80,7 +99,14 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
   Future<void> clearSession() async {
     try {
       logger.d('Clearing session');
-      await authBox.clear();
+      await authBox.deleteAll([
+        AppConstants.sessionTokenKey,
+        AppConstants.userIdKey,
+        AppConstants.phoneKey,
+        AppConstants.displayNameKey,
+        'email',
+        'created_at',
+      ]);
     } catch (e) {
       logger.e('Error clearing session', e);
       throw CacheException(
@@ -92,4 +118,45 @@ class HiveAuthDataSourceImpl implements HiveAuthDataSource {
 
   @override
   String? get userId => authBox.get(AppConstants.userIdKey);
+
+  @override
+  int getOtpAttempts(String identifier) {
+    final key = '${AppConstants.otpAttemptsPrefix}${_normalizeIdentifier(identifier)}';
+    final raw = authBox.get(key);
+    return raw is int ? raw : 0;
+  }
+
+  @override
+  DateTime? getOtpLockoutUntil(String identifier) {
+    final key =
+        '${AppConstants.otpLockoutUntilPrefix}${_normalizeIdentifier(identifier)}';
+    final raw = authBox.get(key);
+    if (raw is String) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
+  }
+
+  @override
+  Future<void> saveOtpAttemptState(
+    String identifier, {
+    required int attempts,
+    DateTime? lockoutUntil,
+  }) async {
+    final normalized = _normalizeIdentifier(identifier);
+    await authBox.put('${AppConstants.otpAttemptsPrefix}$normalized', attempts);
+    final lockoutKey = '${AppConstants.otpLockoutUntilPrefix}$normalized';
+    if (lockoutUntil != null) {
+      await authBox.put(lockoutKey, lockoutUntil.toIso8601String());
+    } else {
+      await authBox.delete(lockoutKey);
+    }
+  }
+
+  @override
+  Future<void> clearOtpAttemptState(String identifier) async {
+    final normalized = _normalizeIdentifier(identifier);
+    await authBox.delete('${AppConstants.otpAttemptsPrefix}$normalized');
+    await authBox.delete('${AppConstants.otpLockoutUntilPrefix}$normalized');
+  }
 }

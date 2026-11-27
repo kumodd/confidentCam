@@ -12,6 +12,10 @@ class SettingsLoaded extends SettingsEvent {
   const SettingsLoaded();
 }
 
+class SettingsReset extends SettingsEvent {
+  const SettingsReset();
+}
+
 class ReminderTimeUpdated extends SettingsEvent {
   final TimeOfDay time;
   const ReminderTimeUpdated(this.time);
