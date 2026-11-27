@@ -622,17 +622,20 @@ void main() {
     );
 
     blocTest<ContentCreatorBloc, ContentCreatorState>(
-      'EnhanceSpokenIdea(autoGenerate: true) chains AI brief expansion straight into ScriptGenerated',
+      'EnhanceSpokenIdea(autoGenerate: true) chains detected spoken language straight into generateScript',
       build: () {
         const enhancedIdea = EnhancedScriptIdea(
-          rawTranscript: 'quick reel about beating camera shyness',
-          topic: 'Beat Camera Shyness in 3 Minutes a Day',
-          audience: 'First-time Instagram Reels creators',
-          coreMessage: 'Talk to one friend through the lens instead of performing',
-          suggestedTemplate: PromptTemplate.tips,
+          rawTranscript: 'chat GPT Kaise kam karta hai',
+          topic: 'ChatGPT Kaise Kaam Karta Hai',
+          audience: 'Tech-curious beginners in India',
+          coreMessage: 'Samjho kaise ChatGPT patterns predict karke jawab deta hai',
+          suggestedTemplate: PromptTemplate.educational,
           suggestedTone: 'Casual',
           suggestedLength: 'short',
           suggestedPlatform: 'reels_shorts',
+          detectedLanguageCode: 'hinglish',
+          detectedLanguageName: 'Hinglish',
+          detectedScriptStyle: 'romanized',
         );
         when(
           () => mockRepo.enhanceSpokenIdea(
@@ -673,15 +676,17 @@ void main() {
       act: (bloc) => bloc.add(
         const EnhanceSpokenIdea(
           userId: 'user-1',
-          transcript: 'quick reel about beating camera shyness',
-          language: 'English',
-          languageCode: 'en',
+          transcript: 'chat GPT Kaise kam karta hai',
+          language: 'Auto-Detect',
+          languageCode: 'auto',
           autoGenerate: true,
         ),
       ),
       expect: () => [
         isA<IdeaEnhancing>(),
-        isA<IdeaEnhanced>().having((s) => s.autoGenerating, 'autoGen', isTrue),
+        isA<IdeaEnhanced>()
+            .having((s) => s.autoGenerating, 'autoGen', isTrue)
+            .having((s) => s.idea.detectedLanguageCode, 'langCode', 'hinglish'),
         isA<ScriptGenerating>(),
         isA<ScriptGenerated>(),
         isA<ContentCreatorLoaded>().having(
@@ -690,6 +695,23 @@ void main() {
           sampleScript.id,
         ),
       ],
+      verify: (_) {
+        verify(
+          () => mockRepo.generateScript(
+            userId: 'user-1',
+            topic: 'ChatGPT Kaise Kaam Karta Hai',
+            audience: 'Tech-curious beginners in India',
+            message: 'Samjho kaise ChatGPT patterns predict karke jawab deta hai',
+            tone: 'Casual',
+            language: 'Hinglish',
+            languageCode: 'hinglish',
+            template: PromptTemplate.educational,
+            length: 'short',
+            platform: 'reels_shorts',
+            scriptStyle: 'romanized',
+          ),
+        ).called(1);
+      },
     );
   });
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -116,7 +115,9 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
             ? sl<RecordingAudioService>()
             : RecordingAudioService();
 
-    // Enable both portrait & landscape recording while this view is mounted.
+    // Enable both portrait & landscape recording + immersive edge-to-edge camera
+    // mode (hiding status bar so teleprompter text sticks flush at y = 0 near lens).
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -172,7 +173,7 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
   void _applySettings(Settings settings, {bool notifySetState = true}) {
     void assign() {
       _currentSpeed = settings.teleprompterSpeed.clamp(0.5, 3.0);
-      _currentHeight = settings.teleprompterHeight.clamp(0.15, 0.55);
+      _currentHeight = settings.teleprompterHeight.clamp(0.15, 0.90);
       _currentOpacity = settings.teleprompterOpacity.clamp(0.10, 0.85);
       _currentFontSizeKey = settings.teleprompterFontSize;
       _currentFontSize = settings.fontSizePixels;
@@ -414,7 +415,8 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
     _micDevicesSub?.cancel();
     _audioService.endRecordingAudioGuard();
     _recordingService.dispose();
-    // Restore default portrait orientation for the rest of the app
+    // Restore default portrait orientation & system bars for the rest of the app
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -684,21 +686,21 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
     }
 
     // Sensor previewSize is reported in landscape (width > height); swap only
-    // in portrait so landscape previews keep exact 16:9 framing without stretch.
+    // in portrait so both portrait and landscape show the exact native sensor
+    // aspect ratio (e.g. 9:16 or 16:9). Using BoxFit.contain on pure black
+    // guarantees 100% pre-record == post-record framing with zero hidden crop!
     final previewWidth = isLandscape ? previewSize.width : previewSize.height;
     final previewHeight = isLandscape ? previewSize.height : previewSize.width;
 
-    return ClipRect(
-      child: OverflowBox(
-        maxWidth: double.infinity,
-        maxHeight: double.infinity,
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: previewWidth,
-            height: previewHeight,
-            child: CameraPreview(controller),
-          ),
+    return Container(
+      color: Colors.black,
+      alignment: Alignment.center,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: previewWidth,
+          height: previewHeight,
+          child: CameraPreview(controller),
         ),
       ),
     );
@@ -790,93 +792,136 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
     );
   }
 
-  Widget _buildTopControlsBar({required bool isLandscape}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Left slot: Close button (full-screen) or Recording timer (embedded)
-        if (widget.showCloseButton)
+  /// Compact studio action strip docked BELOW the camera framing (above the
+  /// shutter) so zero controls sit between the camera lens and the script text.
+  Widget _buildStudioToolsRow({required bool isLandscape}) {
+    if (_showingCountdown) return const SizedBox.shrink();
+
+    final buttons = <Widget>[
+      if (_hasScript)
+        _buildGlassIconButton(
+          icon:
+              _isScriptVisible
+                  ? Icons.subtitles_outlined
+                  : Icons.subtitles_off_outlined,
+          onTap: () => setState(() => _isScriptVisible = !_isScriptVisible),
+          semanticLabel:
+              _isScriptVisible ? 'Hide Teleprompter' : 'Show Teleprompter',
+        ),
+      if (!_isRecording) ...[
+        if (_hasScript)
           _buildGlassIconButton(
-            icon: Icons.close_rounded,
-            onTap: _handleClose,
-            semanticLabel: 'Close Recording',
-          )
-        else if (_isRecording)
-          _buildRecordingBadge()
-        else
-          const SizedBox(width: 38),
-
-        // Center slot: Recording badge (with active silence indicator)
-        if (widget.showCloseButton && _isRecording) _buildRecordingBadge(),
-
-        // Right slot: Quick toolbar
-        if (!_showingCountdown)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_hasScript)
-                _buildGlassIconButton(
-                  icon:
-                      _isScriptVisible
-                          ? Icons.subtitles_outlined
-                          : Icons.subtitles_off_outlined,
-                  onTap:
-                      () => setState(
-                        () => _isScriptVisible = !_isScriptVisible,
-                      ),
-                  semanticLabel:
-                      _isScriptVisible
-                          ? 'Hide Teleprompter'
-                          : 'Show Teleprompter',
-                ),
-              if (!_isRecording) ...[
-                if (_hasScript) ...[
-                  const SizedBox(width: 6),
-                  _buildGlassIconButton(
-                    icon: Icons.view_agenda_outlined,
-                    onTap: _cycleLayoutTemplate,
-                    semanticLabel:
-                        'Switch Recording Layout (${_layoutTemplate.label})',
-                    active: _layoutTemplate.isSplit,
-                  ),
-                ],
-                if (_availableMicrophones.length > 1) ...[
-                  const SizedBox(width: 6),
-                  _buildGlassIconButton(
-                    icon: Icons.settings_voice_outlined,
-                    onTap: _showQuickMicPicker,
-                    semanticLabel: 'Select Microphone',
-                    active: _preferredMicDeviceId != null,
-                  ),
-                ],
-                const SizedBox(width: 6),
-                _buildGlassIconButton(
-                  icon: Icons.screen_rotation_outlined,
-                  onTap: () => _toggleOrientation(isLandscape),
-                  semanticLabel:
-                      isLandscape
-                          ? 'Switch to Portrait Mode'
-                          : 'Switch to Landscape Mode',
-                  active: isLandscape,
-                ),
-                const SizedBox(width: 6),
-                _buildGlassIconButton(
-                  icon: Icons.cameraswitch_outlined,
-                  onTap: _switchCamera,
-                  semanticLabel: 'Switch Camera',
-                ),
-                const SizedBox(width: 6),
-                _buildGlassIconButton(
-                  icon: Icons.tune_rounded,
-                  onTap: _showSettingsSheet,
-                  semanticLabel: 'Teleprompter Settings',
-                ),
-              ],
-            ],
-          )
-        else
-          const SizedBox(width: 38),
+            icon: Icons.view_agenda_outlined,
+            onTap: _cycleLayoutTemplate,
+            semanticLabel: 'Switch Recording Layout (${_layoutTemplate.label})',
+            active: _layoutTemplate.isSplit,
+          ),
+        if (_availableMicrophones.length > 1)
+          _buildGlassIconButton(
+            icon: Icons.settings_voice_outlined,
+            onTap: _showQuickMicPicker,
+            semanticLabel: 'Select Microphone',
+            active: _preferredMicDeviceId != null,
+          ),
+        _buildGlassIconButton(
+          icon: Icons.screen_rotation_outlined,
+          onTap: () => _toggleOrientation(isLandscape),
+          semanticLabel:
+              isLandscape
+                  ? 'Switch to Portrait Mode'
+                  : 'Switch to Landscape Mode',
+          active: isLandscape,
+        ),
+        _buildGlassIconButton(
+          icon: Icons.cameraswitch_outlined,
+          onTap: _switchCamera,
+          semanticLabel: 'Switch Camera',
+        ),
+        _buildGlassIconButton(
+          icon: Icons.tune_rounded,
+          onTap: _showSettingsSheet,
+          semanticLabel: 'Teleprompter Settings',
+        ),
       ],
+    ];
+
+    if (buttons.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            buttons[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Bottom shutter dock for Portrait mode: Close / REC badge on the left,
+  /// Record Shutter dead-center, Hide Teleprompter on the right while
+  /// recording (so tall overlays up to 90% have maximum vertical room), and
+  /// studio tools row neatly stacked above when idle.
+  Widget _buildPortraitBottomDock({required double bottomInset}) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_isRecording) ...[
+            _buildStudioToolsRow(isLandscape: false),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            height: 80,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child:
+                      _isRecording
+                          ? _buildRecordingBadge()
+                          : (widget.showCloseButton
+                              ? _buildGlassIconButton(
+                                icon: Icons.close_rounded,
+                                onTap: _handleClose,
+                                semanticLabel: 'Close Recording',
+                              )
+                              : const SizedBox(width: 38)),
+                ),
+                _buildRecordingControlsWidget(),
+                if (_isRecording && _hasScript)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _buildGlassIconButton(
+                      icon:
+                          _isScriptVisible
+                              ? Icons.subtitles_outlined
+                              : Icons.subtitles_off_outlined,
+                      onTap:
+                          () => setState(
+                            () => _isScriptVisible = !_isScriptVisible,
+                          ),
+                      semanticLabel:
+                          _isScriptVisible
+                              ? 'Hide Teleprompter'
+                              : 'Show Teleprompter',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -895,10 +940,7 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF121512).withValues(alpha: 0.76),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFD8D478),
-                    width: 3,
-                  ),
+                  border: Border.all(color: const Color(0xFFD8D478), width: 3),
                 ),
                 child: Center(
                   child: Text(
@@ -912,7 +954,10 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF121512).withValues(alpha: 0.68),
                   borderRadius: BorderRadius.circular(14),
@@ -972,8 +1017,8 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
   Widget _buildSplitLayout({
     required BoxConstraints constraints,
     required bool isLandscape,
+    required EdgeInsets mediaPad,
   }) {
-    final topBarTop = widget.embedded ? 10.0 : 8.0;
     final scriptFlex = _layoutTemplate.scriptFlex;
     final cameraFlex = _layoutTemplate.cameraFlex;
 
@@ -982,106 +1027,147 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
       children: [
         _buildCameraLayer(isLandscape: isLandscape),
         if (_showingCountdown) _buildCountdownOverlay(),
-        if (isLandscape)
+        if (isLandscape) ...[
+          // Top-right Close / Live REC pill clear of teleprompter
           Positioned(
-            right: 14,
+            top: mediaPad.top + 10,
+            right: mediaPad.right + 14,
+            child:
+                _isRecording
+                    ? _buildRecordingBadge()
+                    : (widget.showCloseButton
+                        ? _buildGlassIconButton(
+                          icon: Icons.close_rounded,
+                          onTap: _handleClose,
+                          semanticLabel: 'Close Recording',
+                        )
+                        : const SizedBox.shrink()),
+          ),
+          // Right-rail shutter
+          Positioned(
+            right: mediaPad.right + 14,
             top: 0,
             bottom: 0,
             child: Center(child: _buildRecordingControlsWidget()),
-          )
-        else
+          ),
+          // Bottom studio tools bar
           Positioned(
-            bottom: 16,
+            left: 10,
+            right: mediaPad.right + 104,
+            bottom: mediaPad.bottom + 10,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: _buildStudioToolsRow(isLandscape: true),
+            ),
+          ),
+        ] else
+          Positioned(
+            bottom: 0,
             left: 0,
             right: 0,
-            child: _buildRecordingControlsWidget(),
+            child: _buildPortraitBottomDock(bottomInset: mediaPad.bottom),
           ),
       ],
     );
 
-    return Column(
-      children: [
-        // Compact dark studio header strip so controls never overlap split text
-        Container(
-          color: const Color(0xFF121512),
-          padding: EdgeInsets.fromLTRB(12, topBarTop, 12, 8),
-          child: _buildTopControlsBar(isLandscape: isLandscape),
+    if (isLandscape) {
+      return Container(
+        color: Colors.black,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: scriptFlex,
+              child: Container(
+                color: const Color(0xFF0E100E),
+                padding: EdgeInsets.fromLTRB(
+                  mediaPad.left,
+                  0,
+                  0,
+                  mediaPad.bottom,
+                ),
+                child: _buildTeleprompter(solidBackground: true),
+              ),
+            ),
+            Container(width: 1.2, color: Colors.white.withValues(alpha: 0.16)),
+            Expanded(flex: cameraFlex, child: cameraStage),
+          ],
         ),
-        Expanded(
-          child:
-              isLandscape
-                  ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: scriptFlex,
-                        child: _buildTeleprompter(solidBackground: true),
-                      ),
-                      Container(
-                        width: 1.2,
-                        color: Colors.white.withValues(alpha: 0.16),
-                      ),
-                      Expanded(flex: cameraFlex, child: cameraStage),
-                    ],
-                  )
-                  : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: scriptFlex,
-                        child: _buildTeleprompter(solidBackground: true),
-                      ),
-                      Container(
-                        height: 1.2,
-                        color: Colors.white.withValues(alpha: 0.16),
-                      ),
-                      Expanded(flex: cameraFlex, child: cameraStage),
-                    ],
-                  ),
-        ),
-      ],
+      );
+    }
+
+    // Portrait Split: ZERO top padding so script sticks flush at the very top
+    // edge next to the front camera lens!
+    return Container(
+      color: Colors.black,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: scriptFlex,
+            child: Container(
+              color: const Color(0xFF0E100E),
+              child: _buildTeleprompter(solidBackground: true),
+            ),
+          ),
+          Container(height: 1.2, color: Colors.white.withValues(alpha: 0.16)),
+          Expanded(flex: cameraFlex, child: cameraStage),
+        ],
+      ),
     );
   }
 
   Widget _buildOverlayLayout({
     required BoxConstraints constraints,
     required bool isLandscape,
+    required EdgeInsets mediaPad,
   }) {
-    final topBarTop = widget.embedded ? 12.0 : 8.0;
-    final teleprompterTop = topBarTop + 48.0;
+    // ZERO top margin so the teleprompter text sticks flush at the top edge
+    // directly next to the front camera lens!
+    const teleprompterTop = 0.0;
     final isLowerOverlay =
         _layoutTemplate == RecordingLayoutTemplate.lowerOverlay;
 
+    final showCoach =
+        widget.showCoachTips &&
+        !_isRecording &&
+        !_showingCountdown &&
+        !isLandscape &&
+        !isLowerOverlay &&
+        _currentHeight <= 0.58;
+
     final overlayHeight = TeleprompterScrollMath.computeOverlayHeight(
       containerHeight: constraints.maxHeight,
-      heightFraction:
-          isLandscape ? math.min(_currentHeight, 0.45) : _currentHeight,
+      heightFraction: _currentHeight,
       topInset: teleprompterTop,
       bottomReserve:
-          isLandscape ? 24.0 : (widget.showCoachTips ? 136.0 : 120.0),
+          isLandscape
+              ? (_isRecording ? (mediaPad.bottom + 8.0) : (mediaPad.bottom + 64.0))
+              : (mediaPad.bottom +
+                  (_isRecording ? 96.0 : (showCoach ? 204.0 : 146.0))),
     );
 
-    final horizontalRightInset = isLandscape ? 108.0 : 12.0;
+    final horizontalLeftInset = isLandscape ? mediaPad.left + 8.0 : 0.0;
+    final horizontalRightInset = isLandscape ? mediaPad.right + 108.0 : 0.0;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         _buildCameraLayer(isLandscape: isLandscape),
 
-        // Top control bar
-        Positioned(
-          top: topBarTop,
-          left: 12,
-          right: 12,
-          child: _buildTopControlsBar(isLandscape: isLandscape),
-        ),
-
-        // Teleprompter overlay (top or lower third)
+        // Teleprompter overlay (pinned right near the lens, or lower third)
         if (_hasScript && _isScriptVisible)
           Positioned(
             top: isLowerOverlay ? null : teleprompterTop,
-            bottom: isLowerOverlay ? (isLandscape ? 16.0 : 118.0) : null,
-            left: 12,
+            bottom:
+                isLowerOverlay
+                    ? (isLandscape
+                        ? (_isRecording
+                            ? mediaPad.bottom + 8.0
+                            : mediaPad.bottom + 64.0)
+                        : (mediaPad.bottom + (_isRecording ? 96.0 : 146.0)))
+                    : null,
+            left: horizontalLeftInset,
             right: horizontalRightInset,
             height: overlayHeight,
             child: _buildTeleprompter(solidBackground: false),
@@ -1093,42 +1179,61 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
             !_isRecording &&
             widget.emptyScriptMessage != null)
           Positioned(
-            top: teleprompterTop,
-            left: 12,
+            top: teleprompterTop + 8,
+            left: horizontalLeftInset,
             right: horizontalRightInset,
             child: _buildEmptyScriptBanner(),
           ),
 
-        // Coach tips above bottom shutter (only when idle in portrait classic overlay)
-        if (widget.showCoachTips &&
-            !_isRecording &&
-            !_showingCountdown &&
-            !isLandscape &&
-            !isLowerOverlay)
-          const Positioned(
-            bottom: 124,
+        // Coach tips above bottom studio dock (only when idle & compact overlay)
+        if (showCoach)
+          Positioned(
+            bottom: mediaPad.bottom + 150,
             left: 12,
             right: 12,
-            child: CoachTipsCard(isRecording: false),
+            child: const CoachTipsCard(isRecording: false),
           ),
 
-        // Countdown overlay (tap to skip immediately)
+        // Countdown overlay (tap anywhere to skip immediately)
         if (_showingCountdown) _buildCountdownOverlay(),
 
-        // Shutter controls: right vertical rail in landscape, bottom bar in portrait
-        if (isLandscape)
+        // Shutter + studio toolbar docked below
+        if (isLandscape) ...[
           Positioned(
-            right: 16,
-            top: teleprompterTop,
-            bottom: 16,
+            top: mediaPad.top + 10,
+            right: mediaPad.right + 14,
+            child:
+                _isRecording
+                    ? _buildRecordingBadge()
+                    : (widget.showCloseButton
+                        ? _buildGlassIconButton(
+                          icon: Icons.close_rounded,
+                          onTap: _handleClose,
+                          semanticLabel: 'Close Recording',
+                        )
+                        : const SizedBox.shrink()),
+          ),
+          Positioned(
+            right: mediaPad.right + 14,
+            top: 0,
+            bottom: 0,
             child: Center(child: _buildRecordingControlsWidget()),
-          )
-        else
+          ),
           Positioned(
-            bottom: 24,
+            left: horizontalLeftInset,
+            right: horizontalRightInset,
+            bottom: mediaPad.bottom + 10,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: _buildStudioToolsRow(isLandscape: true),
+            ),
+          ),
+        ] else
+          Positioned(
+            bottom: 0,
             left: 0,
             right: 0,
-            child: _buildRecordingControlsWidget(),
+            child: _buildPortraitBottomDock(bottomInset: mediaPad.bottom),
           ),
       ],
     );
@@ -1136,6 +1241,7 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaPad = MediaQuery.paddingOf(context);
     final content = BlocListener<SettingsBloc, SettingsState>(
       listener: (context, state) {
         if (state is SettingsLoadSuccess) {
@@ -1154,35 +1260,23 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
             return _buildSplitLayout(
               constraints: constraints,
               isLandscape: isLandscape,
+              mediaPad: mediaPad,
             );
           }
           return _buildOverlayLayout(
             constraints: constraints,
             isLandscape: isLandscape,
+            mediaPad: mediaPad,
           );
         },
       ),
     );
 
     if (widget.embedded) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF121512),
-            borderRadius: AppRadii.cardLargeBorder,
-            border: Border.all(color: AppColors.divider, width: 1.5),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: content,
-        ),
-      );
+      return ColoredBox(color: Colors.black, child: content);
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF121512),
-      body: SafeArea(child: content),
-    );
+    return Scaffold(backgroundColor: Colors.black, body: content);
   }
 
   Widget _buildRecordingBadge() {

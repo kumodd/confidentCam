@@ -73,6 +73,9 @@ export interface GenerateRequest {
 }
 
 export interface RawEnhancedIdeaOutput {
+    detectedLanguageCode: string
+    detectedLanguageName: string
+    detectedScriptStyle: 'spoken_natural' | 'romanized'
     topic: string
     audience: string
     coreMessage: string
@@ -347,6 +350,9 @@ export const ENHANCE_IDEA_JSON_SCHEMA = {
         type: 'object',
         additionalProperties: false,
         required: [
+            'detectedLanguageCode',
+            'detectedLanguageName',
+            'detectedScriptStyle',
             'topic',
             'audience',
             'coreMessage',
@@ -357,6 +363,12 @@ export const ENHANCE_IDEA_JSON_SCHEMA = {
             'summaryNote',
         ],
         properties: {
+            detectedLanguageCode: { type: 'string' },
+            detectedLanguageName: { type: 'string' },
+            detectedScriptStyle: {
+                type: 'string',
+                enum: ['spoken_natural', 'romanized'],
+            },
             topic: { type: 'string' },
             audience: { type: 'string' },
             coreMessage: { type: 'string' },
@@ -1151,12 +1163,16 @@ export function buildIdeaEnhancerSystemPrompt(
         'You are a sharp video content strategist and creative producer helping a creator turn a brief, rough spoken voice note into a clear, high-retention video content brief.',
         '',
         'YOUR JOB:',
-        '1. Clean up speech-to-text noise, filler words ("uh", "um", "like", "matlab", "toh"), repetitions, and rambling without inventing fake statistics or changing the creator\'s genuine core idea.',
-        '2. Sharpen the TOPIC into one clear, focused, curiosity-worthy video angle (8-18 words max).',
-        '3. Qualify the TARGET AUDIENCE specifically (who should stay and follow, not "everyone").',
-        '4. Distill the CORE MESSAGE into one crisp, actionable takeaway or perspective the video must deliver.',
-        '5. Choose the best matching template (educational, story, tips, review, dayinlife, custom), tone (Casual, Professional, Inspirational, Humorous, Educational), length (short, medium, long), and platform (reels_shorts, youtube, linkedin, general) based on what the speaker asked for.',
-        '6. Write topic, audience, coreMessage, and summaryNote in the requested language naturally (never stiff textbook translation or AI buzzwords).',
+        '1. DETECT THE SPOKEN LANGUAGE AUTOMATICALLY from the raw transcript (CRITICAL):',
+        '   - If the speaker explicitly asks for a specific language inside the transcript (e.g. "Hindi mein video banao", "make an English reel", "Hinglish mein likho"), honor that requested language.',
+        '   - Otherwise detect the exact language of the transcript: Romanized Hindi mixed with English ("chat GPT Kaise kam karta hai") -> detectedLanguageCode = "hinglish", detectedLanguageName = "Hinglish", detectedScriptStyle = "romanized"; Devanagari Hindi -> "hi" / "Hindi" / "spoken_natural"; pure English -> "en" / "English" / "spoken_natural"; Romanized Tamil+English -> "tanglish" / "Tanglish" / "romanized"; any other language -> its ISO 639-1 code and readable name.',
+        '   - Do NOT default to English when the transcript is Hinglish, Hindi, or another language!',
+        '2. Clean up speech-to-text noise, filler words ("uh", "um", "like", "matlab", "toh"), repetitions, and rambling without inventing fake statistics or changing the creator\'s genuine core idea.',
+        '3. Sharpen the TOPIC into one clear, focused, curiosity-worthy video angle (8-18 words max).',
+        '4. Qualify the TARGET AUDIENCE specifically (who should stay and follow, not "everyone").',
+        '5. Distill the CORE MESSAGE into one crisp, actionable takeaway or perspective the video must deliver.',
+        '6. Choose the best matching template (educational, story, tips, review, dayinlife, custom), tone (Casual, Professional, Inspirational, Humorous, Educational), length (short, medium, long), and platform (reels_shorts, youtube, linkedin, general) based on what the speaker asked for.',
+        '7. Write topic, audience, coreMessage, and summaryNote naturally in the DETECTED language (never stiff textbook translation or AI buzzwords).',
     ].join('\n')
 }
 
@@ -1165,9 +1181,15 @@ export function buildIdeaEnhancerUserPrompt(
     dbTemplate?: PromptTemplateRecord | null,
 ): string {
     const spokenTranscript = (req.spokenTranscript ?? req.topic ?? '').trim()
+    const rawCode = (req.languageCode ?? '').trim().toLowerCase()
+    const isAutoDetect = !rawCode || rawCode === 'auto'
+    const languageInstruction = isAutoDetect
+        ? 'AUTO-DETECT directly from the RAW SPOKEN VOICE IDEA above (do NOT force English if the speaker spoke Hinglish, Hindi, or another language). Write topic, audience, coreMessage, and summaryNote in the detected language.'
+        : resolveLanguageInstruction(req)
+
     const vars: Record<string, string> = {
         spokenTranscript,
-        languageInstruction: resolveLanguageInstruction(req),
+        languageInstruction,
         toneHint: (req.tone ?? 'Casual').trim() || 'Casual',
         lengthHint: normalizeLength(req.length),
         platformHint: normalizePlatform(req.platform),
@@ -1182,13 +1204,13 @@ export function buildIdeaEnhancerUserPrompt(
         'RAW SPOKEN VOICE IDEA (from Speech-to-Text):',
         '"{{spokenTranscript}}"',
         '',
-        'PREFERRED LANGUAGE: {{languageInstruction}}',
-        'CURRENT FORM HINTS (optional defaults if the speaker did not specify):',
+        'LANGUAGE MODE: {{languageInstruction}}',
+        'CURRENT FORM HINTS (optional defaults only if the speaker did not specify):',
         '- Tone hint: {{toneHint}}',
         '- Length hint: {{lengthHint}}',
         '- Platform hint: {{platformHint}}',
         '',
-        'Analyze the spoken transcript above and return a clean, structured JSON content brief (topic, audience, coreMessage, suggestedTemplate, suggestedTone, suggestedLength, suggestedPlatform, summaryNote) ready to feed straight into the AI scriptwriter.',
+        'Detect the spoken language from the transcript above, then analyze the idea and return a clean, structured JSON content brief (detectedLanguageCode, detectedLanguageName, detectedScriptStyle, topic, audience, coreMessage, suggestedTemplate, suggestedTone, suggestedLength, suggestedPlatform, summaryNote) written in the detected language and ready to feed straight into the AI scriptwriter.',
     ].join('\n'), vars)
 }
 
@@ -1216,7 +1238,29 @@ export function sanitizeEnhancedIdea(
     const suggestedLength = normalizeLength(raw.suggestedLength || req.length)
     const suggestedPlatform = normalizePlatform(raw.suggestedPlatform || req.platform)
 
+    const rawDetectedCode = (raw.detectedLanguageCode ?? '').trim().toLowerCase()
+    const reqCode = (req.languageCode ?? '').trim().toLowerCase()
+    const detectedLanguageCode = (rawDetectedCode && rawDetectedCode !== 'auto')
+        ? rawDetectedCode
+        : (reqCode && reqCode !== 'auto' ? reqCode : 'en')
+
+    const knownLangName = detectedLanguageCode === 'hinglish'
+        ? 'Hinglish'
+        : detectedLanguageCode === 'tanglish'
+            ? 'Tanglish'
+            : (LANGUAGE_NAME_BY_CODE[detectedLanguageCode]?.name ?? 'English')
+    const detectedLanguageName = cleanField(raw.detectedLanguageName, knownLangName, 40)
+    const detectedScriptStyle: 'spoken_natural' | 'romanized' =
+        raw.detectedScriptStyle === 'romanized' ||
+        detectedLanguageCode === 'hinglish' ||
+        detectedLanguageCode === 'tanglish'
+            ? 'romanized'
+            : 'spoken_natural'
+
     return {
+        detectedLanguageCode,
+        detectedLanguageName,
+        detectedScriptStyle,
         topic: cleanField(raw.topic, fallbackTranscript, 200),
         audience: cleanField(raw.audience, 'Creators and viewers interested in this topic', 200),
         coreMessage: cleanField(raw.coreMessage, fallbackTranscript, 450),
@@ -1230,7 +1274,7 @@ export function sanitizeEnhancedIdea(
             action: 'enhance_idea',
             promptSource: promptMeta?.source ?? 'fallback',
             promptVersion: promptMeta?.version ?? BUILTIN_PROMPT_VERSION,
-            languageCode: req.languageCode || 'en',
+            languageCode: detectedLanguageCode,
         },
     }
 }

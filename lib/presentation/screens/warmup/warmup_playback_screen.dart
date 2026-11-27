@@ -87,12 +87,12 @@ class _WarmupPlaybackScreenState extends State<WarmupPlaybackScreen> {
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
                 child: Container(
+                  width: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppColors.cardSurface,
-                    borderRadius: AppRadii.cardLargeBorder,
-                    border: Border.all(color: AppColors.divider, width: 1.5),
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: _isInitialized
@@ -108,9 +108,11 @@ class _WarmupPlaybackScreenState extends State<WarmupPlaybackScreen> {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              AspectRatio(
-                                aspectRatio: _controller.value.aspectRatio,
-                                child: VideoPlayer(_controller),
+                              Center(
+                                child: AspectRatio(
+                                  aspectRatio: _controller.value.aspectRatio,
+                                  child: VideoPlayer(_controller),
+                                ),
                               ),
                               if (!_controller.value.isPlaying)
                                 Container(

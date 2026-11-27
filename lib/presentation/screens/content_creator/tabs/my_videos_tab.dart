@@ -378,21 +378,19 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.title)),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: const Color(0xFFF7F8F0),
+        title: Text(widget.title),
+      ),
       body: Center(
         child: _isInitialized && _controller != null
-            ? Padding(
-                padding: const EdgeInsets.all(18),
-                child: ClipRRect(
-                  borderRadius: AppRadii.cardLargeBorder,
-                  child: AspectRatio(
-                    aspectRatio: _controller!.value.aspectRatio,
-                    child: VideoPlayer(_controller!),
-                  ),
-                ),
+            ? AspectRatio(
+                aspectRatio: _controller!.value.aspectRatio,
+                child: VideoPlayer(_controller!),
               )
-            : CircularProgressIndicator(color: AppColors.primaryOlive),
+            : const CircularProgressIndicator(color: Color(0xFFF7F8F0)),
       ),
       floatingActionButton: _isInitialized
           ? FloatingActionButton(

@@ -172,7 +172,7 @@ void main() {
       },
     );
 
-    test('honors full 15%..55% display height range without 46% cap', () {
+    test('honors full 15%..90% display height range without 55% cap', () {
       final h15 = TeleprompterScrollMath.computeOverlayHeight(
         containerHeight: 800,
         heightFraction: 0.15,
@@ -181,9 +181,14 @@ void main() {
         containerHeight: 800,
         heightFraction: 0.55,
       );
+      final h90 = TeleprompterScrollMath.computeOverlayHeight(
+        containerHeight: 800,
+        heightFraction: 0.90,
+      );
 
       expect(h15, closeTo(120.0, 0.1));
       expect(h55, closeTo(440.0, 0.1));
+      expect(h90, closeTo(720.0, 0.1));
     });
 
     test('centers active sentence cleanly with smooth proportional duration', () {
@@ -243,6 +248,26 @@ void main() {
           text: 'Kya aapko lagta hai camera confidence practice se aata hai',
         ),
         SpokenLanguage.hinglish,
+      );
+
+      // Voice-to-Script short transcript language detection
+      expect(
+        SpokenLanguageDetector.detectTranscriptLanguage(
+          'chat GPT Kaise kam karta hai',
+        ).code,
+        equals('hinglish'),
+      );
+      expect(
+        SpokenLanguageDetector.detectTranscriptLanguage(
+          'कैमरे के सामने कैसे बोलें',
+        ).code,
+        equals('hi'),
+      );
+      expect(
+        SpokenLanguageDetector.detectTranscriptLanguage(
+          'How to record clean talking head reels',
+        ).code,
+        equals('en'),
       );
     });
   });
@@ -613,6 +638,12 @@ void main() {
         await tester.tap(find.bySemanticsLabel('Disable Text Mirroring'));
         await tester.pump();
         expect(toggledValue, isFalse);
+
+        // Verify teleprompter controls sit BELOW the script text so text sticks near camera lens
+        final scriptTop = tester.getTopLeft(find.byType(SingleChildScrollView)).dy;
+        final controlsTop =
+            tester.getTopLeft(find.bySemanticsLabel('Disable Text Mirroring')).dy;
+        expect(controlsTop, greaterThan(scriptTop));
       },
     );
   });

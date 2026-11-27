@@ -480,7 +480,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
 
       sectionTops[sIdx] =
           secBox.localToGlobal(Offset.zero, ancestor: contentBox).dy +
-          _currentMetrics.topPadding;
+          _lensTopPadding(_currentMetrics);
       final parsed = _matcher.parsedSections[sIdx];
       final painter = TextPainter(
         text: TextSpan(
@@ -752,6 +752,10 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
     );
   }
 
+  /// Zero top padding so the first spoken lines stick right at the top edge
+  /// next to the camera lens for natural eye contact.
+  double _lensTopPadding(TeleprompterMetrics metrics) => 0.0;
+
   @override
   Widget build(BuildContext context) {
     final resolvedTextColor =
@@ -764,7 +768,7 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
         widget.solidBackground
             ? 0.96
             : (widget.opacity * 0.65).clamp(0.06, 0.62);
-    final headerAlpha =
+    final controlsAlpha =
         widget.solidBackground
             ? 1.0
             : (bgAlpha + 0.14).clamp(0.16, 0.72);
@@ -775,32 +779,182 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
         _isVoiceTrackingActive && _voiceStatus != VoiceTrackingState.paused;
     final voicePaused = _voiceStatus == VoiceTrackingState.paused;
 
+    final borderColor =
+        widget.isRecording
+            ? AppColors.error.withValues(alpha: 0.85)
+            : (_isVoiceRehearsing
+                ? const Color(0xFF75D488).withValues(alpha: 0.75)
+                : Colors.white.withValues(alpha: 0.22));
+    final borderWidth = widget.solidBackground ? 0.8 : 1.2;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF121512).withValues(alpha: bgAlpha),
-        borderRadius: BorderRadius.circular(widget.solidBackground ? 0 : 18),
-        border: Border.all(
-          color:
-              widget.isRecording
-                  ? AppColors.error.withValues(alpha: 0.85)
-                  : (_isVoiceRehearsing
-                      ? const Color(0xFF75D488).withValues(alpha: 0.75)
-                      : Colors.white.withValues(alpha: 0.22)),
-          width: widget.solidBackground ? 0.8 : 1.2,
+        borderRadius:
+            widget.solidBackground
+                ? BorderRadius.zero
+                : const BorderRadius.vertical(bottom: Radius.circular(18)),
+        border: Border(
+          left: BorderSide(color: borderColor, width: borderWidth),
+          right: BorderSide(color: borderColor, width: borderWidth),
+          bottom: BorderSide(color: borderColor, width: borderWidth),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header bar with mode switch, Start/Pause/Stop voice controls, & status
+          // Viewport-scaled script body sits FIRST (right near the camera lens)
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, bodyConstraints) {
+                const horizontalPad = 14.0;
+                final innerWidth = math.max(
+                  120.0,
+                  bodyConstraints.maxWidth - (horizontalPad * 2),
+                );
+                final innerHeight = math.max(80.0, bodyConstraints.maxHeight);
+                if ((_lastViewportWidth - innerWidth).abs() > 1.0 ||
+                    (_lastViewportHeight - innerHeight).abs() > 1.0) {
+                  _invalidateSentenceLayoutCache();
+                }
+                _lastViewportWidth = innerWidth;
+                _lastViewportHeight = innerHeight;
+                _refreshMetrics(innerWidth, innerHeight);
+                final metrics = _currentMetrics;
+                final topPad = _lensTopPadding(metrics);
+
+                return Stack(
+                  children: [
+                    // Subtle reading-zone edge markers
+                    Positioned(
+                      top: metrics.focusAnchorY,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 2.5,
+                              decoration: BoxDecoration(
+                                color: pillOliveText.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                height: 0.7,
+                                color: Colors.white.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            Container(
+                              width: 5,
+                              height: 2.5,
+                              decoration: BoxDecoration(
+                                color: pillOliveText.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Scrollable script text with gentle top/bottom fade & touch drag
+                    NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollStartNotification &&
+                            notification.dragDetails != null) {
+                          _isUserDragging = true;
+                        } else if (notification is ScrollEndNotification) {
+                          if (_isUserDragging) {
+                            _isUserDragging = false;
+                            if (_scrollController.hasClients &&
+                                _isVoiceTrackingActive) {
+                              _syncSentenceAnchorFromScrollOffset(
+                                _scrollController.offset,
+                              );
+                            }
+                          }
+                        }
+                        return false;
+                      },
+                      child: ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          return LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white,
+                              Colors.white,
+                              Colors.white.withValues(alpha: 0.0),
+                            ],
+                            stops: const [0.0, 0.84, 1.0],
+                          ).createShader(bounds);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () {
+                            if (_isVoiceTrackingActive) {
+                              if (voiceRunning) {
+                                _pauseVoiceTracking();
+                              } else {
+                                _startVoiceTracking();
+                              }
+                            } else if (widget.isRecording &&
+                                _isFixedSpeedFallbackDriving) {
+                              setState(
+                                () =>
+                                    _isFixedScrollPaused =
+                                        !_isFixedScrollPaused,
+                              );
+                            }
+                          },
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform:
+                                widget.mirrorText
+                                    ? Matrix4.diagonal3Values(-1.0, 1.0, 1.0)
+                                    : Matrix4.identity(),
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: EdgeInsets.fromLTRB(
+                                horizontalPad,
+                                topPad,
+                                horizontalPad,
+                                metrics.bottomPadding,
+                              ),
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                key: _contentColumnKey,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _buildSectionWidgets(
+                                  metrics: metrics,
+                                  resolvedTextColor: resolvedTextColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Container(height: 1.0, color: Colors.white.withValues(alpha: 0.12)),
+          // Teleprompter controls bar docked BELOW the script text so lines stick near lens
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF121512).withValues(alpha: headerAlpha),
+              color: const Color(0xFF121512).withValues(alpha: controlsAlpha),
               borderRadius:
                   widget.solidBackground
                       ? BorderRadius.zero
-                      : const BorderRadius.vertical(top: Radius.circular(17)),
+                      : const BorderRadius.vertical(
+                        bottom: Radius.circular(17),
+                      ),
             ),
             child: Row(
               children: [
@@ -1019,147 +1173,6 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
                   ),
                 ),
               ],
-            ),
-          ),
-          Container(height: 1.0, color: Colors.white.withValues(alpha: 0.12)),
-          // Viewport-scaled script body
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, bodyConstraints) {
-                const horizontalPad = 14.0;
-                final innerWidth = math.max(
-                  120.0,
-                  bodyConstraints.maxWidth - (horizontalPad * 2),
-                );
-                final innerHeight = math.max(80.0, bodyConstraints.maxHeight);
-                if ((_lastViewportWidth - innerWidth).abs() > 1.0 ||
-                    (_lastViewportHeight - innerHeight).abs() > 1.0) {
-                  _invalidateSentenceLayoutCache();
-                }
-                _lastViewportWidth = innerWidth;
-                _lastViewportHeight = innerHeight;
-                _refreshMetrics(innerWidth, innerHeight);
-                final metrics = _currentMetrics;
-
-                return Stack(
-                  children: [
-                    // Subtle centered reading-zone edge markers
-                    Positioned(
-                      top: metrics.focusAnchorY,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 5,
-                              height: 2.5,
-                              decoration: BoxDecoration(
-                                color: pillOliveText.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                height: 0.7,
-                                color: Colors.white.withValues(alpha: 0.10),
-                              ),
-                            ),
-                            Container(
-                              width: 5,
-                              height: 2.5,
-                              decoration: BoxDecoration(
-                                color: pillOliveText.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Scrollable script text with top/bottom fade & touch drag
-                    NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification is ScrollStartNotification &&
-                            notification.dragDetails != null) {
-                          _isUserDragging = true;
-                        } else if (notification is ScrollEndNotification) {
-                          if (_isUserDragging) {
-                            _isUserDragging = false;
-                            if (_scrollController.hasClients &&
-                                _isVoiceTrackingActive) {
-                              _syncSentenceAnchorFromScrollOffset(
-                                _scrollController.offset,
-                              );
-                            }
-                          }
-                        }
-                        return false;
-                      },
-                      child: ShaderMask(
-                        shaderCallback: (Rect bounds) {
-                          return LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.82),
-                              Colors.white,
-                              Colors.white,
-                              Colors.white.withValues(alpha: 0.0),
-                            ],
-                            stops: const [0.0, 0.10, 0.82, 1.0],
-                          ).createShader(bounds);
-                        },
-                        blendMode: BlendMode.dstIn,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTap: () {
-                            if (_isVoiceTrackingActive) {
-                              if (voiceRunning) {
-                                _pauseVoiceTracking();
-                              } else {
-                                _startVoiceTracking();
-                              }
-                            } else if (widget.isRecording &&
-                                _isFixedSpeedFallbackDriving) {
-                              setState(
-                                () =>
-                                    _isFixedScrollPaused =
-                                        !_isFixedScrollPaused,
-                              );
-                            }
-                          },
-                          child: Transform(
-                            alignment: Alignment.center,
-                            transform:
-                                widget.mirrorText
-                                    ? Matrix4.diagonal3Values(-1.0, 1.0, 1.0)
-                                    : Matrix4.identity(),
-                            child: SingleChildScrollView(
-                              controller: _scrollController,
-                              padding: EdgeInsets.fromLTRB(
-                                horizontalPad,
-                                metrics.topPadding,
-                                horizontalPad,
-                                metrics.bottomPadding,
-                              ),
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                key: _contentColumnKey,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: _buildSectionWidgets(
-                                  metrics: metrics,
-                                  resolvedTextColor: resolvedTextColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
             ),
           ),
         ],

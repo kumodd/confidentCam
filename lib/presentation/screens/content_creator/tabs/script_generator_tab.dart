@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/spoken_language_detector.dart';
 import '../../../../data/datasources/remote/supabase_language_datasource.dart';
 import '../../../../domain/entities/content_script.dart';
 import '../../../../domain/entities/onboarding_data.dart';
@@ -127,12 +128,26 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
             if (_platformOptions.containsKey(idea.suggestedPlatform)) {
               _selectedPlatform = idea.suggestedPlatform;
             }
+            // Automatically sync the form language selector to the detected spoken language
+            final detectedCode = idea.detectedLanguageCode.toLowerCase();
+            final matchedLang = _languageOptions.cast<LanguageOption?>().firstWhere(
+              (o) =>
+                  o != null &&
+                  (o.code.toLowerCase() == detectedCode ||
+                      o.name.toLowerCase() ==
+                          idea.detectedLanguageName.toLowerCase()),
+              orElse: () => null,
+            );
+            if (matchedLang != null) {
+              _selectedLanguage = matchedLang;
+            }
+            _romanizedScript = idea.detectedScriptStyle == 'romanized';
           });
           if (!state.autoGenerating) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'Voice idea structured! Review or tap Generate Script.',
+                  'Detected ${idea.detectedLanguageName} • Voice idea structured! Review or tap Generate Script.',
                 ),
               ),
             );
@@ -452,7 +467,7 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Prefer to write your own? Create a custom 3-part teleprompter script from scratch.',
+                      'Prefer to write your own? Add a title and script for the teleprompter.',
                       style: AppTypography.body(fontSize: 13.5),
                     ),
                     const SizedBox(height: 14),
@@ -521,16 +536,16 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
                                 style: AppTypography.sectionTitle(fontSize: 16.5),
                               ),
                             ),
-                            const OlivePillBadge(label: 'Voice AI'),
+                            const OlivePillBadge(label: 'Auto-Lang AI'),
                           ],
                         ),
                         const SizedBox(height: 3),
                         Text(
                           isEnhancing
-                              ? 'AI is turning your spoken note into a structured brief...'
+                              ? 'Detecting language & structuring your idea...'
                               : isGenerating
                                   ? 'Writing your polished teleprompter script...'
-                                  : 'Talk for a few seconds — AI expands your idea and writes the script.',
+                                  : 'Speak in any language — AI detects it, expands your idea, and writes the script.',
                           style: AppTypography.body(fontSize: 12.5),
                         ),
                       ],
@@ -586,9 +601,7 @@ class _ScriptGeneratorTabState extends State<ScriptGeneratorTab> {
             value: bloc,
             child: _VoiceIdeaSheet(
               userId: widget.userId,
-              languageName: lang?.name ?? 'English',
-              languageCode: lang?.code ?? 'en',
-              scriptStyle: _romanizedScript ? 'romanized' : 'spoken_natural',
+              fallbackLanguageCode: lang?.code ?? 'en',
               toneHint: _selectedTone,
               lengthHint: _selectedLength,
               platformHint: _selectedPlatform,
@@ -1087,17 +1100,13 @@ class _CustomScriptSheet extends StatefulWidget {
 
 class _CustomScriptSheetState extends State<_CustomScriptSheet> {
   final _titleController = TextEditingController();
-  final _hookController = TextEditingController();
-  final _bodyController = TextEditingController();
-  final _closeController = TextEditingController();
+  final _scriptController = TextEditingController();
   static const _uuid = Uuid();
 
   @override
   void dispose() {
     _titleController.dispose();
-    _hookController.dispose();
-    _bodyController.dispose();
-    _closeController.dispose();
+    _scriptController.dispose();
     super.dispose();
   }
 
@@ -1138,8 +1147,16 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final words =
+        _scriptController.text
+            .trim()
+            .split(RegExp(r'\s+'))
+            .where((w) => w.isNotEmpty)
+            .length;
+    final estSec = words == 0 ? 0 : ((words / 140) * 60).round().clamp(5, 3600);
+
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.9,
+      height: MediaQuery.of(context).size.height * 0.88,
       child: Padding(
         padding: EdgeInsets.only(
           left: 22,
@@ -1171,7 +1188,7 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Write your own 3-part script for the teleprompter',
+              'Write or paste your script for the teleprompter',
               style: AppTypography.body(fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -1180,7 +1197,7 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('SCRIPT TITLE'),
+                    _buildLabel('TITLE'),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _titleController,
@@ -1189,37 +1206,26 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
                         hintText: 'e.g., My Morning Routine Tips',
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildLabel('PART 1: HOOK / OPENING (20-40 WORDS)'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _hookController,
-                      style: AppTypography.bodyStrong(),
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Start with a hook that grabs attention...',
-                      ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildLabel('SCRIPT'),
+                        if (words > 0)
+                          OlivePillBadge(label: '$words words • ~${estSec}s'),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildLabel('PART 2: CONTENT / BODY (80-150 WORDS)'),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: _bodyController,
+                      controller: _scriptController,
+                      onChanged: (_) => setState(() {}),
                       style: AppTypography.bodyStrong(),
-                      maxLines: 6,
+                      minLines: 8,
+                      maxLines: 14,
                       decoration: const InputDecoration(
-                        hintText: 'Deliver your main value here...',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildLabel('PART 3: CLOSE / ENDING (20-40 WORDS)'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _closeController,
-                      style: AppTypography.bodyStrong(),
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'End with **key takeaway**...',
+                        hintText:
+                            'Write or paste your full teleprompter script here...',
+                        alignLabelWithHint: true,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -1267,13 +1273,11 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   final title = _titleController.text.trim();
-                  final hook = _hookController.text.trim();
-                  if (title.isEmpty || hook.isEmpty) {
+                  final scriptBody = _scriptController.text.trim();
+                  if (title.isEmpty || scriptBody.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          'Please fill in title and at least the hook',
-                        ),
+                        content: Text('Please enter both a title and script'),
                       ),
                     );
                     return;
@@ -1284,9 +1288,9 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
                     id: _uuid.v4(),
                     userId: widget.userId,
                     title: title,
-                    part1: hook,
-                    part2: _bodyController.text.trim(),
-                    part3: _closeController.text.trim(),
+                    part1: scriptBody,
+                    part2: '',
+                    part3: '',
                     promptTemplate: 'custom',
                     questionnaire: null,
                     createdAt: now,
@@ -1317,22 +1321,18 @@ class _CustomScriptSheetState extends State<_CustomScriptSheet> {
 }
 
 /// Bottom sheet that captures a short spoken video idea via on-device STT,
-/// lets the user review or refine the transcript, and triggers AI brief
-/// expansion + optional immediate full script generation.
+/// automatically detects the spoken language from the voice/transcript,
+/// and triggers AI brief expansion + full script generation in that language.
 class _VoiceIdeaSheet extends StatefulWidget {
   final String userId;
-  final String languageName;
-  final String languageCode;
-  final String scriptStyle;
+  final String fallbackLanguageCode;
   final String toneHint;
   final String lengthHint;
   final String platformHint;
 
   const _VoiceIdeaSheet({
     required this.userId,
-    required this.languageName,
-    required this.languageCode,
-    required this.scriptStyle,
+    required this.fallbackLanguageCode,
     required this.toneHint,
     required this.lengthHint,
     required this.platformHint,
@@ -1351,6 +1351,7 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
   bool _sttInitialized = false;
   int _elapsedSeconds = 0;
   String? _statusMessage;
+  String _detectedLanguageBadge = 'Auto-Detect';
 
   @override
   void initState() {
@@ -1366,12 +1367,17 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
     super.dispose();
   }
 
-  String _sttLocaleForCode(String code) {
-    switch (code.toLowerCase()) {
+  void _refreshDetectedLanguageBadge() {
+    final detected = SpokenLanguageDetector.detectTranscriptLanguage(
+      _transcriptController.text,
+    );
+    _detectedLanguageBadge = detected.name;
+  }
+
+  String _sttLocaleForAutoCapture() {
+    switch (widget.fallbackLanguageCode.toLowerCase()) {
       case 'hi':
         return 'hi_IN';
-      case 'hinglish':
-        return 'en_IN';
       case 'ta':
       case 'tanglish':
         return 'ta_IN';
@@ -1390,7 +1396,9 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
       case 'pa':
         return 'pa_IN';
       default:
-        return 'en_US';
+        // en_IN handles both pure English and Romanized Hindi/Hinglish speech
+        // accurately without truncating Hinglish words.
+        return 'en_IN';
     }
   }
 
@@ -1439,7 +1447,7 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
     setState(() {
       _isListening = true;
       _elapsedSeconds = 0;
-      _statusMessage = 'Listening... describe your topic in a few seconds';
+      _statusMessage = 'Listening... speak in any language (EN / Hindi / Hinglish)';
     });
 
     _elapsedTimer?.cancel();
@@ -1458,7 +1466,7 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
 
     await _stt.listen(
       listenOptions: SpeechListenOptions(
-        localeId: _sttLocaleForCode(widget.languageCode),
+        localeId: _sttLocaleForAutoCapture(),
         listenFor: const Duration(seconds: 45),
         pauseFor: const Duration(seconds: 4),
         partialResults: true,
@@ -1473,6 +1481,7 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
             _transcriptController.selection = TextSelection.collapsed(
               offset: _transcriptController.text.length,
             );
+            _refreshDetectedLanguageBadge();
           });
         }
       },
@@ -1485,9 +1494,10 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
     if (mounted) {
       setState(() {
         _isListening = false;
+        _refreshDetectedLanguageBadge();
         _statusMessage =
             _transcriptController.text.trim().isNotEmpty
-                ? 'Ready! AI will sharpen this into a full brief & script.'
+                ? 'Detected $_detectedLanguageBadge • AI will structure & script it.'
                 : 'Tap the mic and speak your video idea.';
       });
     }
@@ -1504,13 +1514,16 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
       return;
     }
     _stopListening();
+    final detected = SpokenLanguageDetector.detectTranscriptLanguage(transcript);
     context.read<ContentCreatorBloc>().add(
       EnhanceSpokenIdea(
         userId: widget.userId,
         transcript: transcript,
-        language: widget.languageName,
-        languageCode: widget.languageCode,
-        scriptStyle: widget.scriptStyle,
+        language: detected.name,
+        // Always pass 'auto' so the AI backend inspects the transcript itself
+        // and generates the brief & script in the true spoken language.
+        languageCode: 'auto',
+        scriptStyle: detected.scriptStyle,
         toneHint: widget.toneHint,
         lengthHint: widget.lengthHint,
         platformHint: widget.platformHint,
@@ -1553,11 +1566,11 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Voice-to-Script Idea',
+                    'Voice-to-Script',
                     style: AppTypography.headingMedium(fontSize: 19),
                   ),
                 ),
-                OlivePillBadge(label: widget.languageName),
+                OlivePillBadge(label: _detectedLanguageBadge),
                 IconButton(
                   icon: Icon(
                     Icons.close_rounded,
@@ -1570,7 +1583,7 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
             const SizedBox(height: 4),
             Text(
               _statusMessage ??
-                  'Speak casually for a few seconds — AI cleans, structures, and scripts it.',
+                  'Speak in any language — AI detects it, enhances your brief, and writes the script.',
               style: AppTypography.body(fontSize: 13),
             ),
             const SizedBox(height: 18),
@@ -1648,7 +1661,10 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
                 if (_transcriptController.text.isNotEmpty)
                   GestureDetector(
                     onTap: () {
-                      setState(() => _transcriptController.clear());
+                      setState(() {
+                        _transcriptController.clear();
+                        _refreshDetectedLanguageBadge();
+                      });
                     },
                     child: Text(
                       'Clear',
@@ -1664,11 +1680,11 @@ class _VoiceIdeaSheetState extends State<_VoiceIdeaSheet> {
             TextField(
               controller: _transcriptController,
               maxLines: 4,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(_refreshDetectedLanguageBadge),
               style: AppTypography.bodyStrong(fontSize: 14),
               decoration: InputDecoration(
                 hintText:
-                    'e.g., "Make a quick reel about why beginners feel awkward hearing their own voice and one easy trick to get past it"',
+                    'e.g., "ChatGPT kaise kaam karta hai" or "3 tips to beat camera shyness"',
                 fillColor: AppColors.cardSurface,
               ),
             ),

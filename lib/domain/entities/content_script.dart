@@ -206,6 +206,9 @@ class EnhancedScriptIdea extends Equatable {
   final String suggestedTone;
   final String suggestedLength;
   final String suggestedPlatform;
+  final String detectedLanguageCode;
+  final String detectedLanguageName;
+  final String detectedScriptStyle;
   final String summaryNote;
 
   const EnhancedScriptIdea({
@@ -217,6 +220,9 @@ class EnhancedScriptIdea extends Equatable {
     required this.suggestedTone,
     required this.suggestedLength,
     required this.suggestedPlatform,
+    this.detectedLanguageCode = 'en',
+    this.detectedLanguageName = 'English',
+    this.detectedScriptStyle = 'spoken_natural',
     this.summaryNote = '',
   });
 
@@ -230,6 +236,9 @@ class EnhancedScriptIdea extends Equatable {
     suggestedTone,
     suggestedLength,
     suggestedPlatform,
+    detectedLanguageCode,
+    detectedLanguageName,
+    detectedScriptStyle,
     summaryNote,
   ];
 }

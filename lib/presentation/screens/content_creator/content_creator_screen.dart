@@ -89,49 +89,64 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
         child: ContentCreatorTabController(
           tabController: _tabController,
           isRecordingNotifier: _isRecordingNotifier,
-          child: Scaffold(
-            backgroundColor: AppColors.background,
-            resizeToAvoidBottomInset: _tabController.index == 0,
-            body: SafeArea(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _isRecordingNotifier,
-                builder: (context, isRecording, child) {
-                  final isLandscape =
-                      MediaQuery.of(context).orientation ==
-                      Orientation.landscape;
-                  final hideChrome =
-                      isRecording ||
-                      (isLandscape && _tabController.index == 2);
-                  return Column(
-                    children: [
-                      if (!hideChrome) _buildHeader(context),
-                      if (!hideChrome) _buildTabBar(),
-                      Expanded(
-                        child: BlocBuilder<
-                          ContentCreatorBloc,
-                          ContentCreatorState
-                        >(
-                          builder: (context, state) {
-                            return TabBarView(
-                              controller: _tabController,
-                              physics: isRecording
-                                  ? const NeverScrollableScrollPhysics()
-                                  : const ScrollPhysics(),
-                              children: [
-                                ScriptGeneratorTab(userId: widget.userId),
-                                MyScriptsTab(userId: widget.userId),
-                                RecordTab(userId: widget.userId),
-                                MyVideosTab(userId: widget.userId),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  );
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _isRecordingNotifier,
+            builder: (context, isRecording, child) {
+              // Use the entire edge-to-edge display on the Record tab (both pre-record
+              // and while recording) so it feels like a native camera app with
+              // 100% consistent framing before and during capture.
+              final isFullScreenCamera =
+                  isRecording || _tabController.index == 2;
+
+              return PopScope(
+                canPop: !isFullScreenCamera,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (didPop) return;
+                  if (!isRecording && _tabController.index == 2) {
+                    _tabController.animateTo(1);
+                  }
                 },
-              ),
-            ),
+                child: Scaffold(
+                  backgroundColor:
+                      isFullScreenCamera ? Colors.black : AppColors.background,
+                  resizeToAvoidBottomInset: _tabController.index == 0,
+                  body: SafeArea(
+                    top: !isFullScreenCamera,
+                    bottom: !isFullScreenCamera,
+                    left: !isFullScreenCamera,
+                    right: !isFullScreenCamera,
+                    child: Column(
+                      children: [
+                        if (!isFullScreenCamera) _buildHeader(context),
+                        if (!isFullScreenCamera) _buildTabBar(),
+                        Expanded(
+                          child: BlocBuilder<
+                            ContentCreatorBloc,
+                            ContentCreatorState
+                          >(
+                            builder: (context, state) {
+                              return TabBarView(
+                                controller: _tabController,
+                                physics:
+                                    isFullScreenCamera
+                                        ? const NeverScrollableScrollPhysics()
+                                        : const ScrollPhysics(),
+                                children: [
+                                  ScriptGeneratorTab(userId: widget.userId),
+                                  MyScriptsTab(userId: widget.userId),
+                                  RecordTab(userId: widget.userId),
+                                  MyVideosTab(userId: widget.userId),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -144,10 +159,7 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
       child: Row(
         children: [
           IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: AppColors.primaryText,
-            ),
+            icon: Icon(Icons.arrow_back_rounded, color: AppColors.primaryText),
             onPressed: () => Navigator.of(context).pop(),
           ),
           const SizedBox(width: 4),
@@ -166,10 +178,7 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
               ],
             ),
           ),
-          OlivePillBadge(
-            label: 'AI Studio',
-            icon: Icons.auto_awesome_outlined,
-          ),
+          OlivePillBadge(label: 'AI Studio', icon: Icons.auto_awesome_outlined),
         ],
       ),
     );
@@ -213,10 +222,7 @@ class _ContentCreatorScreenState extends State<ContentCreatorScreen>
             icon: Icon(Icons.description_outlined, size: 18),
             text: 'Scripts',
           ),
-          Tab(
-            icon: Icon(Icons.videocam_outlined, size: 18),
-            text: 'Record',
-          ),
+          Tab(icon: Icon(Icons.videocam_outlined, size: 18), text: 'Record'),
           Tab(
             icon: Icon(Icons.video_library_outlined, size: 18),
             text: 'Videos',

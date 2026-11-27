@@ -399,10 +399,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               title: 'Display Height',
                               value: (settings.teleprompterHeight * 100).clamp(
                                 15.0,
-                                55.0,
+                                90.0,
                               ),
                               min: 15,
-                              max: 55,
+                              max: 90,
                               suffix: '%',
                               onChanged: (v) {
                                 context.read<SettingsBloc>().add(

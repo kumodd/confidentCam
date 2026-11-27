@@ -304,6 +304,37 @@ class SpokenLanguageDetector {
     'zarurat',
     'log',
     'karte',
+    'karta',
+    'karti',
+    'kaam',
+    'kam',
+    'kyun',
+    'kyu',
+    'banao',
+    'banana',
+    'batana',
+    'batao',
+    'mujhe',
+    'tum',
+    'tumhe',
+    'tumhara',
+    'tumhari',
+    'subah',
+    'raat',
+    'wala',
+    'wali',
+    'sakta',
+    'sakti',
+    'chahiye',
+    'matlab',
+    'se',
+    'ke',
+    'ki',
+    'ko',
+    'par',
+    'ek',
+    'sab',
+    'bas',
     'jaata',
     'aati',
   };
@@ -429,5 +460,97 @@ class SpokenLanguageDetector {
       return const ['en-IN', 'hi-IN', 'en-US'];
     }
     return const ['en-US', 'en-IN', 'hi-IN'];
+  }
+
+  /// Lightweight deterministic language detection for short Voice-to-Script
+  /// transcripts (used for live badge feedback & fallback if backend omits
+  /// language metadata).
+  static ({String code, String name, String scriptStyle})
+  detectTranscriptLanguage(String transcript) {
+    final trimmed = transcript.trim();
+    if (trimmed.isEmpty) {
+      return (code: 'auto', name: 'Auto-Detect', scriptStyle: 'spoken_natural');
+    }
+
+    // Unicode script checks for Indian & major non-Latin scripts
+    var devanagari = 0;
+    var tamil = 0;
+    var telugu = 0;
+    var bengali = 0;
+    var gujarati = 0;
+    var kannada = 0;
+    var malayalam = 0;
+    var gurmukhi = 0;
+    var arabic = 0;
+
+    for (final r in trimmed.runes) {
+      if (r >= 0x0900 && r <= 0x097F) {
+        devanagari++;
+      } else if (r >= 0x0B80 && r <= 0x0BFF) {
+        tamil++;
+      } else if (r >= 0x0C00 && r <= 0x0C7F) {
+        telugu++;
+      } else if (r >= 0x0980 && r <= 0x09FF) {
+        bengali++;
+      } else if (r >= 0x0A80 && r <= 0x0AFF) {
+        gujarati++;
+      } else if (r >= 0x0C80 && r <= 0x0CFF) {
+        kannada++;
+      } else if (r >= 0x0D00 && r <= 0x0D7F) {
+        malayalam++;
+      } else if (r >= 0x0A00 && r <= 0x0A7F) {
+        gurmukhi++;
+      } else if (r >= 0x0600 && r <= 0x06FF) {
+        arabic++;
+      }
+    }
+
+    if (devanagari >= 2) {
+      return (code: 'hi', name: 'Hindi', scriptStyle: 'spoken_natural');
+    }
+    if (tamil >= 2) {
+      return (code: 'ta', name: 'Tamil', scriptStyle: 'spoken_natural');
+    }
+    if (telugu >= 2) {
+      return (code: 'te', name: 'Telugu', scriptStyle: 'spoken_natural');
+    }
+    if (bengali >= 2) {
+      return (code: 'bn', name: 'Bengali', scriptStyle: 'spoken_natural');
+    }
+    if (gujarati >= 2) {
+      return (code: 'gu', name: 'Gujarati', scriptStyle: 'spoken_natural');
+    }
+    if (kannada >= 2) {
+      return (code: 'kn', name: 'Kannada', scriptStyle: 'spoken_natural');
+    }
+    if (malayalam >= 2) {
+      return (code: 'ml', name: 'Malayalam', scriptStyle: 'spoken_natural');
+    }
+    if (gurmukhi >= 2) {
+      return (code: 'pa', name: 'Punjabi', scriptStyle: 'spoken_natural');
+    }
+    if (arabic >= 2) {
+      return (code: 'ar', name: 'Arabic', scriptStyle: 'spoken_natural');
+    }
+
+    // Check for Romanized Hindi / Hinglish markers (even 2+ markers in short phrases
+    // like "chat GPT Kaise kam karta hai" clearly indicate Hinglish)
+    final tokens = trimmed
+        .toLowerCase()
+        .split(RegExp(r'[\s,.\?!;:\-\(\)\[\]"]+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    var romanHindiHits = 0;
+    for (final t in tokens) {
+      if (_romanHindiMarkers.contains(t)) {
+        romanHindiHits++;
+      }
+    }
+    if (romanHindiHits >= 2 ||
+        (romanHindiHits >= 1 && tokens.length <= 4)) {
+      return (code: 'hinglish', name: 'Hinglish', scriptStyle: 'romanized');
+    }
+
+    return (code: 'en', name: 'English', scriptStyle: 'spoken_natural');
   }
 }

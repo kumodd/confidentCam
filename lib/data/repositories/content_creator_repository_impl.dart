@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/logger.dart';
+import '../../core/utils/spoken_language_detector.dart';
 import '../../domain/entities/content_script.dart';
 import '../../domain/repositories/content_creator_repository.dart';
 import '../datasources/local/hive_content_scripts_datasource.dart';
@@ -320,16 +321,17 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
         );
       }
 
+      final trimmedCode = languageCode?.trim().toLowerCase() ?? '';
       final resolvedLangCode =
-          (languageCode != null && languageCode.trim().isNotEmpty)
-              ? languageCode.trim().toLowerCase()
-              : _inferLanguageCode(languageText ?? 'en');
+          trimmedCode.isEmpty || trimmedCode == 'auto' ? 'auto' : trimmedCode;
 
       final payload = await _invokeGenerateEdge({
         'action': 'enhance_idea',
         'spokenTranscript': cleanTranscript,
         'languageCode': resolvedLangCode,
-        if (languageText != null && languageText.trim().isNotEmpty)
+        if (resolvedLangCode != 'auto' &&
+            languageText != null &&
+            languageText.trim().isNotEmpty)
           'languageText': languageText.trim(),
         if (toneHint != null && toneHint.trim().isNotEmpty) 'tone': toneHint,
         if (lengthHint != null && lengthHint.trim().isNotEmpty)
@@ -345,6 +347,29 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
       final coreMessage =
           (payload['coreMessage'] as String?)?.trim() ?? cleanTranscript;
 
+      final localDetected = SpokenLanguageDetector.detectTranscriptLanguage(
+        cleanTranscript,
+      );
+      final rawLangCode =
+          (payload['detectedLanguageCode'] as String?)?.trim().toLowerCase();
+      final detectedLangCode =
+          (rawLangCode != null && rawLangCode.isNotEmpty && rawLangCode != 'auto')
+              ? rawLangCode
+              : (localDetected.code == 'auto' ? 'en' : localDetected.code);
+      final rawLangName = (payload['detectedLanguageName'] as String?)?.trim();
+      final detectedLangName =
+          (rawLangName != null && rawLangName.isNotEmpty)
+              ? rawLangName
+              : (localDetected.code == 'auto' ? 'English' : localDetected.name);
+      final rawScriptStyle =
+          (payload['detectedScriptStyle'] as String?)?.trim().toLowerCase();
+      final detectedScriptStyle =
+          rawScriptStyle == 'romanized' ||
+                  detectedLangCode == 'hinglish' ||
+                  detectedLangCode == 'tanglish'
+              ? 'romanized'
+              : 'spoken_natural';
+
       final idea = EnhancedScriptIdea(
         rawTranscript: cleanTranscript,
         topic: topic,
@@ -358,6 +383,9 @@ class ContentCreatorRepositoryImpl implements ContentCreatorRepository {
             (payload['suggestedLength'] as String?)?.trim() ?? 'medium',
         suggestedPlatform:
             (payload['suggestedPlatform'] as String?)?.trim() ?? 'reels_shorts',
+        detectedLanguageCode: detectedLangCode,
+        detectedLanguageName: detectedLangName,
+        detectedScriptStyle: detectedScriptStyle,
         summaryNote: (payload['summaryNote'] as String?)?.trim() ?? '',
       );
 

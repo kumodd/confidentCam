@@ -101,20 +101,20 @@ class TeleprompterScrollMath {
   }
 
   /// Computes the teleprompter overlay pixel height for a parent viewport
-  /// height and user height fraction (`0.15` to `0.55`).
+  /// height and user height fraction (`0.15` to `0.90`).
   static double computeOverlayHeight({
     required double containerHeight,
     required double heightFraction,
-    double topInset = 58.0,
-    double bottomReserve = 126.0,
+    double topInset = 0.0,
+    double bottomReserve = 38.0,
   }) {
-    final clampedFraction = heightFraction.clamp(0.15, 0.55);
+    final clampedFraction = heightFraction.clamp(0.15, 0.90);
     final maxAllowed = math.max(
       120.0,
       containerHeight - topInset - bottomReserve,
     );
     final desired = containerHeight * clampedFraction;
-    return desired.clamp(120.0, math.min(containerHeight * 0.55, maxAllowed));
+    return desired.clamp(120.0, math.min(containerHeight * 0.90, maxAllowed));
   }
 
   /// Computes full teleprompter metrics including mathematically scaled

@@ -118,7 +118,7 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
   void initState() {
     super.initState();
     _currentSpeed = widget.initialSpeed.clamp(0.5, 3.0);
-    _currentHeight = widget.initialHeight.clamp(0.15, 0.55);
+    _currentHeight = widget.initialHeight.clamp(0.15, 0.90);
     _currentOpacity = widget.initialOpacity.clamp(0.10, 0.85);
     _currentFontSizeKey =
         AppConstants.fontSizeMap.containsKey(widget.initialFontSizeKey)
@@ -584,9 +584,9 @@ class _TeleprompterSettingsSheetState extends State<TeleprompterSettingsSheet> {
                         const Divider(height: 14),
                         _buildSliderRow(
                           label: 'OVERLAY DISPLAY HEIGHT',
-                          value: (_currentHeight * 100).clamp(15.0, 55.0),
+                          value: (_currentHeight * 100).clamp(15.0, 90.0),
                           min: 15,
-                          max: 55,
+                          max: 90,
                           suffix: '%',
                           onChanged: (v) {
                             setState(() => _currentHeight = v / 100);

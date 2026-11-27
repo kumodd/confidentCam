@@ -68,9 +68,10 @@ class ContentCreatorBloc
     Emitter<ContentCreatorState> emit,
   ) async {
     _currentUserId = event.userId;
-    final previousLoaded = state is ContentCreatorLoaded
-        ? state as ContentCreatorLoaded
-        : _lastLoadedState;
+    final previousLoaded =
+        state is ContentCreatorLoaded
+            ? state as ContentCreatorLoaded
+            : _lastLoadedState;
     emit(ScriptGenerating(event.template));
 
     final result = await repository.generateScript(
@@ -141,12 +142,11 @@ class ContentCreatorBloc
     RefineScript event,
     Emitter<ContentCreatorState> emit,
   ) async {
-    final previousLoaded = state is ContentCreatorLoaded
-        ? state as ContentCreatorLoaded
-        : _lastLoadedState;
-    emit(
-      ScriptRefining(script: event.script, instruction: event.instruction),
-    );
+    final previousLoaded =
+        state is ContentCreatorLoaded
+            ? state as ContentCreatorLoaded
+            : _lastLoadedState;
+    emit(ScriptRefining(script: event.script, instruction: event.instruction));
 
     final result = await repository.refineScript(
       script: event.script,
@@ -170,21 +170,24 @@ class ContentCreatorBloc
           (_) {
             if (previousLoaded != null) {
               final updated = previousLoaded.copyWith(
-                scripts: previousLoaded.scripts
-                    .map((s) => s.id == refined.id ? refined : s)
-                    .toList(),
-                selectedScript: previousLoaded.selectedScript?.id == refined.id
-                    ? refined
-                    : previousLoaded.selectedScript,
+                scripts:
+                    previousLoaded.scripts
+                        .map((s) => s.id == refined.id ? refined : s)
+                        .toList(),
+                selectedScript:
+                    previousLoaded.selectedScript?.id == refined.id
+                        ? refined
+                        : previousLoaded.selectedScript,
               );
               _lastLoadedState = updated;
               emit(updated);
             }
           },
           (scripts) {
-            final selected = previousLoaded?.selectedScript?.id == refined.id
-                ? refined
-                : previousLoaded?.selectedScript;
+            final selected =
+                previousLoaded?.selectedScript?.id == refined.id
+                    ? refined
+                    : previousLoaded?.selectedScript;
             final loaded = ContentCreatorLoaded(
               scripts: scripts,
               videos: videos,
@@ -237,7 +240,7 @@ class ContentCreatorBloc
         }
 
         // Seamless voice-to-script workflow: immediately generate full script
-        // from the AI-enhanced structured brief!
+        // in the AUTOMATICALLY DETECTED spoken language!
         emit(ScriptGenerating(idea.suggestedTemplate));
         final scriptResult = await repository.generateScript(
           userId: event.userId,
@@ -245,12 +248,12 @@ class ContentCreatorBloc
           audience: idea.audience,
           message: idea.coreMessage,
           tone: idea.suggestedTone,
-          language: event.language,
-          languageCode: event.languageCode,
+          language: idea.detectedLanguageName,
+          languageCode: idea.detectedLanguageCode,
           template: idea.suggestedTemplate,
           length: idea.suggestedLength,
           platform: idea.suggestedPlatform,
-          scriptStyle: event.scriptStyle,
+          scriptStyle: idea.detectedScriptStyle,
         );
 
         await scriptResult.fold(
