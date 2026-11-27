@@ -752,9 +752,9 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
     );
   }
 
-  /// Zero top padding so the first spoken lines stick right at the top edge
-  /// next to the camera lens for natural eye contact.
-  double _lensTopPadding(TeleprompterMetrics metrics) => 0.0;
+  /// Minimal top padding so the first spoken lines stay right below the
+  /// camera lens / notch clearance without clipping ascenders.
+  double _lensTopPadding(TeleprompterMetrics metrics) => 6.0;
 
   @override
   Widget build(BuildContext context) {
@@ -790,15 +790,8 @@ class _TeleprompterWidgetState extends State<TeleprompterWidget>
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF121512).withValues(alpha: bgAlpha),
-        borderRadius:
-            widget.solidBackground
-                ? BorderRadius.zero
-                : const BorderRadius.vertical(bottom: Radius.circular(18)),
-        border: Border(
-          left: BorderSide(color: borderColor, width: borderWidth),
-          right: BorderSide(color: borderColor, width: borderWidth),
-          bottom: BorderSide(color: borderColor, width: borderWidth),
-        ),
+        borderRadius: BorderRadius.circular(widget.solidBackground ? 0 : 18),
+        border: Border.all(color: borderColor, width: borderWidth),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

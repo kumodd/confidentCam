@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show DisplayFeatureType;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -1081,8 +1083,8 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
               child: Container(
                 color: const Color(0xFF0E100E),
                 padding: EdgeInsets.fromLTRB(
-                  mediaPad.left,
-                  0,
+                  mediaPad.left + 4.0,
+                  mediaPad.top + 4.0,
                   0,
                   mediaPad.bottom,
                 ),
@@ -1096,8 +1098,8 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
       );
     }
 
-    // Portrait Split: ZERO top padding so script sticks flush at the very top
-    // edge next to the front camera lens!
+    // Portrait Split: dark background extends behind the notch seamlessly while
+    // teleprompter text starts cleanly right below the physical camera cutout.
     return Container(
       color: Colors.black,
       child: Column(
@@ -1107,6 +1109,12 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
             flex: scriptFlex,
             child: Container(
               color: const Color(0xFF0E100E),
+              padding: EdgeInsets.fromLTRB(
+                mediaPad.left,
+                mediaPad.top + 4.0,
+                mediaPad.right,
+                0,
+              ),
               child: _buildTeleprompter(solidBackground: true),
             ),
           ),
@@ -1122,9 +1130,9 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
     required bool isLandscape,
     required EdgeInsets mediaPad,
   }) {
-    // ZERO top margin so the teleprompter text sticks flush at the top edge
-    // directly next to the front camera lens!
-    const teleprompterTop = 0.0;
+    // Keep teleprompter right below the physical camera notch / punch-hole so
+    // lines stay near the lens while NEVER getting hidden behind the cutout.
+    final teleprompterTop = mediaPad.top + 4.0;
     final isLowerOverlay =
         _layoutTemplate == RecordingLayoutTemplate.lowerOverlay;
 
@@ -1142,20 +1150,24 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
       topInset: teleprompterTop,
       bottomReserve:
           isLandscape
-              ? (_isRecording ? (mediaPad.bottom + 8.0) : (mediaPad.bottom + 64.0))
+              ? (_isRecording
+                  ? (mediaPad.bottom + 8.0)
+                  : (mediaPad.bottom + 64.0))
               : (mediaPad.bottom +
                   (_isRecording ? 96.0 : (showCoach ? 204.0 : 146.0))),
     );
 
-    final horizontalLeftInset = isLandscape ? mediaPad.left + 8.0 : 0.0;
-    final horizontalRightInset = isLandscape ? mediaPad.right + 108.0 : 0.0;
+    final horizontalLeftInset =
+        isLandscape ? mediaPad.left + 8.0 : math.max(8.0, mediaPad.left);
+    final horizontalRightInset =
+        isLandscape ? mediaPad.right + 108.0 : math.max(8.0, mediaPad.right);
 
     return Stack(
       fit: StackFit.expand,
       children: [
         _buildCameraLayer(isLandscape: isLandscape),
 
-        // Teleprompter overlay (pinned right near the lens, or lower third)
+        // Teleprompter overlay (pinned right below notch/lens, or lower third)
         if (_hasScript && _isScriptVisible)
           Positioned(
             top: isLowerOverlay ? null : teleprompterTop,
@@ -1239,9 +1251,50 @@ class _UnifiedRecordingViewState extends State<UnifiedRecordingView> {
     );
   }
 
+  /// Resolves true display-cutout / notch safe insets even when Android's
+  /// `immersiveSticky` mode hides system bars and zeroes `MediaQuery.padding`.
+  ///
+  /// Applies corner punch-hole bounds ONLY along the short-edge axis (top/bottom
+  /// in portrait, left/right in landscape) so top-left punch-hole cameras never
+  /// create an unnecessary side gutter in portrait mode.
+  EdgeInsets _safeCutoutInsets(BuildContext context) {
+    final pad = MediaQuery.paddingOf(context);
+    final viewPad = MediaQuery.viewPaddingOf(context);
+    var top = math.max(pad.top, viewPad.top);
+    var bottom = math.max(pad.bottom, viewPad.bottom);
+    var left = math.max(pad.left, viewPad.left);
+    var right = math.max(pad.right, viewPad.right);
+
+    final screen = MediaQuery.sizeOf(context);
+    final isLandscape = screen.width > screen.height;
+
+    for (final feature in MediaQuery.displayFeaturesOf(context)) {
+      if (feature.type == DisplayFeatureType.cutout) {
+        final r = feature.bounds;
+        if (!isLandscape) {
+          if (r.top <= 4 && r.bottom < screen.height * 0.25) {
+            top = math.max(top, r.bottom);
+          } else if (r.bottom >= screen.height - 4 &&
+              r.top > screen.height * 0.75) {
+            bottom = math.max(bottom, screen.height - r.top);
+          }
+        } else {
+          if (r.left <= 4 && r.right < screen.width * 0.25) {
+            left = math.max(left, r.right);
+          } else if (r.right >= screen.width - 4 &&
+              r.left > screen.width * 0.75) {
+            right = math.max(right, screen.width - r.left);
+          }
+        }
+      }
+    }
+
+    return EdgeInsets.fromLTRB(left, top, right, bottom);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final mediaPad = MediaQuery.paddingOf(context);
+    final mediaPad = _safeCutoutInsets(context);
     final content = BlocListener<SettingsBloc, SettingsState>(
       listener: (context, state) {
         if (state is SettingsLoadSuccess) {
