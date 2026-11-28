@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
@@ -17,6 +19,7 @@ import 'package:confident_cam/domain/repositories/auth_repository.dart';
 import 'package:confident_cam/presentation/bloc/auth/auth_bloc.dart';
 import 'package:confident_cam/presentation/bloc/auth/auth_event.dart';
 import 'package:confident_cam/presentation/bloc/auth/auth_state.dart';
+import 'package:confident_cam/presentation/screens/auth/otp_verification_screen.dart';
 
 class _FakeNetworkInfo implements NetworkInfo {
   bool connected;
@@ -255,6 +258,25 @@ void main() {
       expect(rc.contentCreatorEnabled, false);
     });
 
+    test('treats inactive (is_active=false) auth flags as disabled even when default is true', () {
+      // Admin toggles inline ACTIVE switch OFF on enable_email_auth while
+      // enable_phone_auth is active & true -> phone-only login!
+      final phoneOnly = RemoteConfigService.fromValues(
+        config: {'enable_phone_auth': 'true'},
+        inactiveKeys: {'enable_email_auth'},
+      );
+      expect(phoneOnly.enablePhoneAuth, true);
+      expect(phoneOnly.enableEmailAuth, false);
+
+      // Admin toggles inline ACTIVE switch OFF on both -> safety guardrail
+      // keeps email auth enabled so users are never locked out.
+      final bothInactive = RemoteConfigService.fromValues(
+        inactiveKeys: {'enable_email_auth', 'enable_phone_auth'},
+      );
+      expect(bothInactive.enablePhoneAuth, false);
+      expect(bothInactive.enableEmailAuth, true);
+    });
+
     test('evaluates semver comparison and force-update gates accurately', () {
       expect(RemoteConfigService.compareVersions('1.2.2+41', '1.2.2'), 0);
       expect(RemoteConfigService.compareVersions('1.2.2', '1.2.3'), lessThan(0));
@@ -481,5 +503,35 @@ void main() {
       expect(ds.getOtpAttempts('user@example.com'), 0);
       expect(ds.getOtpLockoutUntil('user@example.com'), isNull);
     });
+  });
+
+  testWidgets('OtpVerificationScreen has no RenderFlex overflow when keyboard shrinks viewport', (tester) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetViewInsets();
+    });
+
+    final authBloc = AuthBloc(authRepository: _FakeAuthRepository());
+    addTearDown(authBloc.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider<AuthBloc>.value(
+          value: authBloc,
+          child: const OtpVerificationScreen(
+            phone: 'kumod353@gmail.com',
+            isEmail: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Verify & Continue'), findsOneWidget);
   });
 }

@@ -28,10 +28,10 @@ abstract class VideoRecordingService {
 
   /// Switch camera (front/back).
   Future<void> switchCamera();
-  
+
   /// Change video quality (requires reinitialize).
   Future<void> setQuality(ResolutionPreset quality);
-  
+
   /// Get current quality setting.
   ResolutionPreset get currentQuality;
 
@@ -55,7 +55,7 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
 
   @override
   bool get isRecording => _isRecording;
-  
+
   @override
   ResolutionPreset get currentQuality => _currentQuality;
 
@@ -96,16 +96,16 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
       rethrow;
     }
   }
-  
+
   @override
   Future<void> setQuality(ResolutionPreset quality) async {
     if (_isRecording) {
       logger.w('Cannot change quality while recording');
       return;
     }
-    
+
     _currentQuality = quality;
-    
+
     // Reinitialize with new quality
     if (_controller != null) {
       await _controller!.dispose();
@@ -114,9 +114,8 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
   }
 
   CameraDescription? _findCamera() {
-    final direction = _useFrontCamera
-        ? CameraLensDirection.front
-        : CameraLensDirection.back;
+    final direction =
+        _useFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
 
     for (final camera in _cameras) {
       if (camera.lensDirection == direction) {
@@ -150,15 +149,12 @@ class VideoRecordingServiceImpl implements VideoRecordingService {
           remoteConfig?.maxRecordingDurationSeconds ??
           AppConfig.maxRecordingDurationSeconds;
       _autoStopTimer?.cancel();
-      _autoStopTimer = Timer(
-        Duration(seconds: maxSeconds),
-        () {
-          if (_isRecording) {
-            logger.i('Auto-stopping recording after max duration');
-            stopRecording();
-          }
-        },
-      );
+      _autoStopTimer = Timer(Duration(seconds: maxSeconds), () {
+        if (_isRecording) {
+          logger.i('Auto-stopping recording after max duration');
+          stopRecording();
+        }
+      });
     } catch (e) {
       logger.e('Error starting recording', e);
       rethrow;

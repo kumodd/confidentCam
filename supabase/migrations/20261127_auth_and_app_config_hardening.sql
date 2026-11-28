@@ -23,18 +23,18 @@ ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public read app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Public read safe active app_config" ON public.app_config;
+DROP POLICY IF EXISTS "Public read safe app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Admins can read all app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Admins can insert app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Admins can update app_config" ON public.app_config;
 DROP POLICY IF EXISTS "Admins can delete app_config" ON public.app_config;
 
-CREATE POLICY "Public read safe active app_config"
+CREATE POLICY "Public read safe app_config"
     ON public.app_config
     FOR SELECT
     TO anon, authenticated
     USING (
-        is_active = true
-        AND key <> 'openai_api_key'
+        key <> 'openai_api_key'
         AND key !~* '(api_key|secret|password|private_key)'
     );
 

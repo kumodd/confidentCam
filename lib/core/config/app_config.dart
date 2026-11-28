@@ -32,7 +32,7 @@ class AppConfig {
 
   // App Settings
   static const String appName = 'Confident Creator';
-  static const String appVersion = '1.2.2';
+  static const String appVersion = '1.2.3';
 
   // Developer Settings
   /// When true, bypasses day unlock restrictions (all days accessible)

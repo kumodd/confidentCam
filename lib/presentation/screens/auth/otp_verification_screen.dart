@@ -372,130 +372,169 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           title: Text('Verification'),
         ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SageCard(
-                  padding: const EdgeInsets.all(22),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final cardInnerWidth =
+                  (constraints.maxWidth - 44 - 48).clamp(180.0, double.infinity);
+              final pinGap = _otpLength > 6 ? 5.0 : 7.0;
+              final pinWidth =
+                  ((cardInnerWidth - (_otpLength - 1) * pinGap) / _otpLength)
+                      .clamp(32.0, 50.0);
+              final pinHeight = (pinWidth * 1.16).clamp(44.0, 58.0);
+              final responsivePinTheme = defaultPinTheme.copyWith(
+                width: pinWidth,
+                height: pinHeight,
+              );
+              final responsiveFocusedTheme = focusedPinTheme.copyWith(
+                width: pinWidth,
+                height: pinHeight,
+              );
+
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.all(22),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: (constraints.maxHeight - 44).clamp(
+                      0.0,
+                      double.infinity,
+                    ),
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Icon(
-                            Icons.shield_outlined,
-                            color: AppColors.secondaryGreen,
-                            size: 20,
-                          ),
-                          Text(
-                            'ONE-TIME PASSCODE',
-                            style: AppTypography.uppercaseLabel(
-                              fontSize: 11,
-                              color: AppColors.secondaryText,
+                      SageCard(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Icon(
+                                  Icons.shield_outlined,
+                                  color: AppColors.secondaryGreen,
+                                  size: 20,
+                                ),
+                                Text(
+                                  'ONE-TIME PASSCODE',
+                                  style: AppTypography.uppercaseLabel(
+                                    fontSize: 11,
+                                    color: AppColors.secondaryText,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(height: 1.2, color: AppColors.divider),
-                      const SizedBox(height: 18),
-                      Text(
-                        widget.isEmail
-                            ? 'Verify your email'
-                            : 'Verify your number',
-                        style: AppTypography.headingLarge(fontSize: 24),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Enter the $_otpLength-digit code sent to',
-                        style: AppTypography.body(),
-                      ),
-                      const SizedBox(height: 8),
-                      OlivePillBadge(
-                        label: widget.phone,
-                        icon: widget.isEmail
-                            ? Icons.email_outlined
-                            : Icons.phone_outlined,
-                      ),
-                      const SizedBox(height: 28),
-                      Center(
-                        child: Pinput(
-                          controller: _otpController,
-                          focusNode: _focusNode,
-                          length: _otpLength,
-                          enabled: !_isLocked,
-                          defaultPinTheme: defaultPinTheme,
-                          focusedPinTheme: focusedPinTheme,
-                          submittedPinTheme: defaultPinTheme,
-                          onCompleted: _verifyOtp,
-                          cursor: Container(
-                            width: 2,
-                            height: 22,
-                            color: AppColors.primaryOlive,
-                          ),
-                          showCursor: true,
+                            const SizedBox(height: 12),
+                            Container(height: 1.2, color: AppColors.divider),
+                            const SizedBox(height: 18),
+                            Text(
+                              widget.isEmail
+                                  ? 'Verify your email'
+                                  : 'Verify your number',
+                              style: AppTypography.headingLarge(fontSize: 24),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Enter the $_otpLength-digit code sent to',
+                              style: AppTypography.body(),
+                            ),
+                            const SizedBox(height: 8),
+                            OlivePillBadge(
+                              label: widget.phone,
+                              icon: widget.isEmail
+                                  ? Icons.email_outlined
+                                  : Icons.phone_outlined,
+                            ),
+                            const SizedBox(height: 24),
+                            Center(
+                              child: Pinput(
+                                controller: _otpController,
+                                focusNode: _focusNode,
+                                length: _otpLength,
+                                enabled: !_isLocked,
+                                separatorBuilder: (_) =>
+                                    SizedBox(width: pinGap),
+                                defaultPinTheme: responsivePinTheme,
+                                focusedPinTheme: responsiveFocusedTheme,
+                                submittedPinTheme: responsivePinTheme,
+                                onCompleted: _verifyOtp,
+                                cursor: Container(
+                                  width: 2,
+                                  height: 22,
+                                  color: AppColors.primaryOlive,
+                                ),
+                                showCursor: true,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Center(
+                              child: _resendTimer > 0
+                                  ? Text(
+                                      'Resend code in $_resendTimer seconds',
+                                      style: AppTypography.body(
+                                        fontSize: 13.5,
+                                        color: AppColors.secondaryText,
+                                      ),
+                                    )
+                                  : TextButton(
+                                      onPressed: _resendOtp,
+                                      child: Text('Resend Code'),
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: _resendTimer > 0
-                            ? Text(
-                                'Resend code in $_resendTimer seconds',
-                                style: AppTypography.body(
-                                  fontSize: 13.5,
-                                  color: AppColors.secondaryText,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 20),
+                          if (_isLocked)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.errorTint,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.error.withValues(alpha: 0.4),
                                 ),
-                              )
-                            : TextButton(
-                                onPressed: _resendOtp,
-                                child: Text('Resend Code'),
                               ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.lock_clock_outlined,
+                                    color: AppColors.error,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Too many attempts. Try again in ${_lockoutTimer ~/ 60}:${(_lockoutTimer % 60).toString().padLeft(2, '0')}',
+                                      style: AppTypography.body(
+                                        color: AppColors.error,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ElevatedButton(
+                            onPressed: _isLocked
+                                ? null
+                                : () => _verifyOtp(_otpController.text),
+                            child: Text('Verify & Continue'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const Spacer(),
-                if (_isLocked)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.errorTint,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.error.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lock_clock_outlined,
-                          color: AppColors.error,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Too many attempts. Try again in ${_lockoutTimer ~/ 60}:${(_lockoutTimer % 60).toString().padLeft(2, '0')}',
-                            style: AppTypography.body(
-                              color: AppColors.error,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ElevatedButton(
-                  onPressed:
-                      _isLocked ? null : () => _verifyOtp(_otpController.text),
-                  child: Text('Verify & Continue'),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

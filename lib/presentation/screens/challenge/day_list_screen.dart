@@ -57,21 +57,27 @@ class DayListScreen extends StatelessWidget {
                     final completed = progress?.currentDay ?? 0;
                     final warmupsDone = progress?.warmupsComplete ?? false;
                     return SageStatusCard(
-                      title: warmupsDone
-                          ? 'Progress: $completed of 30 Days'
-                          : 'Warmups Required First',
-                      subtitle: warmupsDone
-                          ? 'Complete one video challenge each day to build lasting camera confidence'
-                          : 'Finish all 3 warmups before unlocking Day 1 of the 30-day challenge',
-                      actionLabel: warmupsDone ? 'Day ${(completed + 1).clamp(1, 30)}' : 'Warmups',
+                      title:
+                          warmupsDone
+                              ? 'Progress: $completed of 30 Days'
+                              : 'Warmups Required First',
+                      subtitle:
+                          warmupsDone
+                              ? 'Complete one video challenge each day to build lasting camera confidence'
+                              : 'Finish all 3 warmups before unlocking Day 1 of the 30-day challenge',
+                      actionLabel:
+                          warmupsDone
+                              ? 'Day ${(completed + 1).clamp(1, 30)}'
+                              : 'Warmups',
                       onActionTap: () {
                         if (!warmupsDone) {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => BlocProvider.value(
-                                value: context.read<WarmupBloc>(),
-                                child: WarmupOverviewScreen(),
-                              ),
+                              builder:
+                                  (_) => BlocProvider.value(
+                                    value: context.read<WarmupBloc>(),
+                                    child: WarmupOverviewScreen(),
+                                  ),
                             ),
                           );
                         } else {
@@ -108,12 +114,11 @@ class DayListScreen extends StatelessWidget {
                       ),
                       childCount: 30,
                     ),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                        ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                    ),
                   );
                 },
               ),
@@ -139,10 +144,7 @@ class DayListScreen extends StatelessWidget {
                         color: AppColors.primaryOlive,
                         label: 'Current',
                       ),
-                      _LegendItem(
-                        color: AppColors.divider,
-                        label: 'Locked',
-                      ),
+                      _LegendItem(color: AppColors.divider, label: 'Locked'),
                     ],
                   ),
                 ),
@@ -180,10 +182,11 @@ class DayListScreen extends StatelessWidget {
         onAction: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => BlocProvider.value(
-                value: context.read<WarmupBloc>(),
-                child: WarmupOverviewScreen(),
-              ),
+              builder:
+                  (_) => BlocProvider.value(
+                    value: context.read<WarmupBloc>(),
+                    child: WarmupOverviewScreen(),
+                  ),
             ),
           );
         },
@@ -238,9 +241,7 @@ class DayListScreen extends StatelessWidget {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Complete Day ${day - 1} first!'),
-          ),
+          SnackBar(content: Text('Complete Day ${day - 1} first!')),
         );
       }
       return;
@@ -248,8 +249,8 @@ class DayListScreen extends StatelessWidget {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            DayChallengeOverviewScreen(userId: userId, dayNumber: day),
+        builder:
+            (_) => DayChallengeOverviewScreen(userId: userId, dayNumber: day),
       ),
     );
   }
@@ -264,30 +265,31 @@ class DayListScreen extends StatelessWidget {
   }) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(icon, color: AppColors.primaryOlive, size: 26),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                title,
-                style: AppTypography.headingMedium(fontSize: 18),
-              ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(icon, color: AppColors.primaryOlive, size: 26),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTypography.headingMedium(fontSize: 18),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        content: Text(message, style: AppTypography.body()),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onAction?.call();
-            },
-            child: Text(buttonText),
+            content: Text(message, style: AppTypography.body()),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onAction?.call();
+                },
+                child: Text(buttonText),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -299,54 +301,57 @@ class DayListScreen extends StatelessWidget {
   ) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'Day $day Completed!',
-          style: AppTypography.headingMedium(fontSize: 19),
-        ),
-        content: Text(
-          "You've already completed Day $day. What would you like to do?",
-          style: AppTypography.body(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (completion != null) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => DayDetailsScreen(
-                      userId: userId,
-                      dayNumber: day,
-                      completion: completion,
-                      progress: progress,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(
+              'Day $day Completed!',
+              style: AppTypography.headingMedium(fontSize: 19),
+            ),
+            content: Text(
+              "You've already completed Day $day. What would you like to do?",
+              style: AppTypography.body(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (completion != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (_) => DayDetailsScreen(
+                              userId: userId,
+                              dayNumber: day,
+                              completion: completion,
+                              progress: progress,
+                            ),
+                      ),
+                    );
+                  }
+                },
+                child: Text('View Details'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (_) => DayChallengeOverviewScreen(
+                            userId: userId,
+                            dayNumber: day,
+                          ),
                     ),
-                  ),
-                );
-              }
-            },
-            child: Text('View Details'),
+                  );
+                },
+                child: Text('Record Again'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => DayChallengeOverviewScreen(
-                    userId: userId,
-                    dayNumber: day,
-                  ),
-                ),
-              );
-            },
-            child: Text('Record Again'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -407,41 +412,43 @@ class _DayCard extends StatelessWidget {
           ),
         ),
         child: Center(
-          child: isComplete
-              ? Icon(
-                  Icons.check_rounded,
-                  color: AppColors.secondaryGreen,
-                  size: 20,
-                )
-              : !isUnlocked
+          child:
+              isComplete
+                  ? Icon(
+                    Icons.check_rounded,
+                    color: AppColors.secondaryGreen,
+                    size: 20,
+                  )
+                  : !isUnlocked
                   ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$day',
-                          style: GoogleFonts.manrope(
-                            color: AppColors.mutedText,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Icon(
-                          Icons.lock_outline_rounded,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$day',
+                        style: GoogleFonts.manrope(
                           color: AppColors.mutedText,
-                          size: 12,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
                         ),
-                      ],
-                    )
-                  : Text(
-                      '$day',
-                      style: GoogleFonts.manrope(
-                        color: isCurrent
-                            ? AppColors.background
-                            : AppColors.primaryText,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
                       ),
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        color: AppColors.mutedText,
+                        size: 12,
+                      ),
+                    ],
+                  )
+                  : Text(
+                    '$day',
+                    style: GoogleFonts.manrope(
+                      color:
+                          isCurrent
+                              ? AppColors.background
+                              : AppColors.primaryText,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
                     ),
+                  ),
         ),
       ),
     );
@@ -462,10 +469,7 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Text(

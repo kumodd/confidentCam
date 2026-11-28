@@ -10,15 +10,17 @@ import 'app_config.dart';
 /// compile-time [AppConfig] fallbacks.
 class RemoteConfigService extends ChangeNotifier {
   static const String _configCacheKey = 'app_config_map';
+  static const String _inactiveCacheKey = 'app_config_inactive_keys';
   static const String _flagsCacheKey = 'feature_flags_map';
   static const String _lastFetchedAtKey = 'last_fetched_at';
   static const Duration _fetchTimeout = Duration(seconds: 4);
-  static const Duration _minRefreshInterval = Duration(minutes: 5);
+  static const Duration _minRefreshInterval = Duration(seconds: 15);
 
   final SupabaseClient? _client;
   final Box? _cacheBox;
 
   Map<String, String> _config = {};
+  Set<String> _inactiveKeys = {};
   Map<String, bool> _flags = {};
   DateTime? _lastFetchedAt;
   bool _isRefreshing = false;
@@ -35,10 +37,12 @@ class RemoteConfigService extends ChangeNotifier {
   @visibleForTesting
   RemoteConfigService.fromValues({
     Map<String, String> config = const {},
+    Set<String> inactiveKeys = const {},
     Map<String, bool> flags = const {},
   })  : _client = null,
         _cacheBox = null,
         _config = Map<String, String>.from(config),
+        _inactiveKeys = Set<String>.from(inactiveKeys),
         _flags = Map<String, bool>.from(flags);
 
   bool get hasLoadedRemote => _lastFetchedAt != null;
@@ -53,6 +57,10 @@ class RemoteConfigService extends ChangeNotifier {
         _config = rawConfig.map(
           (k, v) => MapEntry(k.toString(), v.toString()),
         );
+      }
+      final rawInactive = box.get(_inactiveCacheKey);
+      if (rawInactive is List) {
+        _inactiveKeys = rawInactive.map((e) => e.toString()).toSet();
       }
       final rawFlags = box.get(_flagsCacheKey);
       if (rawFlags is Map) {
@@ -74,6 +82,7 @@ class RemoteConfigService extends ChangeNotifier {
     if (box == null) return;
     try {
       await box.put(_configCacheKey, _config);
+      await box.put(_inactiveCacheKey, _inactiveKeys.toList());
       await box.put(_flagsCacheKey, _flags);
       if (_lastFetchedAt != null) {
         await box.put(_lastFetchedAtKey, _lastFetchedAt!.toIso8601String());
@@ -101,7 +110,6 @@ class RemoteConfigService extends ChangeNotifier {
         _client
             .from('app_config')
             .select('key, value, is_active')
-            .eq('is_active', true)
             .timeout(_fetchTimeout),
         _client
             .from('feature_flags')
@@ -113,16 +121,20 @@ class RemoteConfigService extends ChangeNotifier {
       final flagRows = results[1] as List<dynamic>;
 
       final nextConfig = <String, String>{};
+      final nextInactive = <String>{};
       for (final row in configRows) {
         if (row is! Map) continue;
         final key = row['key']?.toString().trim();
         final value = row['value']?.toString();
         final isActive = row['is_active'];
         if (key == null || key.isEmpty || value == null) continue;
-        if (isActive == false) continue;
         // Belt-and-suspenders client guard: ignore any secret-like keys.
         if (_isSecretKey(key)) continue;
-        nextConfig[key] = value;
+        if (isActive == false) {
+          nextInactive.add(key);
+        } else {
+          nextConfig[key] = value;
+        }
       }
 
       final nextFlags = <String, bool>{};
@@ -134,14 +146,17 @@ class RemoteConfigService extends ChangeNotifier {
         nextFlags[key] = enabled == true || enabled.toString().toLowerCase() == 'true';
       }
 
-      final changed = !mapEquals(_config, nextConfig) || !mapEquals(_flags, nextFlags);
+      final changed = !mapEquals(_config, nextConfig) ||
+          !setEquals(_inactiveKeys, nextInactive) ||
+          !mapEquals(_flags, nextFlags);
       _config = nextConfig;
+      _inactiveKeys = nextInactive;
       _flags = nextFlags;
       _lastFetchedAt = DateTime.now();
 
       await _saveToCache();
       logger.i(
-        'RemoteConfigService refreshed (${_config.length} config keys, ${_flags.length} flags)',
+        'RemoteConfigService refreshed (${_config.length} active, ${_inactiveKeys.length} inactive, ${_flags.length} flags)',
       );
 
       if (changed) {
@@ -176,6 +191,14 @@ class RemoteConfigService extends ChangeNotifier {
     return fallback;
   }
 
+  /// Evaluates a boolean activation toggle that can be turned off in the Admin
+  /// Panel either by setting `value = 'false'` OR by toggling the inline
+  /// `ACTIVE` switch OFF (`is_active = false`).
+  bool _getActivationBool(String key, bool fallback) {
+    if (_inactiveKeys.contains(key)) return false;
+    return _getBool(key, fallback);
+  }
+
   int _getInt(String key, int fallback, {int? min, int? max}) {
     final raw = _config[key]?.trim();
     if (raw == null || raw.isEmpty) return fallback;
@@ -200,19 +223,21 @@ class RemoteConfigService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Auth Settings
   // ---------------------------------------------------------------------------
-  bool get enablePhoneAuth => _getBool('enable_phone_auth', AppConfig.enablePhoneAuth);
+  bool get enablePhoneAuth =>
+      _getActivationBool('enable_phone_auth', AppConfig.enablePhoneAuth);
 
   /// Guarantees at least one auth method stays enabled so users cannot be
   /// locked out of the login screen if both remote flags are turned off.
   bool get enableEmailAuth {
-    final emailEnabled = _getBool('enable_email_auth', AppConfig.enableEmailAuth);
+    final emailEnabled =
+        _getActivationBool('enable_email_auth', AppConfig.enableEmailAuth);
     if (!emailEnabled && !enablePhoneAuth) {
       return true;
     }
     return emailEnabled;
   }
 
-  bool get enableGoogleAuth => _getBool('enable_google_auth', false);
+  bool get enableGoogleAuth => _getActivationBool('enable_google_auth', false);
 
   int get otpLength => _getInt('otp_length', AppConfig.otpLength, min: 4, max: 8);
 
@@ -243,7 +268,8 @@ class RemoteConfigService extends ChangeNotifier {
   String get appName => _getString('app_name', AppConfig.appName);
   String get remoteAppVersion => _getString('app_version', AppConfig.appVersion);
   String get minSupportedVersion => _getString('min_supported_version', '1.0.0');
-  bool get forceUpdateRequired => _getBool('force_update_required', false);
+  bool get forceUpdateRequired =>
+      _getActivationBool('force_update_required', false);
   String get forceUpdateMessage => _getString(
         'force_update_message',
         'A new version is available. Please update to continue using the app.',
@@ -292,8 +318,9 @@ class RemoteConfigService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Challenge, Developer, Video & Network Settings
   // ---------------------------------------------------------------------------
-  bool get devMode => _getBool('dev_mode', AppConfig.devMode);
-  bool get isPremiumUser => _getBool('is_premium_user', AppConfig.isPremiumUser);
+  bool get devMode => _getActivationBool('dev_mode', AppConfig.devMode);
+  bool get isPremiumUser =>
+      _getActivationBool('is_premium_user', AppConfig.isPremiumUser);
 
   int get totalDays => _getInt('total_days', AppConfig.totalDays, min: 1, max: 90);
   int get totalWarmups => _getInt('total_warmups', AppConfig.totalWarmups, min: 1, max: 5);

@@ -378,7 +378,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 'Mute notification pings and system sounds during takes',
                                 style: AppTypography.body(fontSize: 12.5),
                               ),
-                              value: settings.silenceNotificationsDuringRecording,
+                              value:
+                                  settings.silenceNotificationsDuringRecording,
                               activeThumbColor: AppColors.secondaryGreen,
                               activeTrackColor: AppColors.navPill,
                               onChanged: (v) {

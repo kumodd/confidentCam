@@ -998,12 +998,16 @@ class OlivePillBadge extends StatelessWidget {
             Icon(icon, size: 14, color: fg),
             const SizedBox(width: 5),
           ],
-          Text(
-            label,
-            style: GoogleFonts.manrope(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: fg,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
             ),
           ),
         ],
